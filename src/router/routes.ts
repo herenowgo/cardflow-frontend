@@ -8,11 +8,11 @@ import AddQuestionView from "@/views/question/AddQuestionView.vue";
 import ManageQuestionView from "@/views/question/ManageQuestionView.vue";
 import QuestionsView from "@/views/question/QuestionsView.vue";
 import ViewQuestionView from "@/views/question/ViewQuestionView.vue";
-import QuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
 import QuestionSolvingInformationView from "@/views/questionSolving/QuestionSolvingInformationView.vue";
 import TopQuestionsView from "@/views/question/TopQuestionsView.vue";
+import UserSmsLoginView from "@/views/user/UserSmsLoginView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -24,6 +24,11 @@ export const routes: Array<RouteRecordRaw> = [
         path: "/user/login",
         name: "用户登录",
         component: UserLoginView,
+      },
+      {
+        path: "/user/smsLogin",
+        name: "用户短信登录",
+        component: UserSmsLoginView,
       },
       {
         path: "/user/register",

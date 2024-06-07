@@ -7,6 +7,7 @@ import type { BaseResponse_LoginUserVO_ } from '../models/BaseResponse_LoginUser
 import type { BaseResponse_long_ } from '../models/BaseResponse_long_';
 import type { BaseResponse_Page_User_ } from '../models/BaseResponse_Page_User_';
 import type { BaseResponse_Page_UserVO_ } from '../models/BaseResponse_Page_UserVO_';
+import type { BaseResponse_string_ } from '../models/BaseResponse_string_';
 import type { BaseResponse_User_ } from '../models/BaseResponse_User_';
 import type { BaseResponse_UserVO_ } from '../models/BaseResponse_UserVO_';
 import type { DeleteRequest } from '../models/DeleteRequest';
@@ -14,6 +15,7 @@ import type { UserAddRequest } from '../models/UserAddRequest';
 import type { UserLoginRequest } from '../models/UserLoginRequest';
 import type { UserQueryRequest } from '../models/UserQueryRequest';
 import type { UserRegisterRequest } from '../models/UserRegisterRequest';
+import type { UserSmsLoginRequest } from '../models/UserSmsLoginRequest';
 import type { UserUpdateMyRequest } from '../models/UserUpdateMyRequest';
 import type { UserUpdateRequest } from '../models/UserUpdateRequest';
 
@@ -228,6 +230,51 @@ userRegisterRequest: UserRegisterRequest,
             method: 'POST',
             url: '/api/user/register',
             body: userRegisterRequest,
+            errors: {
+                401: `Unauthorized`,
+                403: `Forbidden`,
+                404: `Not Found`,
+            },
+        });
+    }
+
+    /**
+     * doSendVerificationCode
+     * @param phone phone
+     * @returns BaseResponse_string_ OK
+     * @throws ApiError
+     */
+    public static doSendVerificationCodeUsingGet(
+phone?: string,
+): CancelablePromise<BaseResponse_string_> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/user/sendVerificationCode',
+            query: {
+                'phone': phone,
+            },
+            errors: {
+                401: `Unauthorized`,
+                403: `Forbidden`,
+                404: `Not Found`,
+            },
+        });
+    }
+
+    /**
+     * userSmsLogin
+     * @param userSmsLoginRequest userSmsLoginRequest
+     * @returns BaseResponse_LoginUserVO_ OK
+     * @returns any Created
+     * @throws ApiError
+     */
+    public static userSmsLoginUsingPost(
+userSmsLoginRequest: UserSmsLoginRequest,
+): CancelablePromise<BaseResponse_LoginUserVO_ | any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/user/smsLogin',
+            body: userSmsLoginRequest,
             errors: {
                 401: `Unauthorized`,
                 403: `Forbidden`,

@@ -30,6 +30,12 @@
           style="width: 100%; color: var(--color-text-3) !important"
           >注册账号
         </a-button>
+        <a-button
+          type="text"
+          @click="userSmsLogin"
+          style="width: 100%; color: var(--color-text-3) !important"
+          >短信登录
+        </a-button>
       </a-form-item>
     </a-form>
   </div>
@@ -70,6 +76,13 @@ const handleSubmit = async () => {
 const userLogin = () => {
   router.push({
     path: "/user/register",
+    replace: true,
+  });
+};
+
+const userSmsLogin = () => {
+  router.push({
+    path: "/user/smsLogin",
     replace: true,
   });
 };
