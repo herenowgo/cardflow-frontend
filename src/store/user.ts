@@ -8,6 +8,7 @@ export default {
   state: () => ({
     loginUser: {
       userName: "未登录",
+      userAvatar: "", // 添加一个默认的头像URL
     },
   }),
   actions: {
@@ -23,6 +24,13 @@ export default {
         });
       }
     },
+    // 添加一个 action 来更新用户头像
+    async updateAvatar({ commit }, avatarUrl) {
+      // 这里可以执行异步操作来获取新的头像URL
+      // 例如，调用 API 来上传头像并获取新的 URL
+      // 假设 avatarUrl 是从异步操作中获取的新头像URL
+      commit("setAvatar", avatarUrl);
+    },
   },
   mutations: {
     updateUser(state, payload) {
@@ -30,6 +38,12 @@ export default {
     },
     clearUser(state) {
       state.loginUser = null;
+    },
+    // 添加一个 mutation 来更新用户头像
+    setAvatar(state, avatarUrl) {
+      if (state.loginUser) {
+        state.loginUser.userAvatar = avatarUrl;
+      }
     },
   },
 } as StoreOptions<any>;

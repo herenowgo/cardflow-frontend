@@ -13,6 +13,7 @@ import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolving
 import QuestionSolvingInformationView from "@/views/questionSolving/QuestionSolvingInformationView.vue";
 import TopQuestionsView from "@/views/question/TopQuestionsView.vue";
 import UserSmsLoginView from "@/views/user/UserSmsLoginView.vue";
+import UserInfoView from "@/views/user/UserInfoView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -25,6 +26,7 @@ export const routes: Array<RouteRecordRaw> = [
         name: "用户登录",
         component: UserLoginView,
       },
+
       {
         path: "/user/smsLogin",
         name: "用户短信登录",
@@ -39,6 +41,11 @@ export const routes: Array<RouteRecordRaw> = [
     meta: {
       hideInMenu: true,
     },
+  },
+  {
+    path: "/info/user",
+    name: "用户信息",
+    component: UserInfoView,
   },
   {
     path: "/questions",

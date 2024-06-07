@@ -24,10 +24,7 @@
     <a-col flex="50px">
       <a-dropdown trigger="hover" popup-container="string">
         <a-avatar @click="avatarClick">
-          <img
-            alt="avatar"
-            src="https://p1-arco.byteimg.com/tos-cn-i-uwbnlip3yd/3ee5f13fb09879ecb5185e440cef6eb9.png~tplv-uwbnlip3yd-webp.webp"
-          />
+          <img alt="avatar" :src="userAvatar" />
         </a-avatar>
         <template #content>
           <a-doption
@@ -36,7 +33,9 @@
             >退出登录
           </a-doption>
           <a-doption @click="avatarClick" v-else>登录</a-doption>
-          <a-doption v-if="store.state.user?.loginUser?.userName != '未登录'"
+          <a-doption
+            v-if="store.state.user?.loginUser?.userName != '未登录'"
+            @click="userInfoClick"
             >个人中心
           </a-doption>
         </template>
@@ -56,9 +55,18 @@ import { useStore } from "vuex";
 import checkAccess from "@/access/checkAccess";
 import ACCESS_ENUM from "@/access/accessEnum";
 import { UserControllerService } from "../../generated";
+import message from "@arco-design/web-vue/es/message";
 
 const router = useRouter();
 const store = useStore();
+
+const userAvatar = computed(() => {
+  return (
+    store.state.user?.loginUser?.userAvatar ??
+    "https://p1-arco.byteimg.com/tos-cn-i-uwbnlip3yd/3ee5f13fb09879ecb5185e440cef6eb9.png~tplv-uwbnlip3yd-webp.webp"
+  );
+});
+
 const userName = computed(() => {
   return store.state.user?.loginUser?.userName ?? "未登录";
 });
@@ -86,6 +94,12 @@ router.beforeEach((to, from, next) => {
 const avatarClick = () => {
   router.push({
     path: "/user/login",
+  });
+};
+
+const userInfoClick = () => {
+  router.push({
+    path: "/info/user",
   });
 };
 

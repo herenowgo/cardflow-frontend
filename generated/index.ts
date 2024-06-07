@@ -71,6 +71,7 @@ export type { UserVO } from './models/UserVO';
 
 export { AiControllerService } from './services/AiControllerService';
 export { CommentControllerService } from './services/CommentControllerService';
+export { FileControllerService } from './services/FileControllerService';
 export { QuestionControllerService } from './services/QuestionControllerService';
 export { QuestionSolvingControllerService } from './services/QuestionSolvingControllerService';
 export { QuestionSubmitControllerService } from './services/QuestionSubmitControllerService';

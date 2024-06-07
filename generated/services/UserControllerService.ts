@@ -70,6 +70,23 @@ deleteRequest: DeleteRequest,
     }
 
     /**
+     * downloadAvatar
+     * @returns BaseResponse_string_ OK
+     * @throws ApiError
+     */
+    public static downloadAvatarUsingGet(): CancelablePromise<BaseResponse_string_> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/user/downloadAvatar',
+            errors: {
+                401: `Unauthorized`,
+                403: `Forbidden`,
+                404: `Not Found`,
+            },
+        });
+    }
+
+    /**
      * getUserById
      * @param id id
      * @returns BaseResponse_User_ OK
@@ -319,6 +336,35 @@ userUpdateMyRequest: UserUpdateMyRequest,
             method: 'POST',
             url: '/api/user/update/my',
             body: userUpdateMyRequest,
+            errors: {
+                401: `Unauthorized`,
+                403: `Forbidden`,
+                404: `Not Found`,
+            },
+        });
+    }
+
+    /**
+     * uploadAvatar
+     * @param biz 
+     * @param file 
+     * @returns BaseResponse_string_ OK
+     * @returns any Created
+     * @throws ApiError
+     */
+    public static uploadAvatarUsingPost(
+biz?: string,
+file?: Blob,
+): CancelablePromise<BaseResponse_string_ | any> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/user/uploadAvatar',
+            query: {
+                'biz': biz,
+            },
+            formData: {
+                'file': file,
+            },
             errors: {
                 401: `Unauthorized`,
                 403: `Forbidden`,
