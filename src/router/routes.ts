@@ -46,6 +46,10 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/info/user",
     name: "用户信息",
     component: UserInfoView,
+    meta: {
+      // access: ACCESS_ENUM.USER,
+      hideInMenu: true,
+    },
   },
   {
     path: "/questions",
