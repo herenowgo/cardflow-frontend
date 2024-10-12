@@ -22,8 +22,8 @@ export class QuestionSubmitControllerService {
      * @throws ApiError
      */
     public static doQuestionSubmitUsingPost(
-questionSubmitAddRequest: QuestionSubmitAddRequest,
-): CancelablePromise<BaseResponse_long_ | any> {
+        questionSubmitAddRequest: QuestionSubmitAddRequest,
+    ): CancelablePromise<BaseResponse_long_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/question_submit/',
@@ -43,8 +43,8 @@ questionSubmitAddRequest: QuestionSubmitAddRequest,
      * @throws ApiError
      */
     public static getJudgeInformationUsingGet(
-questionSubmitId: number,
-): CancelablePromise<BaseResponse_QuestionSubmitStateVO_> {
+        questionSubmitId: number,
+    ): CancelablePromise<BaseResponse_QuestionSubmitStateVO_> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/question_submit/judgeInformation',
@@ -67,8 +67,8 @@ questionSubmitId: number,
      * @throws ApiError
      */
     public static listQuestionSubmitByPageUsingPost(
-questionSubmitQueryRequest: QuestionSubmitQueryRequest,
-): CancelablePromise<BaseResponse_Page_QuestionSubmitVO_ | any> {
+        questionSubmitQueryRequest: QuestionSubmitQueryRequest,
+    ): CancelablePromise<BaseResponse_Page_QuestionSubmitVO_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/question_submit/list/page',
@@ -88,8 +88,8 @@ questionSubmitQueryRequest: QuestionSubmitQueryRequest,
      * @throws ApiError
      */
     public static getQuestionSubmitStateUsingGet(
-questionSubmitId: number,
-): CancelablePromise<number> {
+        questionSubmitId: number,
+    ): CancelablePromise<number> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/question_submit/state',

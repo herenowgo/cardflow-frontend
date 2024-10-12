@@ -18,8 +18,8 @@ export class AiControllerService {
      * @throws ApiError
      */
     public static analyzeErrorUsingPost(
-questionId: number,
-): CancelablePromise<BaseResponse_string_ | any> {
+        questionId: number,
+    ): CancelablePromise<BaseResponse_string_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/ai/analyzeError',

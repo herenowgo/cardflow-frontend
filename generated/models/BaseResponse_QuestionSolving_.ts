@@ -10,3 +10,4 @@ export type BaseResponse_QuestionSolving_ = {
     data?: QuestionSolving;
     message?: string;
 };
+

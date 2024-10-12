@@ -10,3 +10,4 @@ export type BaseResponse_Page_Question_ = {
     data?: Page_Question_;
     message?: string;
 };
+

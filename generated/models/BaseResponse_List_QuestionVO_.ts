@@ -10,3 +10,4 @@ export type BaseResponse_List_QuestionVO_ = {
     data?: Array<QuestionVO>;
     message?: string;
 };
+

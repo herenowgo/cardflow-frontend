@@ -8,3 +8,4 @@ export type QuestionSolvingUpdateRequest = {
     text?: string;
     title?: string;
 };
+

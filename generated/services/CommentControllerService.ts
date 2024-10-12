@@ -24,8 +24,8 @@ export class CommentControllerService {
      * @throws ApiError
      */
     public static addCommentUsingPost(
-commentAddRequest: CommentAddRequest,
-): CancelablePromise<BaseResponse_long_ | any> {
+        commentAddRequest: CommentAddRequest,
+    ): CancelablePromise<BaseResponse_long_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/comment/add',
@@ -46,8 +46,8 @@ commentAddRequest: CommentAddRequest,
      * @throws ApiError
      */
     public static deleteCommentUsingPost(
-deleteRequest: DeleteRequest,
-): CancelablePromise<BaseResponse_boolean_ | any> {
+        deleteRequest: DeleteRequest,
+    ): CancelablePromise<BaseResponse_boolean_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/comment/delete',
@@ -68,8 +68,8 @@ deleteRequest: DeleteRequest,
      * @throws ApiError
      */
     public static likeCommentUsingPut(
-id: number,
-): CancelablePromise<BaseResponse | any> {
+        id: number,
+    ): CancelablePromise<BaseResponse | any> {
         return __request(OpenAPI, {
             method: 'PUT',
             url: '/api/comment/like/{id}',
@@ -92,8 +92,8 @@ id: number,
      * @throws ApiError
      */
     public static listCommentPageVoByPageUsingPost(
-commentQueryRequest: CommentQueryRequest,
-): CancelablePromise<BaseResponse_Page_CommentVO_ | any> {
+        commentQueryRequest: CommentQueryRequest,
+    ): CancelablePromise<BaseResponse_Page_CommentVO_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/comment/list/page/vo',

@@ -33,8 +33,8 @@ export class UserControllerService {
      * @throws ApiError
      */
     public static addUserUsingPost(
-userAddRequest: UserAddRequest,
-): CancelablePromise<BaseResponse_long_ | any> {
+        userAddRequest: UserAddRequest,
+    ): CancelablePromise<BaseResponse_long_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/add',
@@ -55,8 +55,8 @@ userAddRequest: UserAddRequest,
      * @throws ApiError
      */
     public static deleteUserUsingPost(
-deleteRequest: DeleteRequest,
-): CancelablePromise<BaseResponse_boolean_ | any> {
+        deleteRequest: DeleteRequest,
+    ): CancelablePromise<BaseResponse_boolean_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/delete',
@@ -71,10 +71,10 @@ deleteRequest: DeleteRequest,
 
     /**
      * downloadAvatar
-     * @returns BaseResponse_string_ OK
+     * @returns any OK
      * @throws ApiError
      */
-    public static downloadAvatarUsingGet(): CancelablePromise<BaseResponse_string_> {
+    public static downloadAvatarUsingGet(): CancelablePromise<any> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/user/downloadAvatar',
@@ -93,8 +93,8 @@ deleteRequest: DeleteRequest,
      * @throws ApiError
      */
     public static getUserByIdUsingGet(
-id?: number,
-): CancelablePromise<BaseResponse_User_> {
+        id?: number,
+    ): CancelablePromise<BaseResponse_User_> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/user/get',
@@ -133,8 +133,8 @@ id?: number,
      * @throws ApiError
      */
     public static getUserVoByIdUsingGet(
-id?: number,
-): CancelablePromise<BaseResponse_UserVO_> {
+        id?: number,
+    ): CancelablePromise<BaseResponse_UserVO_> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/user/get/vo',
@@ -157,8 +157,8 @@ id?: number,
      * @throws ApiError
      */
     public static listUserByPageUsingPost(
-userQueryRequest: UserQueryRequest,
-): CancelablePromise<BaseResponse_Page_User_ | any> {
+        userQueryRequest: UserQueryRequest,
+    ): CancelablePromise<BaseResponse_Page_User_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/list/page',
@@ -179,8 +179,8 @@ userQueryRequest: UserQueryRequest,
      * @throws ApiError
      */
     public static listUserVoByPageUsingPost(
-userQueryRequest: UserQueryRequest,
-): CancelablePromise<BaseResponse_Page_UserVO_ | any> {
+        userQueryRequest: UserQueryRequest,
+    ): CancelablePromise<BaseResponse_Page_UserVO_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/list/page/vo',
@@ -201,8 +201,8 @@ userQueryRequest: UserQueryRequest,
      * @throws ApiError
      */
     public static userLoginUsingPost(
-userLoginRequest: UserLoginRequest,
-): CancelablePromise<BaseResponse_LoginUserVO_ | any> {
+        userLoginRequest: UserLoginRequest,
+    ): CancelablePromise<BaseResponse_LoginUserVO_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/login',
@@ -241,8 +241,8 @@ userLoginRequest: UserLoginRequest,
      * @throws ApiError
      */
     public static userRegisterUsingPost(
-userRegisterRequest: UserRegisterRequest,
-): CancelablePromise<BaseResponse_long_ | any> {
+        userRegisterRequest: UserRegisterRequest,
+    ): CancelablePromise<BaseResponse_long_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/register',
@@ -262,8 +262,8 @@ userRegisterRequest: UserRegisterRequest,
      * @throws ApiError
      */
     public static doSendVerificationCodeUsingGet(
-phone?: string,
-): CancelablePromise<BaseResponse_string_> {
+        phone?: string,
+    ): CancelablePromise<BaseResponse_string_> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/user/sendVerificationCode',
@@ -286,8 +286,8 @@ phone?: string,
      * @throws ApiError
      */
     public static userSmsLoginUsingPost(
-userSmsLoginRequest: UserSmsLoginRequest,
-): CancelablePromise<BaseResponse_LoginUserVO_ | any> {
+        userSmsLoginRequest: UserSmsLoginRequest,
+    ): CancelablePromise<BaseResponse_LoginUserVO_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/smsLogin',
@@ -308,8 +308,8 @@ userSmsLoginRequest: UserSmsLoginRequest,
      * @throws ApiError
      */
     public static updateUserUsingPost(
-userUpdateRequest: UserUpdateRequest,
-): CancelablePromise<BaseResponse_boolean_ | any> {
+        userUpdateRequest: UserUpdateRequest,
+    ): CancelablePromise<BaseResponse_boolean_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/update',
@@ -330,8 +330,8 @@ userUpdateRequest: UserUpdateRequest,
      * @throws ApiError
      */
     public static updateMyUserUsingPost(
-userUpdateMyRequest: UserUpdateMyRequest,
-): CancelablePromise<BaseResponse_boolean_ | any> {
+        userUpdateMyRequest: UserUpdateMyRequest,
+    ): CancelablePromise<BaseResponse_boolean_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/update/my',
@@ -346,16 +346,16 @@ userUpdateMyRequest: UserUpdateMyRequest,
 
     /**
      * uploadAvatar
-     * @param biz 
-     * @param file 
+     * @param biz
+     * @param file
      * @returns BaseResponse_string_ OK
      * @returns any Created
      * @throws ApiError
      */
     public static uploadAvatarUsingPost(
-biz?: string,
-file?: Blob,
-): CancelablePromise<BaseResponse_string_ | any> {
+        biz?: string,
+        file?: Blob,
+    ): CancelablePromise<BaseResponse_string_ | any> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/user/uploadAvatar',

@@ -10,3 +10,4 @@ export type BaseResponse_User_ = {
     data?: User;
     message?: string;
 };
+

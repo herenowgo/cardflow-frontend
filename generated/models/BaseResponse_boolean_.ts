@@ -8,3 +8,4 @@ export type BaseResponse_boolean_ = {
     data?: boolean;
     message?: string;
 };
+

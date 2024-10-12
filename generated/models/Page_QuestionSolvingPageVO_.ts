@@ -18,3 +18,4 @@ export type Page_QuestionSolvingPageVO_ = {
     size?: number;
     total?: number;
 };
+

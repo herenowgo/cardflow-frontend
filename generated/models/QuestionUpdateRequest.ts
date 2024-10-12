@@ -15,3 +15,4 @@ export type QuestionUpdateRequest = {
     tags?: Array<string>;
     title?: string;
 };
+

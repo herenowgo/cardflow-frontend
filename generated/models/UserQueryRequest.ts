@@ -15,3 +15,4 @@ export type UserQueryRequest = {
     userProfile?: string;
     userRole?: string;
 };
+

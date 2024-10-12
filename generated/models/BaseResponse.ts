@@ -8,3 +8,4 @@ export type BaseResponse = {
     data?: any;
     message?: string;
 };
+

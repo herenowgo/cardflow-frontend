@@ -10,3 +10,4 @@ export type BaseResponse_Page_QuestionSolvingPageVO_ = {
     data?: Page_QuestionSolvingPageVO_;
     message?: string;
 };
+

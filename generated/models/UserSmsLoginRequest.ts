@@ -7,3 +7,4 @@ export type UserSmsLoginRequest = {
     phone?: string;
     verificationCode?: string;
 };
+

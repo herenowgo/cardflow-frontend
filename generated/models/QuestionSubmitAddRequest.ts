@@ -8,3 +8,4 @@ export type QuestionSubmitAddRequest = {
     language?: string;
     questionId?: number;
 };
+

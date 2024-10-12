@@ -14,3 +14,4 @@ export type QuestionSolvingQueryRequest = {
     title?: string;
     userId?: number;
 };
+

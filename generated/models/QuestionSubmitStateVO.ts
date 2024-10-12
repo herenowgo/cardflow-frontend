@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type { JudgeInfo } from './JudgeInfo';
+import type { JudgeInfo0 } from './JudgeInfo0';
 
 export type QuestionSubmitStateVO = {
-    judgeInfo?: JudgeInfo;
+    judgeInfo?: JudgeInfo0;
     status?: number;
 };
+

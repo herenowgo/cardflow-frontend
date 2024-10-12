@@ -34,6 +34,7 @@ export type { DeleteRequest } from './models/DeleteRequest';
 export type { JudgeCase } from './models/JudgeCase';
 export type { JudgeConfig } from './models/JudgeConfig';
 export type { JudgeInfo } from './models/JudgeInfo';
+export type { JudgeInfo0 } from './models/JudgeInfo0';
 export type { LoginUserVO } from './models/LoginUserVO';
 export type { OrderItem } from './models/OrderItem';
 export type { Page_CommentVO_ } from './models/Page_CommentVO_';

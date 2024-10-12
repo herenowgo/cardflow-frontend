@@ -9,5 +9,5 @@ export type BaseResponse_QuestionSubmitStateVO_ = {
     code?: number;
     data?: QuestionSubmitStateVO;
     message?: string;
-    compileErrorOutput?: string;
 };
+
