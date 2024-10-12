@@ -165,6 +165,7 @@ let submitStatus = ref({
     message: "判题中",
     memory: "",
     time: "",
+    compileErrorOutput: "",
   },
   status: 0,
 });

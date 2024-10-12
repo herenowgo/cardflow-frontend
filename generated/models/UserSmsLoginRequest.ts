@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type UserLoginRequest = {
-    userAccount?: string;
-    userPassword?: string;
+export type UserSmsLoginRequest = {
+    phone?: string;
+    verificationCode?: string;
 };

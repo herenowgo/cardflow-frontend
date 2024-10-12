@@ -8,7 +8,7 @@ export default {
   state: () => ({
     loginUser: {
       userName: "未登录",
-      userAvatar: "", // 添加一个默认的头像URL
+      userAvatar: null, // 添加一个默认的头像URL
     },
   }),
   actions: {
