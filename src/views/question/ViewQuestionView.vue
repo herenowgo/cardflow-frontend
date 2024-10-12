@@ -1,104 +1,160 @@
+/* prettier-ignore */
 <template>
   <div id="viewQuestionView">
     <a-row :gutter="[24, 24]">
-      <a-col :md="12" :xs="24">
-        <a-tabs default-active-key="question" lazy-load>
-          <a-tab-pane key="question" title="题目">
-            <a-card v-if="question" :title="question.title">
-              <a-descriptions
-                title="判题条件"
-                :column="{ xs: 1, md: 2, lg: 3 }"
+      <a-col :span="12">
+        <a-card
+          v-if="question"
+          :title="question.title"
+          :bodyStyle="{ height: 'calc(100vh - 200px)', overflow: 'auto' }"
+        >
+          <a-descriptions
+            title="判题条件"
+            :column="{ xs: 1, md: 2, lg: 3 }"
+            size="small"
+          >
+            <a-descriptions-item label="时间限制">
+              {{ question.judgeConfig?.timeLimit ?? 0 }}
+            </a-descriptions-item>
+            <a-descriptions-item label="内存限制">
+              {{ question.judgeConfig?.memoryLimit ?? 0 }}
+            </a-descriptions-item>
+            <a-descriptions-item label="堆栈限制">
+              {{ question.judgeConfig?.stackLimit ?? 0 }}
+            </a-descriptions-item>
+          </a-descriptions>
+          <MdViewer :value="question.content || ''" />
+          <template #extra>
+            <a-space wrap>
+              <a-tag
+                v-for="(tag, index) of question.tags"
+                :key="index"
+                color="green"
+                >{{ tag }}</a-tag
               >
-                <a-descriptions-item label="时间限制">
-                  {{ question.judgeConfig.timeLimit ?? 0 }}
-                </a-descriptions-item>
-                <a-descriptions-item label="内存限制">
-                  {{ question.judgeConfig.memoryLimit ?? 0 }}
-                </a-descriptions-item>
-                <a-descriptions-item label="堆栈限制">
-                  {{ question.judgeConfig.stackLimit ?? 0 }}
-                </a-descriptions-item>
-              </a-descriptions>
-              <MdViewer :value="question.content || ''" />
+            </a-space>
+          </template>
+        </a-card>
+      </a-col>
+      <a-col :span="12">
+        <a-card
+          :bodyStyle="{
+            height: 'calc(100vh - 200px)',
+            display: 'flex',
+            flexDirection: 'column',
+          }"
+        >
+          <a-form :model="form" layout="inline" style="margin-bottom: 16px">
+            <a-form-item
+              field="language"
+              label="编程语言"
+              style="min-width: 240px"
+            >
+              <a-select
+                v-model="form.language"
+                :style="{ width: '320px' }"
+                placeholder="选择编程语言"
+              >
+                <a-option>java</a-option>
+                <a-option>cpp</a-option>
+                <a-option>go</a-option>
+              </a-select>
+            </a-form-item>
+          </a-form>
+          <CodeEditor
+            :value="form.code as string"
+            :language="form.language"
+            :handle-change="changeCode"
+            style="flex: 1; overflow: auto; margin-bottom: 16px"
+          />
+          <a-button
+            type="primary"
+            style="min-width: 200px; align-self: flex-end; margin-bottom: 16px"
+            @click="doSubmit"
+            :loading="submitLoading"
+          >
+            提交代码
+          </a-button>
+          <div v-if="isSubmited" style="overflow-y: auto">
+            <a-result
+              v-if="submitStatus.status != 0"
+              :status="getResultStatus(submitStatus.status)"
+              style="padding: 16px"
+            >
+              <template #icon>
+                <icon-check-circle-fill
+                  v-if="submitStatus.status === 2"
+                  style="color: #00b42a; font-size: 48px"
+                />
+                <icon-close-circle-fill
+                  v-else-if="submitStatus.status === 3"
+                  style="color: #f53f3f; font-size: 48px"
+                />
+                <icon-exclamation-circle-fill
+                  v-else
+                  style="color: #ff7d00; font-size: 48px"
+                />
+              </template>
+              <template #title>
+                <span class="result-title">{{
+                  getResultTitle(submitStatus.status)
+                }}</span>
+              </template>
+              <template #subtitle>
+                <span class="result-subtitle">{{
+                  submitStatus.judgeInfo.message
+                }}</span>
+              </template>
               <template #extra>
-                <a-space wrap>
-                  <a-tag
-                    v-for="(tag, index) of question.tags"
-                    :key="index"
-                    color="green"
-                    >{{ tag }}
-                  </a-tag>
+                <a-space direction="vertical" size="medium" style="width: 100%">
+                  <a-alert
+                    v-if="submitStatus.judgeInfo.compileErrorOutput"
+                    type="error"
+                    title="编译错误"
+                  >
+                    <pre style="max-height: 100px; overflow: auto">{{
+                      submitStatus.judgeInfo.compileErrorOutput
+                    }}</pre>
+                  </a-alert>
+                  <a-alert
+                    v-if="submitStatus.judgeInfo.runOutput"
+                    :type="submitStatus.status === 2 ? 'success' : 'error'"
+                    :title="submitStatus.status === 2 ? '运行结果' : '错误输出'"
+                  >
+                    <pre style="max-height: 100px; overflow: auto">{{
+                      submitStatus.judgeInfo.runOutput
+                    }}</pre>
+                  </a-alert>
+                  <a-alert
+                    v-if="submitStatus.judgeInfo.runErrorOutput"
+                    type="error"
+                    title="运行错误"
+                  >
+                    <pre style="max-height: 100px; overflow: auto">{{
+                      submitStatus.judgeInfo.runErrorOutput
+                    }}</pre>
+                  </a-alert>
+                  <a-descriptions :column="2" size="small" bordered>
+                    <a-descriptions-item label="内存占用"
+                      >{{
+                        submitStatus.judgeInfo.memory
+                      }}
+                      KB</a-descriptions-item
+                    >
+                    <a-descriptions-item label="运行时间"
+                      >{{ submitStatus.judgeInfo.time }} ms</a-descriptions-item
+                    >
+                  </a-descriptions>
                 </a-space>
               </template>
-            </a-card>
-          </a-tab-pane>
-          <a-tab-pane key="questionSolving" title="题解">
-            <ViewQuestionSolvingView />
-          </a-tab-pane>
-          <a-tab-pane key="editQuestionSolving" title="写题解">
-            <EditQuestionSolvingView />
-          </a-tab-pane>
-          <a-tab-pane key="answer" title="提交记录" disabled>
-            暂时无法查看答案
-          </a-tab-pane>
-        </a-tabs>
-      </a-col>
-      <a-col :md="12" :xs="24">
-        <a-form :model="form" layout="inline">
-          <a-form-item
-            field="language"
-            label="编程语言"
-            style="min-width: 240px"
-          >
-            <a-select
-              v-model="form.language"
-              :style="{ width: '320px' }"
-              placeholder="选择编程语言"
-            >
-              <a-option>java</a-option>
-              <a-option>cpp</a-option>
-              <a-option>go</a-option>
-            </a-select>
-          </a-form-item>
-        </a-form>
-        <CodeEditor
-          :value="form.code as string"
-          :language="form.language"
-          :handle-change="changeCode"
-        />
-        <a-divider size="0" />
-        <a-button
-          type="primary"
-          style="min-width: 200px; float: right; margin-bottom: 20px"
-          @click="doSubmit"
-          :loading="submitLoading.value"
-        >
-          提交代码
-        </a-button>
-        <div v-if="isSubmited">
-          <a-divider style="margin-bottom: 0; margin-top: 0"></a-divider>
-          <a-space size="large">
-            <h2>代码提交状态：</h2>
-            <a-space v-if="submitStatus.status == 0">
-              <h2 style="color: gray">判题中</h2>
-              <a-spin :size="28" />
-            </a-space>
-            <a-space v-else>
-              <h2 v-if="submitStatus.status == 3" style="color: red">
-                {{ submitStatus.judgeInfo.message }}
-              </h2>
-              <h2
-                v-else-if="
-                  submitStatus.status == 2
-                  // submitStatus.judgeInfo.message === 'Accepted'
-                "
-                style="color: green"
-              >
-                {{ submitStatus.judgeInfo.message }}
-              </h2>
-            </a-space>
-          </a-space>
-        </div>
+            </a-result>
+            <a-result v-else status="info" title="判题中" style="padding: 16px">
+              <template #icon>
+                <a-spin :size="48" />
+              </template>
+            </a-result>
+          </div>
+        </a-card>
       </a-col>
     </a-row>
   </div>
@@ -121,12 +177,18 @@ import {
   QuestionSubmitAddRequest,
   QuestionSubmitControllerService,
   QuestionVO,
+  QuestionSubmitStateVO,
 } from "../../../generated";
 import QuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
 import { useRoute } from "vue-router";
 import { provide } from "vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
+import {
+  IconCheckCircleFill,
+  IconCloseCircleFill,
+  IconExclamationCircleFill,
+} from "@arco-design/web-vue/es/icon";
 
 interface Props {
   id: string;
@@ -160,12 +222,14 @@ let isSubmited = ref(false);
 
 let submitState = ref(0);
 
-let submitStatus = ref({
+let submitStatus = ref<QuestionSubmitStateVO>({
   judgeInfo: {
     message: "判题中",
-    memory: "",
-    time: "",
+    memory: 0,
+    time: 0,
     compileErrorOutput: "",
+    runOutput: "",
+    runErrorOutput: "",
   },
   status: 0,
 });
@@ -193,19 +257,24 @@ const getState = (questionSubmitId: number) => {
           await QuestionSubmitControllerService.getJudgeInformationUsingGet(
             questionSubmitId
           );
-        if (res.code === 0) {
-          submitStatus.value = res.data;
-          // getState(res.data.id);
+        if (res.code === 0 && res.data) {
+          submitStatus.value = {
+            ...submitStatus.value,
+            ...res.data,
+            judgeInfo: {
+              ...submitStatus.value.judgeInfo,
+              ...res.data.judgeInfo,
+            },
+          };
           console.log(submitStatus.value.judgeInfo.message);
           clearTimer();
           return;
-          // clearInterval(this)          return;
         } else {
           // submitStatus.value.status = 3;
           // submitStatus.value.judgeInfo.message = "编译错误";
           clearTimer();
           return;
-          // message.error("提交失败," + res.message);
+          // message.error("提失败," + res.message);
         }
       }
       // submitStatus.value.status = state;
@@ -265,15 +334,69 @@ onBeforeUnmount(() => {
 const changeCode = (value: string) => {
   form.value.code = value;
 };
+
+const getResultStatus = (status: number) => {
+  switch (status) {
+    case 2:
+      return "success";
+    case 3:
+      return "error";
+    default:
+      return "warning";
+  }
+};
+
+const getResultTitle = (status: number) => {
+  switch (status) {
+    case 2:
+      return "ACCEPTED";
+    case 3:
+      return "WRONG ANSWER";
+    default:
+      return "COMPILATION ERROR";
+  }
+};
 </script>
 
 <style>
 #viewQuestionView {
-  max-width: 2400px;
-  margin: 0 auto;
+  height: calc(100vh - 48px);
+  padding: 24px;
+  box-sizing: border-box;
 }
 
-#viewQuestionView .arco-space-horizontal .arco-space-item {
-  margin-bottom: 0 !important;
+.result-title {
+  font-size: 28px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.result-subtitle {
+  font-size: 18px;
+  color: var(--color-text-2);
+}
+
+.arco-result {
+  padding: 16px;
+  background-color: var(--color-bg-2);
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.arco-result-icon {
+  font-size: 48px !important;
+}
+
+.arco-result-title {
+  margin-top: 16px;
+}
+
+.arco-result-subtitle {
+  margin-top: 8px;
+}
+
+#viewQuestionView pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 </style>
