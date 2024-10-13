@@ -7,7 +7,7 @@
           v-if="question"
           :bodyStyle="{ height: 'calc(100vh - 200px)', overflow: 'auto' }"
         >
-          <a-tabs default-active-key="1">
+          <a-tabs v-model:activeKey="activeTabKey">
             <a-tab-pane key="1" title="题目描述">
               <a-descriptions
                 title="判题条件"
@@ -28,6 +28,26 @@
             </a-tab-pane>
             <a-tab-pane key="2" title="题解">
               <ViewQuestionSolvingView :questionId="questionId" />
+            </a-tab-pane>
+            <!-- 新增AI建议标签页 -->
+            <a-tab-pane key="3" title="AI建议">
+              <a-spin v-if="!isSubmited">请先提交代码</a-spin>
+              <template v-else>
+                <a-collapse v-model:activeKey="activeCollapseKeys">
+                  <a-collapse-item
+                    v-for="(input, index) in submitStatus.judgeInfo.inputList"
+                    :key="index"
+                    :header="`测试用例 ${index + 1}`"
+                  >
+                    <a-spin :loading="aiLoading[index]" tip="AI正在思考中...">
+                      <template v-if="aiSuggestions[index]">
+                        <MdViewer :value="aiSuggestions[index]" />
+                      </template>
+                      <a-empty v-else description="暂无AI建议" />
+                    </a-spin>
+                  </a-collapse-item>
+                </a-collapse>
+              </template>
             </a-tab-pane>
           </a-tabs>
           <template #title>
@@ -148,6 +168,14 @@
                             }}</pre>
                           </a-descriptions-item>
                         </a-descriptions>
+                        <a-button
+                          v-if="submitStatus.status === 3"
+                          @click="getAiSuggestion(index)"
+                          :loading="aiLoading[index]"
+                          style="margin-top: 16px"
+                        >
+                          获取AI建议
+                        </a-button>
                       </a-collapse-item>
                     </a-collapse>
                     <a-alert
@@ -190,34 +218,32 @@
 </template>
 
 <script setup lang="ts">
-import {
-  onMounted,
-  ref,
-  watchEffect,
-  withDefaults,
-  defineProps,
-  onBeforeUnmount,
-} from "vue";
-import message from "@arco-design/web-vue/es/message";
 import CodeEditor from "@/components/CodeEditor.vue";
 import MdViewer from "@/components/MdViewer.vue";
-import {
-  QuestionControllerService,
-  QuestionSubmitAddRequest,
-  QuestionSubmitControllerService,
-  QuestionVO,
-  QuestionSubmitStateVO,
-} from "../../../generated";
-import QuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
-import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
-import { useRoute } from "vue-router";
-import { provide } from "vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import {
   IconCheckCircleFill,
   IconCloseCircleFill,
   IconExclamationCircleFill,
 } from "@arco-design/web-vue/es/icon";
+import message from "@arco-design/web-vue/es/message";
+import {
+  defineProps,
+  onBeforeUnmount,
+  onMounted,
+  provide,
+  ref,
+  withDefaults,
+} from "vue";
+import { useRoute } from "vue-router";
+import {
+  AiControllerService,
+  QuestionControllerService,
+  QuestionSubmitAddRequest,
+  QuestionSubmitControllerService,
+  QuestionSubmitStateVO,
+  QuestionVO,
+} from "../../../generated";
 
 interface Props {
   id: string;
@@ -312,6 +338,10 @@ const getState = (questionSubmitId: number) => {
     }, 0);
   }, 500);
 };
+
+// 添加一个新的 ref 来存储最后一次提交的 questionSubmitId
+const lastSubmitId = ref<number | null>(null);
+
 /**
  * 提交代码
  */
@@ -332,20 +362,15 @@ const doSubmit = async () => {
     ...form.value,
     questionId: question.value.id,
   });
-  // console.log("res" + JSON.stringify(res.data));
   submitLoading.value = false;
   if (res.code === 0) {
     message.success("提交成功");
-    // submitStatus.value = res.data;
-    // console.log("data!!:" + res.data);
+    // 保存最后一次提交的 questionSubmitId
+    lastSubmitId.value = res.data;
     getState(res.data);
-    // console.log(submitStatus.value.judgeInfo.message);
   } else {
     isSubmited.value = false;
     message.error(res.message);
-    // submitStatus.value.status = 3;
-    // submitStatus.value.judgeInfo.message = "编译错误";
-    // message.error("提交失败," + res.message);
   }
 };
 
@@ -385,6 +410,46 @@ const getResultTitle = (status: number) => {
       return "WRONG ANSWER";
     default:
       return "COMPILATION ERROR";
+  }
+};
+
+const aiLoading = ref<boolean[]>([]);
+const aiSuggestions = ref<string[]>([]);
+
+// 新增的响应式变量
+const activeTabKey = ref("1");
+const activeCollapseKeys = ref([]);
+
+const getAiSuggestion = async (index: number) => {
+  if (!lastSubmitId.value || submitStatus.value.status !== 3) {
+    message.error("只有在答案错误时才能获取AI建议");
+    return;
+  }
+
+  // 立即切换到AI建议标签页
+  activeTabKey.value = "3";
+
+  // 展开对应的折叠面板
+  if (!activeCollapseKeys.value.includes(index)) {
+    activeCollapseKeys.value.push(index);
+  }
+
+  aiLoading.value[index] = true;
+  try {
+    const res = await AiControllerService.analyzeErrorUsingPost(
+      index,
+      lastSubmitId.value
+    );
+    if (res.code === 0 && res.data) {
+      aiSuggestions.value[index] = res.data;
+    } else {
+      message.error("获取AI建议失败: " + res.message);
+    }
+  } catch (error) {
+    message.error("获取AI建议时发生错误");
+    console.error(error);
+  } finally {
+    aiLoading.value[index] = false;
   }
 };
 </script>
@@ -456,5 +521,49 @@ pre {
 .arco-tabs-content {
   height: calc(100% - 40px);
   overflow: auto;
+}
+
+.arco-alert pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* 可以添加一些新的样式来美化AI建议的展示 */
+.ai-suggestion-tab {
+  padding: 16px;
+}
+
+.ai-suggestion-tab .arco-collapse {
+  margin-top: 16px;
+}
+
+.ai-suggestion-tab .arco-alert {
+  margin-top: 16px;
+}
+
+/* 可以添加一些新的样式来美化AI建议的Markdown展示 */
+.ai-suggestion-tab .arco-collapse-content {
+  padding: 16px;
+}
+
+.ai-suggestion-tab .md-viewer {
+  background-color: #f5f5f5;
+  padding: 16px;
+  border-radius: 4px;
+}
+
+.arco-spin {
+  display: block;
+  min-height: 200px;
+}
+
+.arco-spin-dot {
+  width: 40px;
+  height: 40px;
+}
+
+.arco-spin-tip {
+  font-size: 16px;
+  color: var(--color-text-2);
 }
 </style>
