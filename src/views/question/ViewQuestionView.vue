@@ -5,34 +5,43 @@
       <a-col :span="12">
         <a-card
           v-if="question"
-          :title="question.title"
           :bodyStyle="{ height: 'calc(100vh - 200px)', overflow: 'auto' }"
         >
-          <a-descriptions
-            title="判题条件"
-            :column="{ xs: 1, md: 2, lg: 3 }"
-            size="small"
-          >
-            <a-descriptions-item label="时间限制">
-              {{ question.judgeConfig?.timeLimit ?? 0 }}
-            </a-descriptions-item>
-            <a-descriptions-item label="内存限制">
-              {{ question.judgeConfig?.memoryLimit ?? 0 }}
-            </a-descriptions-item>
-            <a-descriptions-item label="堆栈限制">
-              {{ question.judgeConfig?.stackLimit ?? 0 }}
-            </a-descriptions-item>
-          </a-descriptions>
-          <MdViewer :value="question.content || ''" />
-          <template #extra>
-            <a-space wrap>
-              <a-tag
-                v-for="(tag, index) of question.tags"
-                :key="index"
-                color="green"
-                >{{ tag }}</a-tag
+          <a-tabs default-active-key="1">
+            <a-tab-pane key="1" title="题目描述">
+              <a-descriptions
+                title="判题条件"
+                :column="{ xs: 1, md: 2, lg: 3 }"
+                size="small"
               >
-            </a-space>
+                <a-descriptions-item label="时间限制">
+                  {{ question.judgeConfig?.timeLimit ?? 0 }}
+                </a-descriptions-item>
+                <a-descriptions-item label="内存限制">
+                  {{ question.judgeConfig?.memoryLimit ?? 0 }}
+                </a-descriptions-item>
+                <a-descriptions-item label="堆栈限制">
+                  {{ question.judgeConfig?.stackLimit ?? 0 }}
+                </a-descriptions-item>
+              </a-descriptions>
+              <MdViewer :value="question.content || ''" />
+            </a-tab-pane>
+            <a-tab-pane key="2" title="题解">
+              <ViewQuestionSolvingView :questionId="questionId" />
+            </a-tab-pane>
+          </a-tabs>
+          <template #title>
+            <div class="card-title">
+              <span>{{ question.title }}</span>
+              <a-space>
+                <a-tag
+                  v-for="(tag, index) of question.tags"
+                  :key="index"
+                  color="green"
+                  >{{ tag }}
+                </a-tag>
+              </a-space>
+            </div>
           </template>
         </a-card>
       </a-col>
@@ -116,35 +125,55 @@
                       submitStatus.judgeInfo.compileErrorOutput
                     }}</pre>
                   </a-alert>
-                  <a-alert
-                    v-if="submitStatus.judgeInfo.runOutput"
-                    :type="submitStatus.status === 2 ? 'success' : 'error'"
-                    :title="submitStatus.status === 2 ? '运行结果' : '错误输出'"
-                  >
-                    <pre style="max-height: 100px; overflow: auto">{{
-                      submitStatus.judgeInfo.runOutput
-                    }}</pre>
-                  </a-alert>
-                  <a-alert
-                    v-if="submitStatus.judgeInfo.runErrorOutput"
-                    type="error"
-                    title="运行错误"
-                  >
-                    <pre style="max-height: 100px; overflow: auto">{{
-                      submitStatus.judgeInfo.runErrorOutput
-                    }}</pre>
-                  </a-alert>
-                  <a-descriptions :column="2" size="small" bordered>
-                    <a-descriptions-item label="内存占用"
-                      >{{
-                        submitStatus.judgeInfo.memory
-                      }}
-                      KB</a-descriptions-item
+                  <template v-else>
+                    <a-collapse>
+                      <a-collapse-item
+                        v-for="(input, index) in submitStatus.judgeInfo
+                          .inputList"
+                        :key="index"
+                        :header="`测试用例 ${index + 1}`"
+                      >
+                        <a-descriptions :column="1" size="small" bordered>
+                          <a-descriptions-item label="输入">
+                            <pre>{{ input }}</pre>
+                          </a-descriptions-item>
+                          <a-descriptions-item label="输出">
+                            <pre>{{
+                              submitStatus.judgeInfo.runOutput?.[index]
+                            }}</pre>
+                          </a-descriptions-item>
+                          <a-descriptions-item label="预期结果">
+                            <pre>{{
+                              submitStatus.judgeInfo.answers?.[index]
+                            }}</pre>
+                          </a-descriptions-item>
+                        </a-descriptions>
+                      </a-collapse-item>
+                    </a-collapse>
+                    <a-alert
+                      v-if="submitStatus.judgeInfo.runErrorOutput"
+                      type="error"
+                      title="运行错误"
                     >
-                    <a-descriptions-item label="运行时间"
-                      >{{ submitStatus.judgeInfo.time }} ms</a-descriptions-item
-                    >
-                  </a-descriptions>
+                      <pre style="max-height: 100px; overflow: auto">{{
+                        submitStatus.judgeInfo.runErrorOutput
+                      }}</pre>
+                    </a-alert>
+                    <a-descriptions :column="2" size="small" bordered>
+                      <a-descriptions-item label="内存占用"
+                        >{{
+                          submitStatus.judgeInfo.memory
+                        }}
+                        KB</a-descriptions-item
+                      >
+                      <a-descriptions-item label="运行时间"
+                        >{{
+                          submitStatus.judgeInfo.time
+                        }}
+                        ms</a-descriptions-item
+                      >
+                    </a-descriptions>
+                  </template>
                 </a-space>
               </template>
             </a-result>
@@ -228,8 +257,10 @@ let submitStatus = ref<QuestionSubmitStateVO>({
     memory: 0,
     time: 0,
     compileErrorOutput: "",
-    runOutput: "",
+    runOutput: [],
     runErrorOutput: "",
+    inputList: [],
+    answers: [],
   },
   status: 0,
 });
@@ -398,5 +429,32 @@ const getResultTitle = (status: number) => {
 #viewQuestionView pre {
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+
+.arco-collapse-item-header {
+  font-weight: bold;
+}
+
+.arco-descriptions-item-label {
+  font-weight: bold;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #f5f5f5;
+  padding: 8px;
+  border-radius: 4px;
+}
+
+.card-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.arco-tabs-content {
+  height: calc(100% - 40px);
+  overflow: auto;
 }
 </style>

@@ -3,7 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-import type {Question} from './Question';
+import type { Question } from './Question';
 
 export type BaseResponse_Question_ = {
     code?: number;
