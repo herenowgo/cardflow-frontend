@@ -14,6 +14,7 @@ import QuestionSolvingInformationView from "@/views/questionSolving/QuestionSolv
 import TopQuestionsView from "@/views/question/TopQuestionsView.vue";
 import UserSmsLoginView from "@/views/user/UserSmsLoginView.vue";
 import UserInfoView from "@/views/user/UserInfoView.vue";
+import AIRecommendView from "@/views/AIRecommendView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -168,4 +169,12 @@ export const routes: Array<RouteRecordRaw> = [
   //   component: () =>
   //     import(/* webpackChunkName: "about" */ "../views/AboutView.vue"),
   // },
+  {
+    path: "/ai-recommend",
+    name: "AI推荐",
+    component: AIRecommendView,
+    meta: {
+      keepAlive: true,
+    },
+  },
 ];
