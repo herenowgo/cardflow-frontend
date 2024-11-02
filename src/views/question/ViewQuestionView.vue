@@ -261,7 +261,7 @@ const loadData = async () => {
   const res = await QuestionControllerService.getQuestionVoByIdUsingGet(
     props.id as any
   );
-  if (res.code === 0) {
+  if (String(res.code) === "0") {
     question.value = res.data;
   } else {
     message.error("加载失败，" + res.message);

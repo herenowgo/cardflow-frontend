@@ -45,7 +45,7 @@
 import { reactive } from "vue";
 import { UserControllerService, UserLoginRequest } from "../../../generated";
 import { useStore } from "vuex";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import message from "@arco-design/web-vue/es/message";
 import ACCESS_ENUM from "@/access/accessEnum";
 
@@ -55,22 +55,32 @@ const form = reactive({
 } as UserLoginRequest);
 
 const router = useRouter();
+const route = useRoute();
 const store = useStore();
 const handleSubmit = async () => {
   if (!form.userAccount || !form.userPassword) {
     message.error("账号或密码不能为空");
     return;
   }
-  const res = await UserControllerService.userLoginUsingPost(form);
-  // 登录成功，跳转到主页
-  if (res.code === 0) {
-    await store.dispatch("user/getLoginUser");
-    router.push({
-      path: "/questions",
-      replace: true,
-    });
-  } else {
-    message.error("登录失败，" + res.message);
+  try {
+    const res = await UserControllerService.userLoginUsingPost(form);
+    // 登录成功，跳转到主页
+    if (res.code === "200") {
+      // 登录成功后立即获取用户信息
+      await store.dispatch("user/getLoginUser");
+      message.success("登录成功");
+
+      // 获取重定向地址，如果有的话
+      const redirect = route.query.redirect as string;
+      router.push({
+        path: redirect || "/questions",
+        replace: true,
+      });
+    } else {
+      message.error("登录失败，" + res.message);
+    }
+  } catch (error) {
+    message.error("登录失败，请检查网络连接");
   }
 };
 const userLogin = () => {

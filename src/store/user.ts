@@ -1,49 +1,37 @@
-// initial state
-import { StoreOptions } from "vuex";
 import { UserControllerService } from "../../generated";
-import ACCESS_ENUM from "@/access/accessEnum";
+import { ActionContext } from "vuex";
+import { BaseResponse_LoginUserVO_ } from "../../generated";
 
+// 定义 State 接口
+interface UserState {
+  loginUser: any; // 可以根据实际用户类型定义更具体的类型
+}
+
+// 定义 store
 export default {
   namespaced: true,
-  state: () => ({
-    loginUser: {
-      userName: "未登录",
-      userAvatar: null, // 添加一个默认的头像URL
-    },
+  state: (): UserState => ({
+    loginUser: null,
   }),
   actions: {
-    async getLoginUser({ commit, state }, payload) {
-      // 从远程请求获取登录信息
-      const res = await UserControllerService.getLoginUserUsingGet();
-      if (res.code === 0) {
-        commit("updateUser", res.data);
-      } else {
-        commit("updateUser", {
-          ...state.loginUser,
-          userRole: ACCESS_ENUM.NOT_LOGIN,
-        });
+    async getLoginUser({ commit, state }: ActionContext<UserState, any>) {
+      try {
+        const res = await UserControllerService.getLoginUserUsingGet();
+        // 使用 String() 将数字转换为字符串进行比较
+        if (String(res.code) === "200" && res.data) {
+          commit("updateUser", res.data);
+          return res.data;
+        } else {
+          commit("updateUser", null);
+        }
+      } catch (error) {
+        commit("updateUser", null);
       }
-    },
-    // 添加一个 action 来更新用户头像
-    async updateAvatar({ commit }, avatarUrl) {
-      // 这里可以执行异步操作来获取新的头像URL
-      // 例如，调用 API 来上传头像并获取新的 URL
-      // 假设 avatarUrl 是从异步操作中获取的新头像URL
-      commit("setAvatar", avatarUrl);
     },
   },
   mutations: {
-    updateUser(state, payload) {
+    updateUser(state: UserState, payload: any) {
       state.loginUser = payload;
     },
-    clearUser(state) {
-      state.loginUser = null;
-    },
-    // 添加一个 mutation 来更新用户头像
-    setAvatar(state, avatarUrl) {
-      if (state.loginUser) {
-        state.loginUser.userAvatar = avatarUrl;
-      }
-    },
   },
-} as StoreOptions<any>;
+};

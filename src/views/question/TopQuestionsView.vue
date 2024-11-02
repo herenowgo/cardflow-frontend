@@ -67,9 +67,8 @@ const loadData = async () => {
   loading.value = true;
   const res = await QuestionControllerService.getTopFiftyUsingGet();
   loading.value = false;
-  if (res.code === 0) {
+  if (String(res.code) === "0") {
     dataList.value = res.data;
-    // total.value = res.data.total;
   } else {
     message.error("加载失败，" + res.message);
   }
