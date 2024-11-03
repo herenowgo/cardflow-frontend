@@ -261,7 +261,7 @@ const loadData = async () => {
   const res = await QuestionControllerService.getQuestionVoByIdUsingGet(
     props.id as any
   );
-  if (String(res.code) === "0") {
+  if (String(res.code) === "200") {
     question.value = res.data;
   } else {
     message.error("加载失败，" + res.message);
@@ -300,10 +300,7 @@ const clearTimer = () => {
 };
 const getState = (questionSubmitId: number) => {
   clearTimer();
-  // var that = this;
-  // setInterval不会清除定时器队列，每重复执行1次都会导致定时器叠加 \
   timer = window.setInterval(() => {
-    // setTimeout是自带清除定时器
     setTimeout(async function () {
       const state =
         await QuestionSubmitControllerService.getQuestionSubmitStateUsingGet(
@@ -314,7 +311,7 @@ const getState = (questionSubmitId: number) => {
           await QuestionSubmitControllerService.getJudgeInformationUsingGet(
             questionSubmitId
           );
-        if (res.code === 0 && res.data) {
+        if (String(res.code) === "200" && res.data) {
           submitStatus.value = {
             ...submitStatus.value,
             ...res.data,
@@ -327,14 +324,10 @@ const getState = (questionSubmitId: number) => {
           clearTimer();
           return;
         } else {
-          // submitStatus.value.status = 3;
-          // submitStatus.value.judgeInfo.message = "编译错误";
           clearTimer();
           return;
-          // message.error("提失败," + res.message);
         }
       }
-      // submitStatus.value.status = state;
     }, 0);
   }, 500);
 };
@@ -363,9 +356,8 @@ const doSubmit = async () => {
     questionId: question.value.id,
   });
   submitLoading.value = false;
-  if (res.code === 0) {
+  if (String(res.code) === "200") {
     message.success("提交成功");
-    // 保存最后一次提交的 questionSubmitId
     lastSubmitId.value = res.data;
     getState(res.data);
   } else {
@@ -440,13 +432,13 @@ const getAiSuggestion = async (index: number) => {
       index,
       lastSubmitId.value
     );
-    if (res.code === 0 && res.data) {
+    if (String(res.code) === "200" && res.data) {
       aiSuggestions.value[index] = res.data;
     } else {
       message.error("获取AI建议失败: " + res.message);
     }
   } catch (error) {
-    message.error("获取AI建议时发生错误");
+    message.error("获取AI建议时发生��误");
     console.error(error);
   } finally {
     aiLoading.value[index] = false;

@@ -151,7 +151,7 @@ const loadData = async () => {
     id as any
   );
   loading.value = false;
-  if (res.code === 0) {
+  if (String(res.code) === "200") {
     form.value = res.data as any;
     // json 转 js 对象
     if (!form.value.judgeCase) {

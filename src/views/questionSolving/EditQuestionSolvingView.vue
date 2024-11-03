@@ -76,13 +76,12 @@ onMounted(() => {
 });
 
 const doSubmit = async () => {
-  // 区分更新还是创建
   if (updatePage) {
     const res =
       await QuestionSolvingControllerService.updateQuestionSolvingUsingPost(
         form.value
       );
-    if (res.code === 0) {
+    if (String(res.code) === "200") {
       message.success("更新成功");
     } else {
       message.error("更新失败，" + res.message);
@@ -92,7 +91,7 @@ const doSubmit = async () => {
       await QuestionSolvingControllerService.addQuestionSolvingUsingPost(
         form.value
       );
-    if (res.code === 0) {
+    if (String(res.code) === "200") {
       message.success("创建成功");
     } else {
       message.error("创建失败，" + res.message);

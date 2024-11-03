@@ -70,7 +70,7 @@ const loadData = async () => {
       }
     );
   loading = false;
-  if (res.code === 0) {
+  if (String(res.code) === "200") {
     dataSource.value = res.data.records;
   } else {
     message.error("加载失败，" + res.message);

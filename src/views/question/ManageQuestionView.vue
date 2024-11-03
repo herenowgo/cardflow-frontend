@@ -154,7 +154,7 @@ const doDelete = async (question: Question) => {
   const res = await QuestionControllerService.deleteQuestionUsingPost({
     id: question.id,
   });
-  if (String(res.code) === "0") {
+  if (String(res.code) === "200") {
     message.success("删除成功");
     loadData();
   } else {

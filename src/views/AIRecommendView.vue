@@ -163,7 +163,7 @@ const sendMessage = async () => {
     const response = await AiControllerService.recommendQuestionUsingPost(
       userMessage
     );
-    if (response.code === 0 && response.data) {
+    if (String(response.code) === "200" && response.data) {
       const aiRecommendation =
         response.data.recommendation || "抱歉,我无法提供推荐。";
 

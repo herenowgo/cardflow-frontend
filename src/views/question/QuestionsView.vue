@@ -88,7 +88,7 @@ const loadData = async () => {
     searchParams.value
   );
   loading.value = false;
-  if (String(res.code) === "0") {
+  if (String(res.code) === "200") {
     dataList.value = res.data.records;
     total.value = res.data.total;
   } else {

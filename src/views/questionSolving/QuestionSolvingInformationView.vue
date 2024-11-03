@@ -150,7 +150,7 @@ const doSubmit = async () => {
     content: yourComment.value.content,
     questionSolvingId: questionSolvingId as unknown as number,
   });
-  if (res.code === 0) {
+  if (String(res.code) === "200") {
     message.success("评论成功");
     yourComment.value.content = "";
   } else {
@@ -197,7 +197,7 @@ const loadData = async () => {
       sortField: "",
     });
 
-  if (res.code === 0) {
+  if (String(res.code) === "200") {
     console.log(res.data.title);
     if (res.data == null) {
       message.error("题解不存在");
@@ -206,9 +206,6 @@ const loadData = async () => {
     questionSolvingText.value = res.data.text;
     questionSolving.value = res.data;
     questionSolvingTitle.value = res.data.title;
-    // supported.value = res.supported;
-    // console.log("zhichima ?" + res.supported);
-    // questionSolvingUserName.value = res.data.userVO.userName;
   } else {
     message.error("加载失败，" + res.message);
   }
@@ -220,9 +217,8 @@ const loadData = async () => {
       sortOrder: "DESC",
     });
 
-  if (commentsRes.code === 0) {
+  if (String(commentsRes.code) === "200") {
     comments.value = commentsRes.data.records;
-    // console.log("commentData" + JSON.stringify(commentsRes.data));
   } else {
     message.error("加载失败，" + commentsRes.message);
   }
