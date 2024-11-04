@@ -1,11 +1,14 @@
 /* prettier-ignore */
 <template>
   <div id="viewQuestionView">
-    <a-row :gutter="[24, 24]">
-      <a-col :span="12">
+    <a-row :gutter="[24, 24]" style="height: 100%">
+      <a-col :span="12" style="height: 100%">
         <a-card
           v-if="question"
-          :bodyStyle="{ height: 'calc(100vh - 200px)', overflow: 'auto' }"
+          :bodyStyle="{
+            height: 'calc(100vh - 48px)',
+            overflow: 'auto',
+          }"
         >
           <a-tabs v-model:activeKey="activeTabKey">
             <a-tab-pane key="1" title="题目描述">
@@ -65,10 +68,10 @@
           </template>
         </a-card>
       </a-col>
-      <a-col :span="12">
+      <a-col :span="12" style="height: 100%">
         <a-card
           :bodyStyle="{
-            height: 'calc(100vh - 200px)',
+            height: 'calc(100vh - 48px)',
             display: 'flex',
             flexDirection: 'column',
           }"
@@ -147,68 +150,107 @@
                     }}</pre>
                   </a-alert>
                   <template v-else>
-                    <a-collapse>
-                      <a-collapse-item
-                        v-for="(input, index) in submitStatus.judgeInfo
-                          .inputList"
-                        :key="index"
-                        :header="`测试用例 ${index + 1}`"
-                      >
-                        <a-descriptions :column="1" size="small" bordered>
-                          <a-descriptions-item label="输入">
-                            <pre>{{ input }}</pre>
-                          </a-descriptions-item>
-                          <a-descriptions-item label="输出">
-                            <pre>{{
-                              submitStatus.judgeInfo.runOutput?.[index]
-                            }}</pre>
-                          </a-descriptions-item>
-                          <a-descriptions-item label="预期结果">
-                            <pre>{{
-                              submitStatus.judgeInfo.answers?.[index]
-                            }}</pre>
-                          </a-descriptions-item>
-                        </a-descriptions>
-                        <a-button
-                          v-if="submitStatus.status === 3"
-                          @click="getAiSuggestion(index)"
-                          :loading="aiLoading[index]"
-                          style="margin-top: 16px"
-                        >
-                          获取AI建议
-                        </a-button>
-                      </a-collapse-item>
-                    </a-collapse>
+                    <div class="test-cases-container">
+                      <div class="test-cases-header">
+                        <div class="test-cases-buttons">
+                          <a-button-group>
+                            <a-button
+                              v-for="(input, index) in submitStatus.judgeInfo
+                                .inputList"
+                              :key="index"
+                              :type="
+                                selectedCase === index ? 'primary' : 'outline'
+                              "
+                              :status="getCaseStatus(index)"
+                              @click="selectTestCase(index)"
+                            >
+                              测试用例 {{ index + 1 }}
+                            </a-button>
+                          </a-button-group>
+                        </div>
+                      </div>
+
+                      <div class="test-case-details">
+                        <template v-if="selectedCase !== null">
+                          <a-descriptions :column="1" size="small" bordered>
+                            <a-descriptions-item label="输入">
+                              <pre>{{
+                                submitStatus.judgeInfo.inputList[selectedCase]
+                              }}</pre>
+                            </a-descriptions-item>
+                            <a-descriptions-item label="输出">
+                              <pre>{{
+                                submitStatus.judgeInfo.runOutput?.[selectedCase]
+                              }}</pre>
+                            </a-descriptions-item>
+                            <a-descriptions-item label="预期结果">
+                              <pre>{{
+                                submitStatus.judgeInfo.answers?.[selectedCase]
+                              }}</pre>
+                            </a-descriptions-item>
+                          </a-descriptions>
+                          <a-button
+                            v-if="submitStatus.status === 3"
+                            @click="getAiSuggestion(selectedCase)"
+                            :loading="aiLoading[selectedCase]"
+                            style="margin-top: 16px"
+                          >
+                            获取AI建议
+                          </a-button>
+                        </template>
+                        <a-empty v-else description="请选择测试用例" />
+                      </div>
+                    </div>
+
                     <a-alert
                       v-if="submitStatus.judgeInfo.runErrorOutput"
                       type="error"
                       title="运行错误"
+                      style="margin-top: 16px"
                     >
                       <pre style="max-height: 100px; overflow: auto">{{
                         submitStatus.judgeInfo.runErrorOutput
                       }}</pre>
                     </a-alert>
-                    <a-descriptions :column="2" size="small" bordered>
+
+                    <a-descriptions
+                      :column="2"
+                      size="small"
+                      bordered
+                      style="margin-top: 16px"
+                    >
                       <a-descriptions-item label="内存占用"
-                        >{{
-                          submitStatus.judgeInfo.memory
-                        }}
-                        KB</a-descriptions-item
-                      >
+                        >{{ submitStatus.judgeInfo.memory }}
+                        KB
+                      </a-descriptions-item>
                       <a-descriptions-item label="运行时间"
-                        >{{
-                          submitStatus.judgeInfo.time
-                        }}
-                        ms</a-descriptions-item
-                      >
+                        >{{ submitStatus.judgeInfo.time }}
+                        ms
+                      </a-descriptions-item>
                     </a-descriptions>
                   </template>
                 </a-space>
               </template>
             </a-result>
-            <a-result v-else status="info" title="判题中" style="padding: 16px">
+            <a-result v-else status="info" class="judging-result">
               <template #icon>
-                <a-spin :size="48" />
+                <div class="judging-animation">
+                  <a-spin :size="48" dot>
+                    <template #icon>
+                      <icon-loading
+                        style="font-size: 48px; color: rgb(var(--primary-6))"
+                      />
+                    </template>
+                  </a-spin>
+                </div>
+              </template>
+              <template #title>
+                <span class="judging-title">判题中</span>
+              </template>
+              <template #subtitle>
+                <span class="judging-subtitle"
+                  >正在评测您的代码，请稍候...</span
+                >
               </template>
             </a-result>
           </div>
@@ -387,6 +429,8 @@ onMounted(() => {
   // console.log(questionId);
   loadData();
   loadSavedCode(); // 加载保存的代码
+  // 默认选中第一个测试用例
+  selectedCase.value = 0;
 });
 
 onBeforeUnmount(() => {
@@ -431,7 +475,7 @@ const getResultTitle = (status: number) => {
 const aiLoading = ref<boolean[]>([]);
 const aiSuggestions = ref<string[]>([]);
 
-// 新增的响应式变量
+// 新增响应式变量
 const activeTabKey = ref("1");
 const activeCollapseKeys = ref([]);
 
@@ -467,13 +511,32 @@ const getAiSuggestion = async (index: number) => {
     aiLoading.value[index] = false;
   }
 };
+
+// 添加新的响应式变量
+const selectedCase = ref<number | null>(null);
+
+// 添加新的方法
+const selectTestCase = (index: number) => {
+  selectedCase.value = index;
+};
+
+const getCaseStatus = (index: number): "success" | "danger" | "normal" => {
+  if (submitStatus.value.status !== 3) {
+    return "success";
+  }
+  const output = submitStatus.value.judgeInfo.runOutput?.[index];
+  const expected = submitStatus.value.judgeInfo.answers?.[index];
+  return output === expected ? "success" : "danger";
+};
 </script>
 
 <style>
 #viewQuestionView {
-  height: calc(100vh - 48px);
+  height: 100vh;
   padding: 24px;
+  padding-bottom: 0;
   box-sizing: border-box;
+  background-color: var(--color-bg-1);
 }
 
 .result-title {
@@ -580,5 +643,128 @@ pre {
 .arco-spin-tip {
   font-size: 16px;
   color: var(--color-text-2);
+}
+
+.test-cases-container {
+  background-color: var(--color-bg-2);
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+.test-cases-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.test-cases-buttons {
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 8px;
+}
+
+.test-cases-buttons .arco-btn {
+  margin-right: 8px;
+}
+
+.test-case-details {
+  padding: 16px;
+}
+
+.test-case-details pre {
+  margin: 0;
+  padding: 8px;
+  background-color: var(--color-fill-2);
+  border-radius: 4px;
+}
+
+.judging-animation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 48px;
+  height: 48px;
+  position: relative;
+}
+
+.judging-animation .arco-spin {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-height: unset;
+}
+
+.judging-animation .arco-spin-icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.judging-title {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--color-text-1);
+  margin: 16px 0 8px;
+}
+
+.judging-subtitle {
+  font-size: 16px;
+  color: var(--color-text-3);
+}
+
+/* 修改结果展示容器的样式 */
+.arco-result {
+  background-color: var(--color-bg-2);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+/* 调整提交后结果展示区域的容器 */
+.submit-result-container {
+  margin-top: 16px;
+  border-radius: 8px;
+  background-color: var(--color-bg-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+/* 优化加载动画 */
+.arco-spin {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 120px;
+}
+
+.arco-spin-icon {
+  color: rgb(var(--primary-6));
+}
+
+/* 调整结果图标大小和颜色 */
+.result-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.result-icon-success {
+  color: var(--color-success-6);
+}
+
+.result-icon-error {
+  color: var(--color-danger-6);
+}
+
+.result-icon-warning {
+  color: var(--color-warning-6);
+}
+
+.judging-result {
+  padding: 24px;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 </style>
