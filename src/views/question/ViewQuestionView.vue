@@ -76,38 +76,44 @@
             flexDirection: 'column',
           }"
         >
-          <a-form :model="form" layout="inline" style="margin-bottom: 16px">
-            <a-form-item
-              field="language"
-              label="编程语言"
-              style="min-width: 240px"
-            >
-              <a-select
-                v-model="form.language"
-                :style="{ width: '320px' }"
-                placeholder="选择编程语言"
-                @change="handleLanguageChange"
+          <div class="code-header">
+            <a-form :model="form" layout="inline">
+              <a-form-item
+                field="language"
+                label="编程语言"
+                style="margin-bottom: 0"
               >
-                <a-option>java</a-option>
-                <a-option>cpp</a-option>
-                <a-option>go</a-option>
-              </a-select>
-            </a-form-item>
-          </a-form>
+                <a-select
+                  v-model="form.language"
+                  :style="{ width: '200px' }"
+                  placeholder="选择编程语言"
+                  @change="handleLanguageChange"
+                >
+                  <a-option>java</a-option>
+                  <a-option>cpp</a-option>
+                  <a-option>go</a-option>
+                </a-select>
+              </a-form-item>
+            </a-form>
+            <div class="code-actions">
+              <a-button @click="() => {}" style="margin-right: 8px">
+                运行
+              </a-button>
+              <a-button
+                type="primary"
+                @click="doSubmit"
+                :loading="submitLoading"
+              >
+                提交代码
+              </a-button>
+            </div>
+          </div>
           <CodeEditor
             :value="form.code as string"
             :language="form.language"
             :handle-change="changeCode"
-            style="flex: 1; overflow: auto; margin-bottom: 16px"
+            style="flex: 1; overflow: auto; margin: 16px 0"
           />
-          <a-button
-            type="primary"
-            style="min-width: 200px; align-self: flex-end; margin-bottom: 16px"
-            @click="doSubmit"
-            :loading="submitLoading"
-          >
-            提交代码
-          </a-button>
           <div v-if="isSubmited" style="overflow-y: auto">
             <a-result
               v-if="submitStatus.status != 0"
@@ -765,6 +771,38 @@ pre {
   margin: 16px 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-2);
+}
+
+.code-header .arco-form {
+  margin: 0;
+}
+
+.code-header .arco-btn {
+  min-width: 80px;
+}
+
+/* 调整表单项的间距 */
+.code-header .arco-form-item {
+  margin-right: 16px;
+}
+
+/* 调整选择器的样式 */
+.code-header .arco-select {
+  width: 200px;
+}
+
+.code-actions {
+  display: flex;
   align-items: center;
 }
 </style>
