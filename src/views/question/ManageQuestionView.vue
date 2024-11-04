@@ -78,7 +78,7 @@ const loadData = async () => {
     searchParams.value
   );
   loading.value = false;
-  if (res.code === 0) {
+  if (res.code == 200) {
     dataList.value = res.data.records;
     total.value = res.data.total;
   } else {
