@@ -83,6 +83,7 @@
                 v-model="form.language"
                 :style="{ width: '320px' }"
                 placeholder="选择编程语言"
+                @change="handleLanguageChange"
               >
                 <a-option>java</a-option>
                 <a-option>cpp</a-option>
@@ -263,6 +264,7 @@ const loadData = async () => {
   );
   if (String(res.code) === "200") {
     question.value = res.data;
+    loadSavedCode();
   } else {
     message.error("加载失败，" + res.message);
   }
@@ -272,6 +274,18 @@ const form = ref<QuestionSubmitAddRequest>({
   language: "java",
   code: "",
 });
+
+// 添加加载保存的代码的函数
+const loadSavedCode = () => {
+  const savedCode = localStorage.getItem(`code_${questionId}`);
+  const savedLanguage = localStorage.getItem(`language_${questionId}`);
+  if (savedCode) {
+    form.value.code = savedCode;
+  }
+  if (savedLanguage) {
+    form.value.language = savedLanguage;
+  }
+};
 
 let isSubmited = ref(false);
 
@@ -372,6 +386,7 @@ const doSubmit = async () => {
 onMounted(() => {
   // console.log(questionId);
   loadData();
+  loadSavedCode(); // 加载保存的代码
 });
 
 onBeforeUnmount(() => {
@@ -381,6 +396,14 @@ onBeforeUnmount(() => {
 
 const changeCode = (value: string) => {
   form.value.code = value;
+  // 保存代码到本地存储
+  localStorage.setItem(`code_${questionId}`, value);
+};
+
+const handleLanguageChange = (value: string) => {
+  form.value.language = value;
+  // 保存语言选择到本地存储
+  localStorage.setItem(`language_${questionId}`, value);
 };
 
 const getResultStatus = (status: number) => {
@@ -438,7 +461,7 @@ const getAiSuggestion = async (index: number) => {
       message.error("获取AI建议失败: " + res.message);
     }
   } catch (error) {
-    message.error("获取AI建议时发生��误");
+    message.error("获取AI建议时发生误");
     console.error(error);
   } finally {
     aiLoading.value[index] = false;

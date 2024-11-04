@@ -43,6 +43,15 @@ const codeEditor = ref();
 // };
 
 watch(
+  () => props.value,
+  (newValue) => {
+    if (codeEditor.value && newValue !== toRaw(codeEditor.value).getValue()) {
+      toRaw(codeEditor.value).setValue(newValue);
+    }
+  }
+);
+
+watch(
   () => props.language,
   () => {
     if (codeEditor.value) {
@@ -69,14 +78,14 @@ onMounted(() => {
     },
     readOnly: false,
     theme: "vs-dark",
-    // lineNumbers: "off",
-    // roundedSelection: false,
-    // scrollBeyondLastLine: false,
   });
 
   // 编辑 监听内容变化
   codeEditor.value.onDidChangeModelContent(() => {
-    props.handleChange(toRaw(codeEditor.value).getValue());
+    const newValue = toRaw(codeEditor.value).getValue();
+    if (newValue !== props.value) {
+      props.handleChange(newValue);
+    }
   });
 });
 </script>
