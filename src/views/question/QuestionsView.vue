@@ -113,28 +113,29 @@ onMounted(() => {
 // {id: "1", title: "A+ D", content: "新的题目内容", tags: "["二叉树"]", answer: "新的答案", submitNum: 0,…}
 
 const columns = [
-  // {
-  //   title: "题号",
-  //   dataIndex: "id",
-  // },
   {
     title: "题目名称",
     dataIndex: "title",
+    align: "left", // 添加此行设置左对齐
   },
   {
     title: "标签",
     slotName: "tags",
+    align: "left", // 添加此行设置左对齐
   },
   {
     title: "通过率",
     slotName: "acceptedRate",
+    align: "left", // 添加此行设置左对齐
   },
   {
     title: "创建时间",
     slotName: "createTime",
+    align: "left", // 添加此行设置左对齐
   },
   {
     slotName: "optional",
+    align: "left", // 添加此行设置左对齐
   },
 ];
 
