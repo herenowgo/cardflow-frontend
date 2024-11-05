@@ -8,13 +8,30 @@ import type { BaseResponse_QuestionSubmitStateVO_ } from "../models/BaseResponse
 import type { QuestionSubmitAddRequest } from "../models/QuestionSubmitAddRequest";
 import type { QuestionSubmitQueryRequest } from "../models/QuestionSubmitQueryRequest";
 import type { BaseResponseQuestionSubmit } from "../models/BaseResponseQuestionSubmit";
-
 import type { CancelablePromise } from "../core/CancelablePromise";
 import { OpenAPI } from "../core/OpenAPI";
+import type { DebugCodeRequest } from "../models/DebugCodeRequest";
 import { request as __request } from "../core/request";
 import { BaseResponsePageQuestionSubmitPageVO } from "../models/BaseResponsePageQuestionSubmitPageVO";
+import { BaseResponseExecuteCodeResponseVO } from "../models/BaseResponseExecuteCodeResponseVO";
 
 export class QuestionSubmitControllerService {
+  /**
+   * @param requestBody
+   * @returns BaseResponseExecuteCodeResponseVO OK
+   * @throws ApiError
+   */
+  public static debugCode(
+    requestBody: DebugCodeRequest
+  ): CancelablePromise<BaseResponseExecuteCodeResponseVO> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/question_submit/debug",
+      body: requestBody,
+      mediaType: "application/json",
+    });
+  }
+
   /**
    * @param questionSubmitId
    * @returns BaseResponseQuestionSubmit OK

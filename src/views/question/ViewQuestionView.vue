@@ -34,7 +34,9 @@
             </a-tab-pane>
             <!-- 新增AI建议标签页 -->
             <a-tab-pane key="3" title="AI建议">
-              <a-spin v-if="!isSubmited">请先提交代码</a-spin>
+              <a-spin v-if="!isSubmited || !submitStatus.judgeInfo?.inputList">
+                请先提交代码
+              </a-spin>
               <template v-else>
                 <a-collapse v-model:activeKey="activeCollapseKeys">
                   <a-collapse-item
@@ -230,15 +232,19 @@
               </a-form-item>
             </a-form>
             <div class="code-actions">
-              <a-button @click="() => {}" style="margin-right: 8px">
-                运行
+              <a-button
+                :loading="debugLoading"
+                @click="handleDebugCode"
+                style="margin-right: 8px"
+              >
+                调试代码
               </a-button>
               <a-button
                 type="primary"
                 @click="doSubmit"
                 :loading="submitLoading"
               >
-                提交代码
+                提交答案
               </a-button>
             </div>
           </div>
@@ -345,7 +351,7 @@
                     <a-alert
                       v-if="submitStatus.judgeInfo.runErrorOutput"
                       type="error"
-                      title="运行错误"
+                      title="运行错"
                       style="margin-top: 16px"
                     >
                       <pre style="max-height: 100px; overflow: auto">{{
@@ -391,6 +397,71 @@
                 <span class="judging-subtitle"
                   >正在评测您的代码，请稍候...</span
                 >
+              </template>
+            </a-result>
+          </div>
+          <div v-else-if="debugResult" style="overflow-y: auto">
+            <a-result status="info" style="padding: 16px">
+              <template #icon>
+                <icon-code style="color: #165dff; font-size: 48px" />
+              </template>
+              <template #title>
+                <span class="result-title">调试结果</span>
+              </template>
+              <template #subtitle>
+                <span
+                  v-if="debugResult.compileErrorOutput"
+                  class="result-subtitle"
+                  >编译错误</span
+                >
+                <span v-else class="result-subtitle">执行完成</span>
+              </template>
+              <template #extra>
+                <a-space direction="vertical" size="medium" style="width: 100%">
+                  <!-- 编译错误信息 -->
+                  <a-alert
+                    v-if="debugResult.compileErrorOutput"
+                    type="error"
+                    title="编译错误"
+                  >
+                    <pre style="max-height: 100px; overflow: auto">{{
+                      debugResult.compileErrorOutput
+                    }}</pre>
+                  </a-alert>
+                  <!-- 运行结果 -->
+                  <div class="test-cases-container">
+                    <div class="test-cases-title">测试用例运行结果</div>
+                    <a-descriptions :column="1" bordered size="small">
+                      <a-descriptions-item label="输入">
+                        <a-textarea
+                          v-model="debugTestCase"
+                          :auto-size="{ minRows: 2, maxRows: 6 }"
+                          placeholder="输入测试用例"
+                          @change="() => handleDebugCode(true)"
+                        />
+                      </a-descriptions-item>
+                      <a-descriptions-item label="输出">
+                        <pre class="debug-output">{{
+                          debugResult.runOutput?.[0]
+                        }}</pre>
+                      </a-descriptions-item>
+                      <a-descriptions-item
+                        v-if="debugResult.runErrorOutput?.[0]"
+                        label="错误输出"
+                      >
+                        <pre class="debug-error">{{
+                          debugResult.runErrorOutput[0]
+                        }}</pre>
+                      </a-descriptions-item>
+                      <a-descriptions-item label="执行用时">
+                        {{ debugResult.time?.[0] }} ms
+                      </a-descriptions-item>
+                      <a-descriptions-item label="内存消耗">
+                        {{ debugResult.memory?.[0] ?? 0 }} KB
+                      </a-descriptions-item>
+                    </a-descriptions>
+                  </div>
+                </a-space>
               </template>
             </a-result>
           </div>
@@ -475,18 +546,16 @@ let isSubmited = ref(false);
 
 let submitState = ref(0);
 
-let submitStatus = ref<QuestionSubmitStateVO>({
+let submitStatus = ref<any>({
+  status: 0,
   judgeInfo: {
-    message: "判题中",
+    message: "",
     memory: 0,
     time: 0,
-    compileErrorOutput: "",
-    runOutput: [],
-    runErrorOutput: "",
     inputList: [],
+    runOutput: [],
     answers: [],
   },
-  status: 0,
 });
 let submitLoading = ref(false);
 let timer: number | null | undefined = null;
@@ -530,13 +599,16 @@ const getState = (questionSubmitId: number) => {
   }, 500);
 };
 
-// 添加一个新的 ref 来存储最后一次提交的 questionSubmitId
+// 添加个新的 ref 来存储最后一次提交的 questionSubmitId
 const lastSubmitId = ref<number | null>(null);
 
 /**
  * 提交代码
  */
 const doSubmit = async () => {
+  // 清除调试结果显示
+  debugResult.value = null;
+  debugTestCase.value = "";
   if (form.value.code == null || form.value.code == "") {
     message.error("代码不能为空");
     return;
@@ -627,7 +699,7 @@ const getAiSuggestion = async (index: number) => {
     return;
   }
 
-  // 立即切换到AI建议标签页
+  // 立即切换到AI建议签页
   activeTabKey.value = "3";
 
   // 展开对应的折叠面板
@@ -657,7 +729,7 @@ const getAiSuggestion = async (index: number) => {
 // 添加新的响应式变量
 const selectedCase = ref<number | null>(null);
 
-// 添加新的��法
+// 添加新的法
 const selectTestCase = (index: number) => {
   selectedCase.value = index;
 };
@@ -706,7 +778,7 @@ const submitRecordColumns = [
   },
 ];
 
-// 加载提交记录数据
+// 加载提交记录数
 const loadSubmitRecords = async () => {
   submitRecordLoading.value = true;
   try {
@@ -803,6 +875,47 @@ const closeSubmitDetail = () => {
   recordDetail.value = null;
   // 切换回提交记录标签页
   activeTabKey.value = "4";
+};
+
+// 在 script 部分添加新的响应式变量
+const code = ref(""); // 用户编写的代码
+const language = ref("java"); // 编程语言
+const debugVisible = ref(false);
+const debugLoading = ref(false);
+const debugTestCase = ref(""); // 用户输入的测试用例
+const debugResult = ref<any>(null);
+
+// 添加新的方法处理测试用例变化
+const handleDebugWithTestCase = () => {
+  handleDebugCode(true); // 传入 true 表示使用当前测试用例
+};
+
+// 修改调试代码的方法
+const handleDebugCode = async (useCurrentTestCase = false) => {
+  // 清除提交结果显示
+  isSubmited.value = false;
+  debugLoading.value = true;
+  try {
+    const res = await QuestionSubmitControllerService.debugCode({
+      code: form.value.code,
+      language: form.value.language,
+      questionId: String(questionId),
+      testCase: useCurrentTestCase ? debugTestCase.value : undefined,
+    });
+    if (String(res.code) === "200") {
+      debugResult.value = res.data;
+      if (res.data.testCase) {
+        debugTestCase.value = res.data.testCase;
+      }
+    } else {
+      message.error("调试失败：" + res.message);
+    }
+  } catch (error) {
+    message.error("调试失败，请重试");
+    console.error(error);
+  } finally {
+    debugLoading.value = false;
+  }
 };
 </script>
 
@@ -1209,5 +1322,75 @@ pre {
 .result-subtitle {
   font-size: 16px;
   color: var(--color-text-2);
+}
+
+.debug-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.debug-section {
+  background: var(--color-bg-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.debug-output,
+.debug-error {
+  margin: 0;
+  padding: 8px;
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug-error {
+  color: var(--color-danger-light-4);
+  background: var(--color-danger-light-1);
+}
+
+.arco-drawer-body {
+  padding: 16px;
+}
+
+.arco-descriptions-item-label {
+  width: 100px;
+}
+
+.test-cases-container {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.test-cases-header {
+  padding: 12px 16px;
+  background: var(--color-fill-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.test-cases-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-1);
+}
+
+.debug-output,
+.debug-error {
+  margin: 0;
+  padding: 8px;
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  font-family: monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.debug-error {
+  color: var(--color-danger-light-4);
+  background: var(--color-danger-light-1);
 }
 </style>
