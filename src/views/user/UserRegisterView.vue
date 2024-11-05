@@ -71,12 +71,15 @@ const handleSubmit = async () => {
     return;
   }
   const res = await UserControllerService.userRegisterUsingPost(form);
-  // 注册成功，跳转到登录页
-  if (res.code === 0) {
+  if (String(res.code) === "200") {
     message.success("注册成功");
     await store.dispatch("user/getLoginUser");
     router.push({
       path: "/user/login",
+      query: {
+        userAccount: form.userAccount,
+        userPassword: form.userPassword,
+      },
       replace: true,
     });
   } else {

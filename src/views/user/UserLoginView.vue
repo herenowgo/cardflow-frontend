@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from "vue";
+import { reactive, onMounted } from "vue";
 import { UserControllerService, UserLoginRequest } from "../../../generated";
 import { useStore } from "vuex";
 import { useRouter, useRoute } from "vue-router";
@@ -57,6 +57,15 @@ const form = reactive({
 const router = useRouter();
 const route = useRoute();
 const store = useStore();
+
+onMounted(() => {
+  const { userAccount, userPassword } = route.query;
+  if (userAccount && userPassword) {
+    form.userAccount = userAccount as string;
+    form.userPassword = userPassword as string;
+  }
+});
+
 const handleSubmit = async () => {
   if (!form.userAccount || !form.userPassword) {
     message.error("账号或密码不能为空");

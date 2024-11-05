@@ -138,7 +138,7 @@ import MdEditor from "@/components/MdEditor.vue";
 import moment from "moment";
 
 interface Props {
-  id: string;
+  questionSolvingId: number;
 }
 
 const yourComment = ref({
@@ -148,7 +148,7 @@ const yourComment = ref({
 const doSubmit = async () => {
   const res = await CommentControllerService.addCommentUsingPost({
     content: yourComment.value.content,
-    questionSolvingId: questionSolvingId as unknown as number,
+    questionSolvingId: props.questionSolvingId,
   });
   if (String(res.code) === "200") {
     message.success("评论成功");
@@ -172,17 +172,8 @@ const comments = ref([
   } as CommentVO,
 ]);
 
-let form = ref({
-  content: "",
-  questionSolvingId: "",
-  supported: false,
-});
-const route = useRoute();
-const props = withDefaults(defineProps<Props>(), {
-  id: () => "",
-});
+const props = defineProps<Props>();
 
-const questionSolvingId = route.params.id;
 const questionSolvingText = ref();
 const questionSolving = ref<QuestionSolving>({
   supported: false,
@@ -193,7 +184,7 @@ const supported = ref();
 const loadData = async () => {
   const res =
     await QuestionSolvingControllerService.getQuestionSolvingUsingPost({
-      id: questionSolvingId as unknown as number,
+      id: props.questionSolvingId,
       sortField: "",
     });
 
@@ -212,7 +203,9 @@ const loadData = async () => {
 
   const commentsRes =
     await CommentControllerService.listCommentPageVoByPageUsingPost({
-      questionSolvingId: questionSolvingId as unknown as number,
+      questionSolvingId: props.questionSolvingId,
+      pageSize: 100,
+      current: 1,
       sortField: "thumbNum",
       sortOrder: "DESC",
     });
@@ -244,9 +237,8 @@ const onLikeChange = (item: any) => {
 
 const onQuestionSolvingLikeChange = () => {
   questionSolving.value.supported = !questionSolving.value?.supported;
-  // CommentControllerService.likeCommentUsingPut(form.value.id);
   QuestionSolvingControllerService.supportQuestionSolvingUsingPut(
-    questionSolvingId as number
+    props.questionSolvingId
   );
 };
 </script>
