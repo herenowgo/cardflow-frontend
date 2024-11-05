@@ -124,10 +124,21 @@
                       :field="`form.judgeCase[${index}].output`"
                       label="输出"
                     >
-                      <a-textarea
-                        v-model="judgeCaseItem.output"
-                        placeholder="请输入测试输出用例"
-                      />
+                      <a-space direction="vertical" style="width: 100%">
+                        <a-textarea
+                          v-model="judgeCaseItem.output"
+                          placeholder="请输入测试输出用例"
+                        />
+                        <a-button
+                          type="outline"
+                          status="success"
+                          size="small"
+                          :loading="judgeCaseItem.calculating"
+                          @click="handleCalculateOutput(index)"
+                        >
+                          试算答案输出
+                        </a-button>
+                      </a-space>
                     </a-form-item>
                   </a-space>
                 </a-collapse-item>
@@ -152,7 +163,10 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import MdEditor from "@/components/MdEditor.vue";
-import { QuestionControllerService } from "../../../generated";
+import {
+  QuestionControllerService,
+  QuestionSubmitControllerService,
+} from "../../../generated";
 import message from "@arco-design/web-vue/es/message";
 import { useRoute } from "vue-router";
 import { IconPlus } from "@arco-design/web-vue/es/icon";
@@ -176,6 +190,7 @@ let form = ref({
     {
       input: "",
       output: "",
+      calculating: false,
     },
   ],
 });
@@ -201,6 +216,7 @@ const loadData = async () => {
         {
           input: "",
           output: "",
+          calculating: false,
         },
       ];
     } else {
@@ -260,6 +276,7 @@ const handleAdd = () => {
   form.value.judgeCase.push({
     input: "",
     output: "",
+    calculating: false,
   });
 };
 
@@ -272,6 +289,51 @@ const handleDelete = (index: number) => {
 
 const onContentChange = (value: string) => {
   form.value.content = value;
+};
+
+/**
+ * 试算答案输出
+ */
+const handleCalculateOutput = async (index: number) => {
+  // 如果没有答案，提示错误
+  if (!form.value.answer) {
+    message.error("请先填写答案");
+    return;
+  }
+
+  // 设置加载状态
+  form.value.judgeCase[index].calculating = true;
+
+  try {
+    const res = await QuestionSubmitControllerService.debugCode({
+      code: form.value.answer,
+      language: "java", // 默认使用 Java，您可以根据需要修改或添加语言选择
+      questionId: route.query.id as string,
+      testCase: form.value.judgeCase[index].input,
+    });
+
+    if (String(res.code) === "200" && res.data) {
+      if (res.data.compileErrorOutput) {
+        message.error("答案编译错误：" + res.data.compileErrorOutput);
+      } else if (res.data.runOutput && res.data.runOutput.length > 0) {
+        // 更新输出 - 处理数组形式的输出
+        form.value.judgeCase[index].output = res.data.runOutput[0].trim();
+        message.success("试算成功");
+      } else if (res.data.runErrorOutput && res.data.runErrorOutput[0]) {
+        // 处理运行时错误
+        message.error("运行错误：" + res.data.runErrorOutput[0]);
+      } else {
+        message.warning("未获取到输出结果");
+      }
+    } else {
+      message.error("试算失败：" + res.message);
+    }
+  } catch (error) {
+    message.error("试算失败，请重试");
+    console.error(error);
+  } finally {
+    form.value.judgeCase[index].calculating = false;
+  }
 };
 </script>
 
