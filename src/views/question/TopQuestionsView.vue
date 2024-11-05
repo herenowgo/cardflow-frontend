@@ -108,10 +108,6 @@ const columns = [
     slotName: "acceptedRate",
   },
   {
-    title: "创建时间",
-    slotName: "createTime",
-  },
-  {
     slotName: "optional",
   },
 ];

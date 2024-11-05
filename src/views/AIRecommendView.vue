@@ -38,7 +38,8 @@
                       <a-spin dot />
                     </template>
                     <template v-else>
-                      {{ msg.content }}
+                      <MdViewer v-if="!msg.isUser" :value="msg.content" />
+                      <template v-else>{{ msg.content }}</template>
                     </template>
                   </div>
                 </div>
@@ -56,8 +57,8 @@
                     type="primary"
                     @click="sendMessage"
                     :loading="loading"
-                    >发送</a-button
-                  >
+                    >发送
+                  </a-button>
                 </template>
               </a-input>
             </div>
@@ -69,33 +70,38 @@
       <a-col :span="12">
         <a-card class="recommended-questions">
           <template #title>推荐题目</template>
-          <div v-if="recommendedQuestions.length > 0" class="recommended-list">
-            <a-list :data="recommendedQuestions" :bordered="false">
-              <template #item="{ item }">
-                <a-list-item
-                  class="question-item"
-                  @click="goToQuestion(item.id)"
-                >
-                  <div class="question-title">{{ item.title }}</div>
-                  <div class="question-tags">
-                    <a-tag v-for="tag in item.tags" :key="tag" size="small">{{
-                      tag
-                    }}</a-tag>
-                  </div>
-                  <div class="question-stats">
-                    <span
-                      >通过率:
-                      {{ calculateAcceptedRate(item).toFixed(2) }}%</span
-                    >
-                    <span>点赞数: {{ item.thumbNum }}</span>
-                  </div>
-                </a-list-item>
-              </template>
-            </a-list>
-          </div>
-          <div v-else class="empty-state">
-            <icon-robot :style="{ fontSize: '64px', color: '#C9CDD4' }" />
-          </div>
+          <a-spin :loading="recommendLoading">
+            <div
+              v-if="recommendedQuestions.length > 0"
+              class="recommended-list"
+            >
+              <a-list :data="recommendedQuestions" :bordered="false">
+                <template #item="{ item }">
+                  <a-list-item
+                    class="question-item"
+                    @click="goToQuestion(item.id)"
+                  >
+                    <div class="question-title">{{ item.title }}</div>
+                    <div class="question-tags">
+                      <a-tag v-for="tag in item.tags" :key="tag" size="small"
+                        >{{ tag }}
+                      </a-tag>
+                    </div>
+                    <div class="question-stats">
+                      <span
+                        >通过率:
+                        {{ calculateAcceptedRate(item).toFixed(2) }}%</span
+                      >
+                      <span>点赞数: {{ item.thumbNum }}</span>
+                    </div>
+                  </a-list-item>
+                </template>
+              </a-list>
+            </div>
+            <div v-else class="empty-state">
+              <icon-robot :style="{ fontSize: '64px', color: '#C9CDD4' }" />
+            </div>
+          </a-spin>
         </a-card>
       </a-col>
     </a-row>
@@ -108,6 +114,7 @@ import { useRouter } from "vue-router";
 import { AiControllerService, QuestionVOForRecommend } from "../../generated";
 import message from "@arco-design/web-vue/es/message";
 import { IconDelete, IconRobot } from "@arco-design/web-vue/es/icon";
+import MdViewer from "@/components/MdViewer.vue";
 
 const router = useRouter();
 const userInput = ref("");
@@ -117,6 +124,7 @@ const chatHistory = ref<
 >([]);
 const recommendedQuestions = ref<Array<QuestionVOForRecommend>>([]);
 const chatMessagesRef = ref<HTMLElement | null>(null);
+const recommendLoading = ref(false);
 
 const scrollToBottom = () => {
   nextTick(() => {
@@ -158,40 +166,64 @@ const sendMessage = async () => {
 
   userInput.value = "";
   loading.value = true;
+  recommendLoading.value = true;
 
-  try {
-    const response = await AiControllerService.recommendQuestionUsingPost(
-      userMessage
-    );
-    if (String(response.code) === "200" && response.data) {
-      const aiRecommendation =
-        response.data.recommendation || "抱歉,我无法提供推荐。";
-
-      // 更新加载状态的消息为实际回复
+  // 分别发送两个请求
+  const studyPromise = AiControllerService.getStudySuggestion(userMessage)
+    .then((studyResponse) => {
+      if (String(studyResponse.code) === "200") {
+        chatHistory.value[loadingMessageIndex] = {
+          content: studyResponse.data || "抱歉，我暂时无法提供建议。",
+          isUser: false,
+          isLoading: false,
+        };
+      } else {
+        chatHistory.value[loadingMessageIndex] = {
+          content: "获取建议失败，请稍后重试。",
+          isUser: false,
+          isLoading: false,
+        };
+      }
+      // 保存聊天历史
+      localStorage.setItem("aiChatHistory", JSON.stringify(chatHistory.value));
+    })
+    .catch(() => {
       chatHistory.value[loadingMessageIndex] = {
-        content: aiRecommendation,
+        content: "获取建议失败，请稍后重试。",
         isUser: false,
         isLoading: false,
       };
-
-      recommendedQuestions.value = response.data.questions || [];
-
-      // 保存到 localStorage
       localStorage.setItem("aiChatHistory", JSON.stringify(chatHistory.value));
-      localStorage.setItem(
-        "aiRecommendedQuestions",
-        JSON.stringify(recommendedQuestions.value)
-      );
-    } else {
-      // 如果出错，移除加载状态的消息
-      chatHistory.value.splice(loadingMessageIndex, 1);
-      message.error("获取推荐失败: " + response.message);
-    }
+    });
+
+  const recommendPromise = AiControllerService.recommendQuestionUsingPost(
+    userMessage
+  )
+    .then((recommendResponse) => {
+      if (String(recommendResponse.code) === "200" && recommendResponse.data) {
+        recommendedQuestions.value = recommendResponse.data.questions || [];
+        // 保存推荐题目
+        localStorage.setItem(
+          "aiRecommendedQuestions",
+          JSON.stringify(recommendedQuestions.value)
+        );
+      } else {
+        message.error("获取推荐题目失败: " + recommendResponse.message);
+      }
+    })
+    .catch((error) => {
+      console.error("推荐题目请求失败:", error);
+      message.error("获取推荐题目失败，请稍后重试");
+    })
+    .finally(() => {
+      recommendLoading.value = false;
+    });
+
+  try {
+    // 等待所有请求完成
+    await Promise.all([studyPromise, recommendPromise]);
   } catch (error) {
-    // 如果出错，移除加载状态的消息
-    chatHistory.value.splice(loadingMessageIndex, 1);
     console.error("Error:", error);
-    message.error("发生错误,请稍后再试");
   } finally {
     loading.value = false;
   }
@@ -266,9 +298,10 @@ const clearChatHistory = () => {
   border-radius: 12px;
   margin: 0 8px;
   word-break: break-word;
-  min-height: 16px; /* 减小最小高度 */
+  min-height: 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-direction: column;
 }
 
 .user-message .message-bubble {
@@ -335,5 +368,34 @@ const clearChatHistory = () => {
   justify-content: center;
   align-items: center;
   height: 100%;
+}
+
+/* 添加 markdown 查看器的自定义样式 */
+:deep(.md-viewer) {
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  color: inherit;
+}
+
+/* 用户消息中的 markdown 样式 */
+.user-message .message-bubble :deep(.md-viewer) {
+  color: white;
+}
+
+/* AI 消息中的 markdown 样式 */
+.ai-message .message-bubble :deep(.md-viewer) {
+  color: var(--color-text-1);
+}
+
+/* 调整 markdown 内容的代码块样式 */
+:deep(.md-viewer pre) {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+.user-message .message-bubble :deep(.md-viewer pre) {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 </style>
