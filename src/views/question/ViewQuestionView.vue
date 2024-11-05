@@ -52,6 +52,140 @@
                 </a-collapse>
               </template>
             </a-tab-pane>
+            <!-- 新增提交记录标签页 -->
+            <a-tab-pane key="4" title="提交记录">
+              <a-table
+                :columns="submitRecordColumns"
+                :data="submitRecords"
+                :pagination="{
+                  total: submitRecordTotal,
+                  current: submitRecordCurrent,
+                  pageSize: submitRecordPageSize,
+                  showTotal: true,
+                }"
+                @page-change="onSubmitRecordPageChange"
+                :loading="submitRecordLoading"
+                @row-click="onRecordClick"
+              >
+                <template #status="{ record }">
+                  <a-tag :color="getStatusColor(record.status)">
+                    {{ getStatusText(record.status) }}
+                  </a-tag>
+                </template>
+                <template #language="{ record }">
+                  <a-tag>{{ record.language }}</a-tag>
+                </template>
+                <template #judgeInfo="{ record }">
+                  <span>{{
+                    `耗时:${record.judgeInfo?.time}ms 内存:${record.judgeInfo?.memory}KB`
+                  }}</span>
+                </template>
+                <template #createTime="{ record }">
+                  {{ record.createTime?.replace("T", " ").split(".")[0] }}
+                </template>
+              </a-table>
+            </a-tab-pane>
+            <!-- 动态添加的提交详情标签页 -->
+            <a-tab-pane
+              v-if="recordDetail"
+              :key="'submit-' + recordDetail.id"
+              title="提交详情"
+              :closable="true"
+              @close="closeSubmitDetail"
+            >
+              <div class="submit-detail-container">
+                <a-result :status="getResultStatus(recordDetail.status)">
+                  <template #icon>
+                    <icon-check-circle-fill
+                      v-if="recordDetail.status === 2"
+                      style="color: #00b42a; font-size: 48px"
+                    />
+                    <icon-close-circle-fill
+                      v-else-if="recordDetail.status === 3"
+                      style="color: #f53f3f; font-size: 48px"
+                    />
+                    <icon-exclamation-circle-fill
+                      v-else
+                      style="color: #ff7d00; font-size: 48px"
+                    />
+                  </template>
+                  <template #title>
+                    <span class="result-title">{{
+                      getResultTitle(recordDetail.status)
+                    }}</span>
+                  </template>
+                  <template #subtitle>
+                    <span class="result-subtitle">{{
+                      recordDetail.judgeInfo?.message
+                    }}</span>
+                  </template>
+                </a-result>
+
+                <a-descriptions
+                  :column="2"
+                  bordered
+                  size="small"
+                  class="submit-info"
+                >
+                  <a-descriptions-item label="提交时间">
+                    {{
+                      recordDetail.createTime?.replace("T", " ").split(".")[0]
+                    }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="编程语言">
+                    <a-tag>{{ recordDetail.language }}</a-tag>
+                  </a-descriptions-item>
+                  <a-descriptions-item label="执行用时">
+                    {{ recordDetail.judgeInfo?.time }} ms
+                  </a-descriptions-item>
+                  <a-descriptions-item label="内存消耗">
+                    {{ recordDetail.judgeInfo?.memory }} KB
+                  </a-descriptions-item>
+                </a-descriptions>
+
+                <!-- 测试用例结果 -->
+                <div
+                  v-if="recordDetail.judgeInfo?.inputList?.length"
+                  class="test-cases"
+                >
+                  <div class="section-title">测试用例</div>
+                  <a-collapse>
+                    <a-collapse-item
+                      v-for="(input, index) in recordDetail.judgeInfo.inputList"
+                      :key="index"
+                      :header="`测试用例 ${index + 1}`"
+                    >
+                      <a-descriptions :column="1" bordered size="small">
+                        <a-descriptions-item label="输入">
+                          <pre>{{ input }}</pre>
+                        </a-descriptions-item>
+                        <a-descriptions-item label="输出">
+                          <pre>{{
+                            recordDetail.judgeInfo.runOutput?.[index]
+                          }}</pre>
+                        </a-descriptions-item>
+                        <a-descriptions-item label="预期结果">
+                          <pre>{{
+                            recordDetail.judgeInfo.answers?.[index]
+                          }}</pre>
+                        </a-descriptions-item>
+                      </a-descriptions>
+                    </a-collapse-item>
+                  </a-collapse>
+                </div>
+
+                <!-- 代码展示 -->
+                <div class="code-section">
+                  <div class="section-title">提交的代码</div>
+                  <CodeEditor
+                    :value="recordDetail.code || ''"
+                    :language="recordDetail.language?.toLowerCase()"
+                    :readonly="true"
+                    style="height: 400px; margin-top: 8px"
+                  />
+                </div>
+              </div>
+            </a-tab-pane>
           </a-tabs>
           <template #title>
             <div class="card-title">
@@ -283,6 +417,7 @@ import {
   provide,
   ref,
   withDefaults,
+  watch,
 } from "vue";
 import { useRoute } from "vue-router";
 import {
@@ -293,6 +428,7 @@ import {
   QuestionSubmitStateVO,
   QuestionVO,
 } from "../../../generated";
+import moment from "moment";
 
 interface Props {
   id: string;
@@ -483,7 +619,7 @@ const aiSuggestions = ref<string[]>([]);
 
 // 新增响应式变量
 const activeTabKey = ref("1");
-const activeCollapseKeys = ref([]);
+const activeCollapseKeys = ref<number[]>([]);
 
 const getAiSuggestion = async (index: number) => {
   if (!lastSubmitId.value || submitStatus.value.status !== 3) {
@@ -521,7 +657,7 @@ const getAiSuggestion = async (index: number) => {
 // 添加新的响应式变量
 const selectedCase = ref<number | null>(null);
 
-// 添加新的方法
+// 添加新的��法
 const selectTestCase = (index: number) => {
   selectedCase.value = index;
 };
@@ -533,6 +669,140 @@ const getCaseStatus = (index: number): "success" | "danger" | "normal" => {
   const output = submitStatus.value.judgeInfo.runOutput?.[index];
   const expected = submitStatus.value.judgeInfo.answers?.[index];
   return output === expected ? "success" : "danger";
+};
+
+// 提交记录相关的响应式变量
+const submitRecords = ref<any[]>([]);
+const submitRecordTotal = ref(0);
+const submitRecordCurrent = ref(1);
+const submitRecordPageSize = ref(10);
+const submitRecordLoading = ref(false);
+
+// 提交记录表格列定义
+const submitRecordColumns = [
+  {
+    title: "状态",
+    slotName: "status",
+    width: 120,
+    align: "center",
+  },
+  {
+    title: "语言",
+    slotName: "language",
+    width: 120,
+    align: "center",
+  },
+  {
+    title: "执行信息",
+    slotName: "judgeInfo",
+    width: 240,
+    align: "center",
+  },
+  {
+    title: "提交时间",
+    slotName: "createTime",
+    width: 200,
+    align: "center",
+  },
+];
+
+// 加载提交记录数据
+const loadSubmitRecords = async () => {
+  submitRecordLoading.value = true;
+  try {
+    const res = await QuestionSubmitControllerService.listQuestionSubmitRecord(
+      String(questionId),
+      submitRecordCurrent.value,
+      submitRecordPageSize.value
+    );
+    if (String(res.code) === "200" && res.data?.records) {
+      submitRecords.value = res.data.records;
+      submitRecordTotal.value = Number(res.data.total || 0);
+    } else {
+      message.error("加载提交记录失败：" + res.message);
+    }
+  } catch (error) {
+    message.error("加载提交记录失败");
+    console.error(error);
+  } finally {
+    submitRecordLoading.value = false;
+  }
+};
+
+// 提交记录分页改变处理
+const onSubmitRecordPageChange = (page: number) => {
+  submitRecordCurrent.value = page;
+  loadSubmitRecords();
+};
+
+// 获取状态对应的颜色
+const getStatusColor = (status: number) => {
+  switch (status) {
+    case 1:
+      return "blue";
+    case 2:
+      return "green";
+    case 3:
+      return "red";
+    default:
+      return "gray";
+  }
+};
+
+// 获取状态对应的文本
+const getStatusText = (status: number) => {
+  switch (status) {
+    case 0:
+      return "等待中";
+    case 1:
+      return "判题中";
+    case 2:
+      return "通过";
+    case 3:
+      return "失败";
+    default:
+      return "未知";
+  }
+};
+
+// 监听标签页切换
+watch(activeTabKey, (newKey) => {
+  if (newKey === "4") {
+    loadSubmitRecords();
+  }
+});
+
+const recordDetailVisible = ref(false);
+const recordDetailLoading = ref(false);
+const recordDetail = ref<any>(null);
+
+// 点击记录行的处理函数
+const onRecordClick = async (record: any) => {
+  try {
+    const res = await QuestionSubmitControllerService.getQuestionSubmitInfo(
+      record.id
+    );
+    if (String(res.code) === "200") {
+      recordDetail.value = res.data;
+      if (typeof recordDetail.value.judgeInfo === "string") {
+        recordDetail.value.judgeInfo = JSON.parse(recordDetail.value.judgeInfo);
+      }
+      // 切换到新的标签页
+      activeTabKey.value = "submit-" + record.id;
+    } else {
+      message.error("获取提交详情失败：" + res.message);
+    }
+  } catch (error) {
+    message.error("获取提交详情失败");
+    console.error(error);
+  }
+};
+
+// 关闭提交详情标签页
+const closeSubmitDetail = () => {
+  recordDetail.value = null;
+  // 切换回提交记录标签页
+  activeTabKey.value = "4";
 };
 </script>
 
@@ -804,5 +1074,140 @@ pre {
 .code-actions {
   display: flex;
   align-items: center;
+}
+
+/* 提交记录表格样式 */
+.arco-table-cell {
+  text-align: center;
+}
+
+.arco-tag {
+  min-width: 60px;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 8px;
+}
+
+/* 确保表格单元格内容居中 */
+.arco-table-cell {
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 确保表格头部文字居中 */
+.arco-table-th {
+  text-align: center;
+}
+
+/* 修复表格单元格内容的布局 */
+.arco-table-td .arco-table-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
+}
+
+.code-preview {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.code-preview-header {
+  padding: 12px 16px;
+  background-color: var(--color-fill-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.code-preview-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-1);
+}
+
+/* 调整弹窗内容的样式 */
+.arco-modal-content {
+  padding: 24px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.arco-descriptions {
+  background: var(--color-bg-2);
+}
+
+.arco-descriptions-item-label {
+  background: var(--color-fill-2);
+  font-weight: 500;
+}
+
+.arco-descriptions-item-value {
+  background: var(--color-bg-2);
+}
+
+.submit-detail-container {
+  padding: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-1);
+  margin: 24px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.submit-info {
+  margin-top: 24px;
+  background: var(--color-bg-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.test-cases {
+  margin-top: 24px;
+}
+
+.test-cases .arco-collapse {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.test-cases pre {
+  margin: 0;
+  padding: 8px;
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.code-section {
+  margin-top: 24px;
+}
+
+.arco-tabs-nav-add {
+  display: none;
+}
+
+.arco-result {
+  padding: 24px;
+  background: var(--color-bg-2);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.result-title {
+  font-size: 24px;
+  font-weight: 500;
+}
+
+.result-subtitle {
+  font-size: 16px;
+  color: var(--color-text-2);
 }
 </style>
