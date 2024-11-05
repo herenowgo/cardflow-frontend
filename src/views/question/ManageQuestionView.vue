@@ -37,14 +37,30 @@
       </template>
       <template #optional="{ record }">
         <a-space>
-          <a-button type="primary" @click="doUpdate(record)"> 修改</a-button>
-          <a-button status="danger" @click="doDelete(record)">删除</a-button>
+          <a-button type="primary" @click="doUpdate(record)">修改</a-button>
+          <a-button status="danger" @click="showDeleteConfirm(record)"
+            >删除</a-button
+          >
         </a-space>
       </template>
       <template #createTime="{ record }">
         {{ moment(record.createTime).format("YYYY-MM-DD HH:mm:ss") }}
       </template>
     </a-table>
+    <a-modal
+      v-model:visible="deleteModalVisible"
+      @cancel="cancelDelete"
+      @ok="doDelete"
+      simple
+      :okButtonProps="{ status: 'danger' }"
+      okText="确认删除"
+      cancelText="取消"
+    >
+      <template #title>确认删除</template>
+      <div>
+        确定要删除题目 "{{ questionToDelete?.title }}" 吗？此操作不可恢复。
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -150,9 +166,19 @@ const onPageChange = (page: number) => {
   };
 };
 
-const doDelete = async (question: Question) => {
+const questionToDelete = ref<Question | null>(null);
+const deleteModalVisible = ref(false);
+
+const showDeleteConfirm = (question: Question) => {
+  questionToDelete.value = question;
+  deleteModalVisible.value = true;
+};
+
+const doDelete = async () => {
+  if (!questionToDelete.value) return;
+
   const res = await QuestionControllerService.deleteQuestionUsingPost({
-    id: question.id,
+    id: questionToDelete.value.id,
   });
   if (String(res.code) === "200") {
     message.success("删除成功");
@@ -160,6 +186,13 @@ const doDelete = async (question: Question) => {
   } else {
     message.error("删除失败");
   }
+  deleteModalVisible.value = false;
+  questionToDelete.value = null;
+};
+
+const cancelDelete = () => {
+  deleteModalVisible.value = false;
+  questionToDelete.value = null;
 };
 
 const router = useRouter();

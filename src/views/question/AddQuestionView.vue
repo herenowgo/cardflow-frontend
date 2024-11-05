@@ -136,7 +136,7 @@
                           :loading="judgeCaseItem.calculating"
                           @click="handleCalculateOutput(index)"
                         >
-                          试算答案输出
+                          试算答案
                         </a-button>
                       </a-space>
                     </a-form-item>

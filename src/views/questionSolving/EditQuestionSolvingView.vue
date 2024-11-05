@@ -1,6 +1,14 @@
 <template>
   <div id="editQuestionSolvingView">
-    <h2>我的题解</h2>
+    <div class="header">
+      <h2>我的题解</h2>
+      <a-button v-if="updatePage" status="danger" @click="showDeleteConfirm">
+        <template #icon>
+          <icon-delete />
+        </template>
+        删除题解
+      </a-button>
+    </div>
     <a-spin
       :loading="loading"
       tip="This may take a while..."
@@ -21,16 +29,30 @@
         </a-form-item>
       </a-form>
     </a-spin>
+
+    <a-modal
+      v-model:visible="deleteModalVisible"
+      @cancel="cancelDelete"
+      @ok="doDelete"
+      simple
+      :okButtonProps="{ status: 'danger' }"
+      okText="确认删除"
+      cancelText="取消"
+    >
+      <template #title>确认删除</template>
+      <div>确定要删除这篇题解吗？此操作不可恢复。</div>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, ref } from "vue";
+import { inject, onMounted, ref, defineEmits } from "vue";
 import MdEditor from "@/components/MdEditor.vue";
 import { QuestionSolvingControllerService } from "../../../generated";
 import message from "@arco-design/web-vue/es/message";
 import { useRoute } from "vue-router";
 import { useStore } from "vuex";
+import { IconDelete } from "@arco-design/web-vue/es/icon";
 
 const store = useStore();
 let loading = ref(false);
@@ -43,6 +65,7 @@ let updatePage = false;
 // });
 const questionId = inject("questionId");
 let form = ref({
+  id: undefined as number | undefined,
   title: "",
   text: "",
   questionId: questionId,
@@ -52,62 +75,156 @@ let form = ref({
  * 根据题目 id 获取老的数据
  */
 const loadData = async () => {
-  if (questionId == 0 || questionId == null) {
+  if (!questionId) {
     return;
   }
   loading.value = true;
-  console.log("User" + store.state.user.loginUser.id);
   const res =
     await QuestionSolvingControllerService.getQuestionSolvingUsingPost({
       questionId: questionId as number,
       userId: store.state.user.loginUser.id,
     });
   loading.value = false;
-  if (res.code === 0) {
+  if (String(res.code) === "200" && res.data) {
     updatePage = true;
-    form.value = res.data as any;
+    form.value = {
+      id: res.data.id,
+      title: res.data.title,
+      text: res.data.text,
+      questionId: questionId,
+    };
   } else {
-    return;
+    updatePage = false;
+    form.value = {
+      id: undefined,
+      title: "",
+      text: "",
+      questionId: questionId,
+    };
   }
 };
 
 onMounted(() => {
+  updatePage = false;
+  form.value = {
+    id: undefined,
+    title: "",
+    text: "",
+    questionId: questionId,
+  };
   loadData();
 });
 
+// 添加 emit 定义
+const emit = defineEmits<{
+  (e: "submit-success"): void;
+}>();
+
 const doSubmit = async () => {
   if (updatePage) {
+    const updateRequest = {
+      id: form.value.id,
+      title: form.value.title,
+      text: form.value.text,
+      questionId: questionId,
+    };
     const res =
       await QuestionSolvingControllerService.updateQuestionSolvingUsingPost(
-        form.value
+        updateRequest
       );
     if (String(res.code) === "200") {
       message.success("更新成功");
+      emit("submit-success");
+      loadData();
     } else {
       message.error("更新失败，" + res.message);
     }
   } else {
+    const addRequest = {
+      title: form.value.title,
+      text: form.value.text,
+      questionId: questionId,
+    };
     const res =
       await QuestionSolvingControllerService.addQuestionSolvingUsingPost(
-        form.value
+        addRequest
       );
     if (String(res.code) === "200") {
       message.success("创建成功");
+      emit("submit-success");
+      loadData();
     } else {
       message.error("创建失败，" + res.message);
     }
-    loadData();
   }
 };
 
 const onContentChange = (value: string) => {
   form.value.text = value;
 };
+
+// 添加删除相关的状态
+const deleteModalVisible = ref(false);
+
+// 显示删除确认对话框
+const showDeleteConfirm = () => {
+  deleteModalVisible.value = true;
+};
+
+// 取消删除
+const cancelDelete = () => {
+  deleteModalVisible.value = false;
+};
+
+// 执行删除操作
+const doDelete = async () => {
+  if (!form.value.id) {
+    message.error("题解ID不存在");
+    return;
+  }
+
+  try {
+    const res =
+      await QuestionSolvingControllerService.deleteQuestionSolvingUsingPost({
+        id: form.value.id,
+      });
+
+    if (String(res.code) === "200") {
+      message.success("删除成功");
+      emit("submit-success");
+      // 清空表单
+      form.value = {
+        id: undefined,
+        title: "",
+        text: "",
+        questionId: questionId,
+      };
+      updatePage = false;
+      deleteModalVisible.value = false;
+    } else {
+      message.error("删除失败：" + res.message);
+    }
+  } catch (error) {
+    message.error("删除失败，请重试");
+    console.error(error);
+  }
+};
 </script>
 
 <style scoped>
 #editQuestionSolvingView {
   max-width: 1400px;
-  //width: 100%;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+/* 让标题保持原有样式 */
+.header h2 {
+  margin: 0;
 }
 </style>

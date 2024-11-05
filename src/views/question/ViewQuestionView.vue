@@ -31,7 +31,34 @@
               <MdViewer :value="question.content || ''" />
             </a-tab-pane>
             <a-tab-pane key="2" title="题解">
-              <ViewQuestionSolvingView :questionId="questionId" />
+              <div class="solving-header">
+                <a-button
+                  type="primary"
+                  @click="showSolvingEditor = true"
+                  v-if="!showSolvingEditor"
+                >
+                  <template #icon>
+                    <icon-edit />
+                  </template>
+                  写题解
+                </a-button>
+                <a-button @click="showSolvingEditor = false" v-else>
+                  <template #icon>
+                    <icon-left />
+                  </template>
+                  返回题解列表
+                </a-button>
+              </div>
+
+              <div v-if="showSolvingEditor">
+                <EditQuestionSolvingView
+                  :questionId="questionId"
+                  @submit-success="onSolvingSubmitted"
+                />
+              </div>
+              <div v-else>
+                <ViewQuestionSolvingView :questionId="questionId" />
+              </div>
             </a-tab-pane>
             <!-- 新增AI建议标签页 -->
             <a-tab-pane key="3" title="AI建议">
@@ -442,7 +469,7 @@
                       </template>
                       <template #subtitle>
                         <span class="judging-subtitle"
-                          >正在评测您的代码，请稍候...</span
+                          >正在评测您的码，请稍候...</span
                         >
                       </template>
                     </a-result>
@@ -646,10 +673,13 @@
 import CodeEditor from "@/components/CodeEditor.vue";
 import MdViewer from "@/components/MdViewer.vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
+import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
 import {
   IconCheckCircleFill,
   IconCloseCircleFill,
   IconExclamationCircleFill,
+  IconEdit,
+  IconLeft,
 } from "@arco-design/web-vue/es/icon";
 import message from "@arco-design/web-vue/es/message";
 import {
@@ -974,7 +1004,7 @@ const loadSubmitRecords = async () => {
   }
 };
 
-// 提交记分页改变处理
+// 交记分页改变处理
 const onSubmitRecordPageChange = (page: number) => {
   submitRecordCurrent.value = page;
   loadSubmitRecords();
@@ -1100,6 +1130,15 @@ const splitSize = ref(0.6); // 默认上半部分占60%
 
 // 添加水平分割比例的响应式变量
 const horizontalSplitSize = ref(0.5); // 默认左右各占50%
+
+// 添加 ref 控制编辑器的显示状态
+const showSolvingEditor = ref(false);
+
+// 修改 onSolvingSubmitted 函数
+const onSolvingSubmitted = () => {
+  // 移除自动返回的逻辑
+  // showSolvingEditor.value = false;
+};
 </script>
 
 <style>
@@ -1706,5 +1745,11 @@ pre {
 /* 移除原有的行间距 */
 #viewQuestionView :deep(.arco-row) {
   margin: 0 !important;
+}
+
+.solving-header {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
 }
 </style>
