@@ -15,6 +15,9 @@ import TopQuestionsView from "@/views/question/TopQuestionsView.vue";
 import UserSmsLoginView from "@/views/user/UserSmsLoginView.vue";
 import UserInfoView from "@/views/user/UserInfoView.vue";
 import AIRecommendView from "@/views/AIRecommendView.vue";
+import BasicLayout from "@/layouts/BasicLayout.vue";
+import UserManageView from "@/views/user/UserManageView.vue";
+import UserAnalysisView from "@/views/user/UserAnalysisView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -131,6 +134,14 @@ export const routes: Array<RouteRecordRaw> = [
       access: ACCESS_ENUM.ADMIN,
     },
   },
+  {
+    path: "/manage/user/",
+    name: "管理用户",
+    component: UserManageView,
+    meta: {
+      access: ACCESS_ENUM.ADMIN,
+    },
+  },
   // {
   //   path: "/",
   //   name: "主页",
@@ -173,6 +184,14 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/ai-recommend",
     name: "AI推荐",
     component: AIRecommendView,
+    meta: {
+      keepAlive: true,
+    },
+  },
+  {
+    path: "/aiAnalysis",
+    name: "AI 学习分析",
+    component: UserAnalysisView,
     meta: {
       keepAlive: true,
     },

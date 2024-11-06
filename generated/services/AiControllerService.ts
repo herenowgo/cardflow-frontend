@@ -12,6 +12,17 @@ import { BaseResponseString } from "../models/BaseResponseString";
 
 export class AiControllerService {
   /**
+   * @returns BaseResponseString OK
+   * @throws ApiError
+   */
+  public static analyzeUserSubmitRecord(): CancelablePromise<BaseResponseString> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/a/ai/analyzeUserSubmitRecord",
+    });
+  }
+
+  /**
    * @param message
    * @returns BaseResponseString OK
    * @throws ApiError
