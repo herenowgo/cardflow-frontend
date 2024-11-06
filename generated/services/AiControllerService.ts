@@ -18,7 +18,7 @@ export class AiControllerService {
   public static analyzeUserSubmitRecord(): CancelablePromise<BaseResponseString> {
     return __request(OpenAPI, {
       method: "POST",
-      url: "/a/ai/analyzeUserSubmitRecord",
+      url: "/api/ai/analyzeUserSubmitRecord",
     });
   }
 
