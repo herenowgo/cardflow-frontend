@@ -469,7 +469,7 @@
                       </template>
                       <template #subtitle>
                         <span class="judging-subtitle"
-                          >正在评测您的码，请稍候...</span
+                          >正在评测您的代码，请稍候...</span
                         >
                       </template>
                     </a-result>
