@@ -84,7 +84,7 @@
           {{ moment(item.createTime).format("YYYY-MM-DD HH:mm:ss") }}
         </template>
         <template #author>
-          {{ item.userVO.userName }}
+          {{ item.userVO?.userName }}
         </template>
         <template #content>
           {{ item.content }}
@@ -161,10 +161,10 @@ const doSubmit = async () => {
 const comments = ref([
   {
     userVO: {
-      userName: "Socrates",
+      userName: "",
       userAvatar: "",
     },
-    content: "Comment body content.",
+    content: "",
     createTime: "",
     thumbNum: 0,
     favourNum: 0,
