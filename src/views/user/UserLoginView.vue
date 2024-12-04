@@ -73,13 +73,10 @@ const handleSubmit = async () => {
   }
   try {
     const res = await UserControllerService.userLoginUsingPost(form);
-    // 登录成功，跳转到主页
     if (res.code === "200") {
-      // 登录成功后立即获取用户信息
       await store.dispatch("user/getLoginUser");
       message.success("登录成功");
 
-      // 获取重定向地址，如果有的话
       const redirect = route.query.redirect as string;
       router.push({
         path: redirect || "/questions",
