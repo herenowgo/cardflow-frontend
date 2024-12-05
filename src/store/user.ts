@@ -1,6 +1,7 @@
 import { LoginUserVO, UserControllerService } from "../../generated";
 import { ActionContext } from "vuex";
-import { BaseResponse_LoginUserVO_ } from "../../generated";
+import { eventStreamService } from "@/services/EventStreamService";
+import Cookies from "js-cookie";
 
 // 定义 State 接口
 interface UserState {
@@ -40,10 +41,19 @@ export default {
         if (String(res.code) === "200" && res.data) {
           commit("updateUser", res.data);
           commit("updateLastUpdateTime", Date.now());
+
+          // 确保用户 ID 存在且有效
+          if (res.data.id) {
+            eventStreamService.connect(res.data.id);
+          } else {
+            console.warn("User ID is missing, SSE connection not established");
+          }
+
           return res.data;
         } else {
           commit("updateUser", null);
           commit("updateLastUpdateTime", null);
+          eventStreamService.disconnect();
         }
       } catch (error) {
         commit("updateUser", null);
@@ -59,6 +69,13 @@ export default {
       try {
         await UserControllerService.userLogoutUsingPost();
         commit("updateUser", null);
+
+        // 断开 SSE 连接
+        eventStreamService.disconnect();
+
+        // 清除特定的 cookies
+        Cookies.remove("Authorization", { path: "/" });
+        Cookies.remove("JSESSIONID", { path: "/api" });
       } catch (error) {
         console.error("Logout failed:", error);
       }

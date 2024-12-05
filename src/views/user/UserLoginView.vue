@@ -74,9 +74,13 @@ const handleSubmit = async () => {
   try {
     const res = await UserControllerService.userLoginUsingPost(form);
     if (res.code === "200") {
-      await store.dispatch("user/getLoginUser");
-      message.success("登录成功");
+      const loginUser = await store.dispatch("user/getLoginUser");
+      if (!loginUser) {
+        message.error("获取用户信息失败");
+        return;
+      }
 
+      message.success("登录成功");
       const redirect = route.query.redirect as string;
       router.push({
         path: redirect || "/questions",

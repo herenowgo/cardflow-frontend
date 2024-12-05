@@ -76,9 +76,9 @@ const doMenuClick = (key: string) => {
   });
 };
 
-const loginOut = () => {
-  UserControllerService.userLogoutUsingPost();
-  store.commit("clearUser");
+const loginOut = async () => {
+  await store.dispatch("user/logout");
+  message.success("退出登录成功");
   router.push({
     path: "/user/login",
   });
