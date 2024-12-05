@@ -3,11 +3,12 @@ import { EventMessage } from "@/models/EventMessage";
 import store from "@/store";
 
 class EventStreamService {
-  private readonly baseUrl = "/api";
+  private readonly baseUrl = "http://localhost:8101/api";
   private eventSource: EventSource | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectTimeout = 1000;
+  private autoReconnect = true;
 
   // 使用 ref 来存储最新消息，便于组件响应式更新
   public latestMessage = ref<EventMessage | null>(null);
@@ -15,15 +16,21 @@ class EventStreamService {
   // 存储不同事件类型的处理函数
   private eventHandlers: Map<string, ((data: any) => void)[]> = new Map();
 
+  // 检查连接状态
+  public isConnected(): boolean {
+    return (
+      this.eventSource !== null &&
+      this.eventSource.readyState === EventSource.OPEN
+    );
+  }
+
   public connect(userId: string | number) {
     if (this.eventSource) {
       this.disconnect();
     }
 
-    // 确保 userId 是字符串类型
     const userIdStr = String(userId);
-    const url = `
-http://localhost:8101/api/stream/subscribe/${userIdStr}`;
+    const url = `${this.baseUrl}/stream/subscribe/${userIdStr}`;
     console.log("Attempting to connect SSE at:", url);
 
     this.eventSource = new EventSource(url, { withCredentials: true });
@@ -31,6 +38,8 @@ http://localhost:8101/api/stream/subscribe/${userIdStr}`;
     this.eventSource.onopen = () => {
       console.log("SSE connection established");
       this.reconnectAttempts = 0;
+      // 存储连接信息到 localStorage
+      localStorage.setItem("sseUserId", userIdStr);
     };
 
     this.eventSource.onmessage = (event) => {
@@ -39,7 +48,6 @@ http://localhost:8101/api/stream/subscribe/${userIdStr}`;
         this.latestMessage.value = message;
         console.log("Received SSE message:", message);
 
-        // 调用对应事件类型的所有处理函数
         const handlers = this.eventHandlers.get(message.eventType);
         if (handlers) {
           handlers.forEach((handler) => handler(message.data));
@@ -49,10 +57,16 @@ http://localhost:8101/api/stream/subscribe/${userIdStr}`;
       }
     };
 
-    this.eventSource.onerror = () => {
-      console.error("SSE connection error");
+    this.eventSource.onerror = (error) => {
+      console.error("SSE connection error:", error);
       this.handleError();
     };
+
+    // 添加页面可见性变化监听
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
+    // 添加在线状态监听
+    window.addEventListener("online", this.handleOnline);
+    window.addEventListener("offline", this.handleOffline);
   }
 
   public disconnect() {
@@ -60,8 +74,39 @@ http://localhost:8101/api/stream/subscribe/${userIdStr}`;
       this.eventSource.close();
       this.eventSource = null;
       this.reconnectAttempts = 0;
+      localStorage.removeItem("sseUserId");
     }
+
+    // 移除事件监听
+    document.removeEventListener(
+      "visibilitychange",
+      this.handleVisibilityChange
+    );
+    window.removeEventListener("online", this.handleOnline);
+    window.removeEventListener("offline", this.handleOffline);
   }
+
+  private handleVisibilityChange = () => {
+    if (document.visibilityState === "visible") {
+      const userId = localStorage.getItem("sseUserId");
+      if (userId && !this.isConnected()) {
+        this.connect(userId);
+      }
+    }
+  };
+
+  private handleOnline = () => {
+    const userId = localStorage.getItem("sseUserId");
+    if (userId && !this.isConnected()) {
+      this.connect(userId);
+    }
+  };
+
+  private handleOffline = () => {
+    if (this.eventSource) {
+      this.disconnect();
+    }
+  };
 
   private handleError() {
     if (this.eventSource) {
