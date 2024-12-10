@@ -293,7 +293,9 @@ const cancelDelete = () => {
 const syncWithAnki = async () => {
   syncLoading.value = true;
   try {
-    const res = await CardControllerService.syncWithAnki();
+    const res = await CardControllerService.syncWithAnki(
+      decodeURIComponent(group)
+    );
     if (res.code === 200) {
       Message.success("同步成功");
     }
@@ -361,7 +363,7 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
   padding: 16px;
-  overflow-y: auto; /* 允许卡片内容滚动 */
+  overflow-y: auto; /* 允许卡片内��滚动 */
 }
 
 .card-item {

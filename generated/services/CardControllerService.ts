@@ -58,13 +58,19 @@ export class CardControllerService {
   }
 
   /**
+   * @param group
    * @returns BaseResponseAnkiSyncResponse OK
    * @throws ApiError
    */
-  public static syncWithAnki(): CancelablePromise<BaseResponseAnkiSyncResponse> {
+  public static syncWithAnki(
+    group: string
+  ): CancelablePromise<BaseResponseAnkiSyncResponse> {
     return __request(OpenAPI, {
       method: "GET",
-      url: "/api/cards/syncWithAnki",
+      url: "/api/cards/group/{group}/syncWithAnki",
+      path: {
+        group: group,
+      },
     });
   }
 
