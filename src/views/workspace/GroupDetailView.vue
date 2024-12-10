@@ -141,6 +141,7 @@ import { Message } from "@arco-design/web-vue";
 import { CardControllerService } from "../../../generated/services/CardControllerService";
 import type { CardAddRequest } from "../../../generated/models/CardAddRequest";
 import type { CardUpdateRequest } from "../../../generated/models/CardUpdateRequest";
+import { AnkiService } from "@/services/AnkiService";
 
 const router = useRouter();
 const route = useRoute();
@@ -296,11 +297,60 @@ const syncWithAnki = async () => {
     const res = await CardControllerService.syncWithAnki(
       decodeURIComponent(group)
     );
-    if (res.code === 200) {
+    if (res.code === 200 && res.data?.ankiNoteAddRequests?.length > 0) {
+      const deckName = decodeURIComponent(group);
+      const deckCreated = await AnkiService.createDeckIfNotExists(deckName);
+      if (!deckCreated) {
+        throw new Error("Failed to create deck in Anki");
+      }
+
+      // 添加笔记到Anki
+      const noteIds = await AnkiService.addNotes(
+        deckName,
+        res.data.ankiNoteAddRequests.map((request) => ({
+          question: request.question,
+          answer: request.answer,
+          tags: request.tags || [],
+        }))
+      );
+
+      if (noteIds.length === 0) {
+        throw new Error("Failed to add notes to Anki");
+      }
+
+      // 获取笔记信息（包含mod值）
+      const notesInfo = await AnkiService.getNotesInfo(noteIds);
+
+      // 获取卡片信息
+      const cardsInfo = await AnkiService.getCardsInfo(noteIds);
+
+      // 更新系统中的卡片信息
+      for (let i = 0; i < res.data.ankiNoteAddRequests.length; i++) {
+        const cardInfo = cardsInfo[i];
+        const noteInfo = notesInfo[i];
+        const request = res.data.ankiNoteAddRequests[i];
+        if (cardInfo && noteInfo) {
+          const updateRequest = {
+            id: request.id, // 使用ankiNoteAddRequests中的id
+            ankiInfo: {
+              noteId: cardInfo.note,
+              cardId: cardInfo.cardId,
+              syncTime: noteInfo.mod, // 使用note的mod值作为syncTime
+            },
+          };
+
+          await CardControllerService.updateCard(updateRequest);
+        }
+      }
+
       Message.success("同步成功");
+      loadCards();
     }
   } catch (error) {
-    Message.error("同步失败");
+    console.error("Sync failed:", error);
+    Message.error(
+      "同步失败：" + (error instanceof Error ? error.message : "未知错误")
+    );
   } finally {
     syncLoading.value = false;
   }
@@ -363,7 +413,7 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
   padding: 16px;
-  overflow-y: auto; /* 允许卡片内��滚动 */
+  overflow-y: auto; /* 允许卡片内滚动 */
 }
 
 .card-item {

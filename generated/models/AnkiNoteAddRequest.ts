@@ -4,10 +4,10 @@
 /* eslint-disable */
 
 export type AnkiNoteAddRequest = {
-    question?: string;
-    answer?: string;
-    deckName?: string;
-    modelName?: string;
-    tags?: Array<string>;
+  id?: string;
+  question?: string;
+  answer?: string;
+  deckName?: string;
+  modelName?: string;
+  tags?: Array<string>;
 };
-
