@@ -18,6 +18,8 @@ import AIRecommendView from "@/views/AIRecommendView.vue";
 import BasicLayout from "@/layouts/BasicLayout.vue";
 import UserManageView from "@/views/user/UserManageView.vue";
 import UserAnalysisView from "@/views/user/UserAnalysisView.vue";
+import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
+import GroupDetailView from "@/views/workspace/GroupDetailView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -194,6 +196,20 @@ export const routes: Array<RouteRecordRaw> = [
     component: UserAnalysisView,
     meta: {
       keepAlive: true,
+    },
+  },
+  {
+    path: "/workspace",
+    name: "工作台",
+    component: WorkspaceView,
+  },
+  {
+    path: "/workspace/group/:group",
+    name: "groupDetail",
+    component: GroupDetailView,
+    props: true,
+    meta: {
+      hideInMenu: true,
     },
   },
 ];

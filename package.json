@@ -5,7 +5,8 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "auto": "npx openapi-typescript-codegen --input http://localhost:8114/api/v3/api-docs --output api --client axios"
   },
   "dependencies": {
     "@bytemd/plugin-gfm": "^1.21.0",
