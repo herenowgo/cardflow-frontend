@@ -11,7 +11,7 @@ import type { CardUpdateRequest } from "../models/CardUpdateRequest";
 import type { CancelablePromise } from "../core/CancelablePromise";
 import { OpenAPI } from "../core/OpenAPI";
 import { request as __request } from "../core/request";
-import type { BaseResponsePageCard } from "../../api";
+import { BaseResponsePageCard } from "../models/BaseResponsePageCard";
 
 export class CardControllerService {
   /**

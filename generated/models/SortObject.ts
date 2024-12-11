@@ -3,10 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiInfo = {
-    noteId?: number;
-    cardId?: number;
-    modelName?: string;
-    syncTime?: number;
+export type SortObject = {
+    sorted?: boolean;
+    empty?: boolean;
+    unsorted?: boolean;
 };
 

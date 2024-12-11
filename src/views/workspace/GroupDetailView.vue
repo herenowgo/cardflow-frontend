@@ -45,6 +45,18 @@
             <div class="card-question">
               {{ truncateContent(card.question) }}
             </div>
+            <div class="card-tags" v-if="card.tags && card.tags.length > 0">
+              <a-space>
+                <a-tag
+                  v-for="tag in card.tags"
+                  :key="tag"
+                  size="small"
+                  color="arcoblue"
+                >
+                  {{ tag }}
+                </a-tag>
+              </a-space>
+            </div>
             <div class="card-divider"></div>
             <div class="card-answer-title">
               <icon-message />
@@ -101,6 +113,13 @@
             :auto-size="{ minRows: 2, maxRows: 4 }"
           />
         </a-form-item>
+        <a-form-item field="tags" label="标签">
+          <a-input-tag
+            v-model="cardForm.tags"
+            placeholder="输入标签后按回车添加"
+            allow-clear
+          />
+        </a-form-item>
         <a-form-item field="answer" label="答案" required>
           <a-textarea
             v-model="cardForm.answer"
@@ -153,6 +172,7 @@ interface Card {
   question: string;
   answer: string;
   group?: string;
+  tags?: string[];
 }
 
 // 状态变量
@@ -173,6 +193,7 @@ const cardForm = ref<Card>({
   question: "",
   answer: "",
   group: "",
+  tags: [],
 });
 const isEditingCard = ref(false);
 
@@ -209,6 +230,7 @@ const showAddCard = () => {
     question: "",
     answer: "",
     group: decodeURIComponent(group),
+    tags: [],
   };
   cardModalVisible.value = true;
 };
@@ -235,6 +257,7 @@ const handleCardSubmit = async () => {
         question: cardForm.value.question,
         answer: cardForm.value.answer,
         group: decodeURIComponent(group),
+        tags: cardForm.value.tags,
       };
       const res = await CardControllerService.updateCard(updateParams);
       if (res.code === 200) {
@@ -247,6 +270,7 @@ const handleCardSubmit = async () => {
         question: cardForm.value.question,
         answer: cardForm.value.answer,
         group: decodeURIComponent(group),
+        tags: cardForm.value.tags,
       };
       const res = await CardControllerService.createCard(addParams);
       if (res.code === 200) {
@@ -294,16 +318,65 @@ const cancelDelete = () => {
 const syncWithAnki = async () => {
   syncLoading.value = true;
   try {
-    const res = await CardControllerService.syncWithAnki(
-      decodeURIComponent(group)
-    );
-    if (res.code === 200 && res.data?.ankiNoteAddRequests?.length > 0) {
-      const deckName = decodeURIComponent(group);
-      const deckCreated = await AnkiService.createDeckIfNotExists(deckName);
-      if (!deckCreated) {
-        throw new Error("Failed to create deck in Anki");
-      }
+    const deckName = decodeURIComponent(group);
 
+    // 1. 获取系统同步状态
+    const res = await CardControllerService.syncWithAnki(deckName);
+    if (res.code !== 200) {
+      throw new Error("Failed to get sync status");
+    }
+
+    // 2. 确保Anki中存在对应牌组
+    const deckCreated = await AnkiService.createDeckIfNotExists(deckName);
+    if (!deckCreated) {
+      throw new Error("Failed to create deck in Anki");
+    }
+
+    // 3. 获取Anki中该牌组的所有卡片ID
+    const ankiCardIds = await AnkiService.getDeckCardIds(deckName);
+
+    // 4. 找出需要从Anki同步到系统的卡片ID
+    const systemCardIds = res.data?.cardIds || [];
+    const newAnkiCardIds = ankiCardIds.filter(
+      (id) => !systemCardIds.includes(id)
+    );
+
+    if (newAnkiCardIds.length > 0) {
+      // 5. 获取新卡片的详细信息
+      const cardDetails = await AnkiService.getCardDetails(newAnkiCardIds);
+
+      // 6. 获取对应的笔记信息（包含标签）
+      const noteIds = cardDetails.map((card) => card.note);
+      const noteDetails = await AnkiService.getNotesInfo(noteIds);
+
+      // 7. 将新卡片同步到系统，使用note中的标签
+      for (let i = 0; i < cardDetails.length; i++) {
+        const card = cardDetails[i];
+        const note = noteDetails[i];
+
+        if (!card || !note) continue;
+
+        const addRequest: CardAddRequest = {
+          question: card.fields.Front.value,
+          answer: card.fields.Back.value,
+          group: deckName,
+          tags: note.tags || [], // 使用note中的标签
+          ankiInfo: {
+            cardId: card.cardId,
+            noteId: card.note,
+            modelName: card.modelName,
+          },
+        };
+
+        const createRes = await CardControllerService.createCard(addRequest);
+        if (createRes.code !== 200) {
+          console.error("Failed to create card:", card);
+        }
+      }
+    }
+
+    // 7. 处理从系统同步到Anki的新卡片
+    if (res.data?.ankiNoteAddRequests?.length > 0) {
       // 添加笔记到Anki
       const noteIds = await AnkiService.addNotes(
         deckName,
@@ -330,22 +403,23 @@ const syncWithAnki = async () => {
         const noteInfo = notesInfo[i];
         const request = res.data.ankiNoteAddRequests[i];
         if (cardInfo && noteInfo) {
-          const updateRequest = {
-            id: request.id, // 使用ankiNoteAddRequests中的id
+          const updateRequest: CardUpdateRequest = {
+            id: request.id,
             ankiInfo: {
               noteId: cardInfo.note,
               cardId: cardInfo.cardId,
-              syncTime: noteInfo.mod, // 使用note的mod值作为syncTime
+              modelName: cardInfo.modelName,
+              syncTime: noteInfo.mod,
             },
           };
 
           await CardControllerService.updateCard(updateRequest);
         }
       }
-
-      Message.success("同步成功");
-      loadCards();
     }
+
+    Message.success("同步成功");
+    loadCards();
   } catch (error) {
     console.error("Sync failed:", error);
     Message.error(
@@ -493,5 +567,14 @@ onMounted(() => {
   padding: 16px;
   background-color: var(--color-bg-2);
   border-top: 1px solid var(--color-border);
+}
+
+.card-tags {
+  margin: 8px 0;
+  min-height: 24px;
+}
+
+:deep(.arco-tag) {
+  margin: 2px;
 }
 </style>
