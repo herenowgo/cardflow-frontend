@@ -514,15 +514,15 @@ const syncWithAnki = async () => {
     );
     if (ankiNewCards.length > 0) {
       const ankiNewCardsInfo = await AnkiService.getCardsInfo(ankiNewCards);
-      console.log("ankiNewCardsCreates", JSON.stringify(ankiNewCardsInfo));
-      ankiNewCardsInfo.map(async (card, index) => {
+      await ankiNewCardsInfo.map(async (card, index) => {
         const noteInfos = await AnkiService.getNotesInfo([card.cardId]);
         const noteInfo = noteInfos[0];
-        console.log("noteInfo", JSON.stringify(noteInfo));
 
         if (!noteInfo) {
           throw new Error(`No note info found for note ${card.note}`);
         }
+
+        console.log("Card:" + JSON.stringify(card));
 
         CardControllerService.createCard({
           ankiInfo: {
@@ -531,12 +531,13 @@ const syncWithAnki = async () => {
             modelName: card.modelName,
             syncTime: noteInfo.mod,
           },
-          question: card.fields.Front.value,
-          answer: card.fields.Back.value,
+          question: card.fields.Front?.value,
+          answer: card.fields.Back?.value,
           tags: noteInfo.tags,
           group: group,
         });
       });
+      await loadCards();
     }
     // 3. 处理已同步卡片的更新
     if (res.data.ankiSyncedCards?.length > 0) {
