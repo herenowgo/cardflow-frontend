@@ -12,6 +12,8 @@ import type { CancelablePromise } from "../core/CancelablePromise";
 import { OpenAPI } from "../core/OpenAPI";
 import { request as __request } from "../core/request";
 import { BaseResponsePageCard } from "../models/BaseResponsePageCard";
+import { BaseResponseCard } from "../models/BaseResponseCard";
+import { CardIdsRequest } from "../models/CardIdsRequest";
 
 export class CardControllerService {
   /**
@@ -130,6 +132,39 @@ export class CardControllerService {
         page: page,
         size: size,
       },
+    });
+  }
+
+  /**
+   * @param cardId
+   * @returns BaseResponseCard OK
+   * @throws ApiError
+   */
+  public static getCardById(
+    cardId: string
+  ): CancelablePromise<BaseResponseCard> {
+    return __request(OpenAPI, {
+      method: "GET",
+      url: "/api/cards/{cardId}",
+      path: {
+        cardId: cardId,
+      },
+    });
+  }
+
+  /**
+   * @param requestBody
+   * @returns BaseResponseListCard OK
+   * @throws ApiError
+   */
+  public static getCardsByIds(
+    requestBody: CardIdsRequest
+  ): CancelablePromise<BaseResponseListCard> {
+    return __request(OpenAPI, {
+      method: "POST",
+      url: "/api/cards/batch",
+      body: requestBody,
+      mediaType: "application/json",
     });
   }
 }
