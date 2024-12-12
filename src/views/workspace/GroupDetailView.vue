@@ -424,6 +424,12 @@ const confirmDelete = async () => {
     if (res.code === 200) {
       Message.success("删除成功");
       loadCards();
+      try {
+        await AnkiService.deleteNotes([cardToDelete.value.ankiInfo.noteId]);
+      } catch (error) {
+        Message.error("Anki同步删除失败，打开anki后点击同步到Anki即可");
+        // todo 记录删除信息，延迟删除
+      }
     }
   } catch (error) {
     Message.error("删除失败");
