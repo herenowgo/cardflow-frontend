@@ -644,7 +644,7 @@
                     @click="() => handleDebugCode(true)"
                     style="margin-right: 8px"
                   >
-                    调试代码
+                    调试代��
                   </a-button>
                   <a-button
                     type="primary"
@@ -823,18 +823,54 @@ const doSubmit = async () => {
   }
 
   submitLoading.value = true;
-  const res = await QuestionSubmitControllerService.doQuestionSubmitUsingPost({
-    ...form.value,
-    questionId: question.value.id,
-  });
-  submitLoading.value = false;
-  if (String(res.code) === "200") {
-    message.success("提交成功");
-    lastSubmitId.value = res.data;
-    getState(res.data);
-  } else {
-    isSubmited.value = false;
-    message.error(res.message);
+  try {
+    // 发送提交请求获取请求ID
+    const res = await QuestionSubmitControllerService.doQuestionSubmitUsingPost(
+      {
+        ...form.value,
+        questionId: question.value.id,
+      }
+    );
+
+    if (String(res.code) === "200" && res.data) {
+      const requestId = res.data;
+
+      // 等待SSE返回结果
+      const judgeResult = await eventStreamService.waitForResult(requestId);
+
+      // 更新提交状态
+      submitStatus.value = {
+        status: judgeResult.message === "Accepted" ? 1 : 2,
+        judgeInfo: {
+          message: judgeResult.message,
+          memory: judgeResult.memory,
+          time: judgeResult.time,
+          inputList: judgeResult.inputList,
+          answers: judgeResult.answers,
+          runOutput: judgeResult.runOutput,
+          compileErrorOutput: judgeResult.compileErrorOutput,
+          runErrorOutput: judgeResult.runErrorOutput,
+        },
+      };
+
+      // 如果提交成功，可以触发其他相关操作
+      if (submitStatus.value.status === 1) {
+        message.success("提交成功");
+      } else {
+        message.error("提交失败：" + judgeResult.message);
+      }
+    } else {
+      message.error("提交失败：" + res.message);
+    }
+  } catch (error) {
+    if (error instanceof Error) {
+      message.error("提交失败：" + error.message);
+    } else {
+      message.error("提交失败，请重试");
+    }
+    console.error(error);
+  } finally {
+    submitLoading.value = false;
   }
 };
 
@@ -1079,7 +1115,7 @@ const closeSubmitDetail = () => {
   activeTabKey.value = "4";
 };
 
-// 在 script 部分添加新的响���式变量
+// 在 script 部分添加新的响应式变量
 const code = ref(""); // 用户编写的代码
 const language = ref("java"); // 编程语言
 const debugVisible = ref(false);
@@ -1343,7 +1379,7 @@ pre {
   transition: all 0.3s ease;
 }
 
-/* 调整提交后结果展示区域的��器 */
+/* 调整提交后结果展示区域的器 */
 .submit-result-container {
   margin-top: 16px;
   border-radius: 8px;

@@ -13,7 +13,6 @@ import { OpenAPI } from "../core/OpenAPI";
 import type { DebugCodeRequest } from "../models/DebugCodeRequest";
 import { request as __request } from "../core/request";
 import { BaseResponsePageQuestionSubmitPageVO } from "../models/BaseResponsePageQuestionSubmitPageVO";
-import { BaseResponseExecuteCodeResponseVO } from "../models/BaseResponseExecuteCodeResponseVO";
 import { BaseResponseString } from "../models/BaseResponseString";
 
 export class QuestionSubmitControllerService {
@@ -82,7 +81,7 @@ export class QuestionSubmitControllerService {
    */
   public static doQuestionSubmitUsingPost(
     questionSubmitAddRequest: QuestionSubmitAddRequest
-  ): CancelablePromise<BaseResponse_long_ | any> {
+  ): CancelablePromise<BaseResponseString | any> {
     return __request(OpenAPI, {
       method: "POST",
       url: "/api/question_submit/",
