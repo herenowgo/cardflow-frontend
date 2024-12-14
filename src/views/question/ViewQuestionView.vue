@@ -677,8 +677,8 @@ import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolving
 import {
   IconCheckCircleFill,
   IconCloseCircleFill,
-  IconExclamationCircleFill,
   IconEdit,
+  IconExclamationCircleFill,
   IconLeft,
 } from "@arco-design/web-vue/es/icon";
 import message from "@arco-design/web-vue/es/message";
@@ -688,8 +688,8 @@ import {
   onMounted,
   provide,
   ref,
-  withDefaults,
   watch,
+  withDefaults,
 } from "vue";
 import { useRoute } from "vue-router";
 import {
@@ -697,10 +697,9 @@ import {
   QuestionControllerService,
   QuestionSubmitAddRequest,
   QuestionSubmitControllerService,
-  QuestionSubmitStateVO,
   QuestionVO,
 } from "../../../generated";
-import moment from "moment";
+import { eventStreamService } from "@/services/EventStreamService";
 
 interface Props {
   id: string;
@@ -1080,7 +1079,7 @@ const closeSubmitDetail = () => {
   activeTabKey.value = "4";
 };
 
-// 在 script 部分添加新的响应式变量
+// 在 script 部分添加新的响���式变量
 const code = ref(""); // 用户编写的代码
 const language = ref("java"); // 编程语言
 const debugVisible = ref(false);
@@ -1103,22 +1102,34 @@ const handleDebugCode = async (useCurrentTestCase = false) => {
   debugResult.value = {};
 
   try {
+    // 发送调试请求获取请求ID
     const res = await QuestionSubmitControllerService.debugCode({
       code: form.value.code,
       language: form.value.language,
       questionId: String(questionId),
       testCase: useCurrentTestCase ? debugTestCase.value : undefined,
     });
+
     if (String(res.code) === "200" && res.data) {
-      debugResult.value = res.data;
-      if (res.data?.testCase) {
-        debugTestCase.value = res.data.testCase;
+      const requestId = res.data;
+
+      // 等待SSE返回结果
+      const judgeResult = await eventStreamService.waitForResult(requestId);
+
+      // 更新调试结果
+      debugResult.value = judgeResult;
+      if (judgeResult.testCase) {
+        debugTestCase.value = judgeResult.testCase;
       }
     } else {
-      message.error("调试失败：" + res.message);
+      message.error("调试失败" + res.message);
     }
   } catch (error) {
-    message.error("调试失败，请重试");
+    if (error instanceof Error) {
+      message.error("调试失败：" + error.message);
+    } else {
+      message.error("调试失败，请重试");
+    }
     console.error(error);
   } finally {
     debugLoading.value = false;
@@ -1332,7 +1343,7 @@ pre {
   transition: all 0.3s ease;
 }
 
-/* 调整提交后结果展示区域的容器 */
+/* 调整提交后结果展示区域的��器 */
 .submit-result-container {
   margin-top: 16px;
   border-radius: 8px;
@@ -1425,7 +1436,7 @@ pre {
   padding: 0 8px;
 }
 
-/* 保表格单元格内容居中 */
+/* 保表格单元格内容中 */
 .arco-table-cell {
   text-align: center;
   display: flex;

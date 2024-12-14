@@ -2,6 +2,12 @@ import { ref } from "vue";
 import { EventMessage } from "@/models/EventMessage";
 import store from "@/store";
 
+interface PendingRequest {
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+  timeout: NodeJS.Timeout;
+}
+
 class EventStreamService {
   private readonly baseUrl = "http://localhost:8101/api";
   private eventSource: EventSource | null = null;
@@ -15,6 +21,10 @@ class EventStreamService {
 
   // 存储不同事件类型的处理函数
   private eventHandlers: Map<string, ((data: any) => void)[]> = new Map();
+
+  // 存储待处理的请求
+  private pendingRequests: Map<string, PendingRequest> = new Map();
+  private readonly REQUEST_TIMEOUT = 30000; // 30 seconds timeout
 
   // 检查连接状态
   public isConnected(): boolean {
@@ -42,20 +52,7 @@ class EventStreamService {
       localStorage.setItem("sseUserId", userIdStr);
     };
 
-    this.eventSource.onmessage = (event) => {
-      try {
-        const message: EventMessage = JSON.parse(event.data);
-        this.latestMessage.value = message;
-        console.log("Received SSE message:", message);
-
-        const handlers = this.eventHandlers.get(message.eventType);
-        if (handlers) {
-          handlers.forEach((handler) => handler(message.data));
-        }
-      } catch (error) {
-        console.error("Failed to parse event data:", error);
-      }
-    };
+    this.eventSource.onmessage = this.handleMessage;
 
     this.eventSource.onerror = (error) => {
       console.error("SSE connection error:", error);
@@ -145,6 +142,49 @@ class EventStreamService {
       }
     }
   }
+
+  // 等待特定请求ID的结果
+  public waitForResult(requestId: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingRequests.delete(requestId);
+        reject(new Error("Request timeout"));
+      }, this.REQUEST_TIMEOUT);
+
+      this.pendingRequests.set(requestId, {
+        resolve,
+        reject,
+        timeout,
+      });
+    });
+  }
+
+  // 修改现有的 onmessage 处理
+  private handleMessage = (event: MessageEvent) => {
+    try {
+      const message = JSON.parse(event.data) as EventMessage;
+      this.latestMessage.value = message;
+      console.log("Received SSE message:", message);
+
+      // 处理 JUDGE_RESULT 类型的消息
+      if (message.eventType === "JUDGE_RESULT" && message.requestId) {
+        const pendingRequest = this.pendingRequests.get(message.requestId);
+        if (pendingRequest) {
+          clearTimeout(pendingRequest.timeout);
+          this.pendingRequests.delete(message.requestId);
+          pendingRequest.resolve(message.data);
+        }
+      }
+
+      // 继续处理其他事件类型
+      const handlers = this.eventHandlers.get(message.eventType);
+      if (handlers) {
+        handlers.forEach((handler) => handler(message.data));
+      }
+    } catch (error) {
+      console.error("Failed to parse event data:", error);
+    }
+  };
 }
 
 export const eventStreamService = new EventStreamService();
