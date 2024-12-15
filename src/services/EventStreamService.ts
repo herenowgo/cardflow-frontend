@@ -34,7 +34,7 @@ class EventStreamService {
   // 存储流式消息的Map
   private streamingMessages: Map<string, Map<number, string>> = new Map();
 
-  // 存储��式消息的处理函数
+  // 存储流式消息的处理函数
   private streamingHandlers: Map<string, (content: string) => void> = new Map();
 
   // 检查连接状态
@@ -212,20 +212,32 @@ class EventStreamService {
       console.log("Received SSE message:", message);
 
       if (message.eventType === "CODE_SUGGEST" && message.requestId) {
-        // 确保 sequence 存在，如果不存在则使用默认值
-        const sequence =
-          typeof message.sequence === "number" ? message.sequence : 1;
-
-        // 适应新的消息格式
-        const streamingMessage: StreamingEventMessage = {
-          requestId: message.requestId,
-          data: {
-            sequence: sequence,
-            content: message.data,
-            isEnd: false,
-          },
-        };
-        this.handleStreamingMessage(streamingMessage);
+        // 检查是否是结束消息
+        if (message.sequence === -1) {
+          // 处理结束消息
+          const streamingMessage: StreamingEventMessage = {
+            requestId: message.requestId,
+            data: {
+              sequence: -1,
+              content: "",
+              isEnd: true, // 标记为结束消息
+            },
+          };
+          this.handleStreamingMessage(streamingMessage);
+        } else {
+          // 处理正常消息
+          const sequence =
+            typeof message.sequence === "number" ? message.sequence : 1;
+          const streamingMessage: StreamingEventMessage = {
+            requestId: message.requestId,
+            data: {
+              sequence: sequence,
+              content: message.data || "",
+              isEnd: false,
+            },
+          };
+          this.handleStreamingMessage(streamingMessage);
+        }
       } else if (message.eventType === "JUDGE_RESULT" && message.requestId) {
         const pendingRequest = this.pendingRequests.get(message.requestId);
         if (pendingRequest) {
@@ -256,6 +268,31 @@ class EventStreamService {
     // 打印接收到的消息以便调试
     console.log("Processing streaming message:", message);
 
+    if (data.isEnd) {
+      // 处理结束消息
+      const pendingRequest = this.pendingRequests.get(requestId);
+      if (pendingRequest) {
+        // 获取完整内容
+        let fullContent = "";
+        const sortedEntries = Array.from(messageMap.entries()).sort(
+          ([a], [b]) => a - b
+        );
+        for (const [_, content] of sortedEntries) {
+          fullContent += content;
+        }
+
+        // 清理资源
+        clearTimeout(pendingRequest.timeout);
+        this.pendingRequests.delete(requestId);
+        this.streamingMessages.delete(requestId);
+        this.streamingHandlers.delete(requestId);
+
+        // 解析 Promise
+        pendingRequest.resolve(fullContent);
+      }
+      return;
+    }
+
     // 存储新消息
     messageMap.set(data.sequence, data.content);
 
@@ -270,16 +307,6 @@ class EventStreamService {
 
     // 调用更新处理函数
     handler(fullContent);
-
-    // 如果是最后一条消息，解析Promise
-    if (data.isEnd) {
-      const pendingRequest = this.pendingRequests.get(requestId);
-      if (pendingRequest) {
-        clearTimeout(pendingRequest.timeout);
-        this.pendingRequests.delete(requestId);
-        pendingRequest.resolve(fullContent);
-      }
-    }
   }
 }
 
