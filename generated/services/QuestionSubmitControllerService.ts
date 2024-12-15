@@ -14,6 +14,7 @@ import type { DebugCodeRequest } from "../models/DebugCodeRequest";
 import { request as __request } from "../core/request";
 import { BaseResponsePageQuestionSubmitPageVO } from "../models/BaseResponsePageQuestionSubmitPageVO";
 import { BaseResponseString } from "../models/BaseResponseString";
+import { BaseResponseQuestionSubmitResponse } from "../models/BaseResponseQuestionSubmitResponse";
 
 export class QuestionSubmitControllerService {
   /**
@@ -73,24 +74,18 @@ export class QuestionSubmitControllerService {
   }
 
   /**
-   * doQuestionSubmit
-   * @param questionSubmitAddRequest questionSubmitAddRequest
-   * @returns BaseResponse_long_ OK
-   * @returns any Created
+   * @param requestBody
+   * @returns BaseResponseQuestionSubmitResponse OK
    * @throws ApiError
    */
-  public static doQuestionSubmitUsingPost(
-    questionSubmitAddRequest: QuestionSubmitAddRequest
-  ): CancelablePromise<BaseResponseString | any> {
+  public static doQuestionSubmit(
+    requestBody: QuestionSubmitAddRequest
+  ): CancelablePromise<BaseResponseQuestionSubmitResponse> {
     return __request(OpenAPI, {
       method: "POST",
       url: "/api/question_submit/",
-      body: questionSubmitAddRequest,
-      errors: {
-        401: `Unauthorized`,
-        403: `Forbidden`,
-        404: `Not Found`,
-      },
+      body: requestBody,
+      mediaType: "application/json",
     });
   }
 

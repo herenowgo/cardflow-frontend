@@ -1,11 +1,16 @@
 import { ref } from "vue";
-import { EventMessage } from "@/models/EventMessage";
+import { EventMessage, StreamingEventMessage } from "@/models/EventMessage";
 import store from "@/store";
 
 interface PendingRequest {
   resolve: (value: any) => void;
   reject: (reason?: any) => void;
   timeout: NodeJS.Timeout;
+}
+
+interface StreamingMessage {
+  content: string;
+  sequence: number;
 }
 
 class EventStreamService {
@@ -26,6 +31,12 @@ class EventStreamService {
   private pendingRequests: Map<string, PendingRequest> = new Map();
   private readonly REQUEST_TIMEOUT = 30000; // 30 seconds timeout
 
+  // 存储流式消息的Map
+  private streamingMessages: Map<string, Map<number, string>> = new Map();
+
+  // 存储��式消息的处理函数
+  private streamingHandlers: Map<string, (content: string) => void> = new Map();
+
   // 检查连接状态
   public isConnected(): boolean {
     return (
@@ -41,12 +52,10 @@ class EventStreamService {
 
     const userIdStr = String(userId);
     const url = `${this.baseUrl}/stream/subscribe/${userIdStr}`;
-    console.log("Attempting to connect SSE at:", url);
 
     this.eventSource = new EventSource(url, { withCredentials: true });
 
     this.eventSource.onopen = () => {
-      console.log("SSE connection established");
       this.reconnectAttempts = 0;
       // 存储连接信息到 localStorage
       localStorage.setItem("sseUserId", userIdStr);
@@ -159,6 +168,42 @@ class EventStreamService {
     });
   }
 
+  // 等待流式消息的结果
+  public waitForStreamingResult(
+    requestId: string,
+    onUpdate: (content: string) => void
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.streamingHandlers.delete(requestId);
+        this.streamingMessages.delete(requestId);
+        reject(new Error("Request timeout"));
+      }, this.REQUEST_TIMEOUT);
+
+      // 初始化消息Map
+      this.streamingMessages.set(requestId, new Map());
+
+      // 存储处理函数
+      this.streamingHandlers.set(requestId, onUpdate);
+
+      this.pendingRequests.set(requestId, {
+        resolve: (finalContent: string) => {
+          clearTimeout(timeout);
+          this.streamingHandlers.delete(requestId);
+          this.streamingMessages.delete(requestId);
+          resolve(finalContent);
+        },
+        reject: (error: any) => {
+          clearTimeout(timeout);
+          this.streamingHandlers.delete(requestId);
+          this.streamingMessages.delete(requestId);
+          reject(error);
+        },
+        timeout,
+      });
+    });
+  }
+
   // 修改现有的 onmessage 处理
   private handleMessage = (event: MessageEvent) => {
     try {
@@ -166,8 +211,22 @@ class EventStreamService {
       this.latestMessage.value = message;
       console.log("Received SSE message:", message);
 
-      // 处理 JUDGE_RESULT 类型的消息
-      if (message.eventType === "JUDGE_RESULT" && message.requestId) {
+      if (message.eventType === "CODE_SUGGEST" && message.requestId) {
+        // 确保 sequence 存在，如果不存在则使用默认值
+        const sequence =
+          typeof message.sequence === "number" ? message.sequence : 1;
+
+        // 适应新的消息格式
+        const streamingMessage: StreamingEventMessage = {
+          requestId: message.requestId,
+          data: {
+            sequence: sequence,
+            content: message.data,
+            isEnd: false,
+          },
+        };
+        this.handleStreamingMessage(streamingMessage);
+      } else if (message.eventType === "JUDGE_RESULT" && message.requestId) {
         const pendingRequest = this.pendingRequests.get(message.requestId);
         if (pendingRequest) {
           clearTimeout(pendingRequest.timeout);
@@ -185,6 +244,43 @@ class EventStreamService {
       console.error("Failed to parse event data:", error);
     }
   };
+
+  private handleStreamingMessage(message: StreamingEventMessage) {
+    const { requestId, data } = message;
+    if (!requestId) return;
+
+    const messageMap = this.streamingMessages.get(requestId);
+    const handler = this.streamingHandlers.get(requestId);
+    if (!messageMap || !handler) return;
+
+    // 打印接收到的消息以便调试
+    console.log("Processing streaming message:", message);
+
+    // 存储新消息
+    messageMap.set(data.sequence, data.content);
+
+    // 按顺序拼接消息
+    let fullContent = "";
+    const sortedEntries = Array.from(messageMap.entries()).sort(
+      ([a], [b]) => a - b
+    );
+    for (const [_, content] of sortedEntries) {
+      fullContent += content;
+    }
+
+    // 调用更新处理函数
+    handler(fullContent);
+
+    // 如果是最后一条消息，解析Promise
+    if (data.isEnd) {
+      const pendingRequest = this.pendingRequests.get(requestId);
+      if (pendingRequest) {
+        clearTimeout(pendingRequest.timeout);
+        this.pendingRequests.delete(requestId);
+        pendingRequest.resolve(fullContent);
+      }
+    }
+  }
 }
 
 export const eventStreamService = new EventStreamService();

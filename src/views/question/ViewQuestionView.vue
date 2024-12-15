@@ -72,12 +72,33 @@
                     :key="index"
                     :header="`测试用例 ${index + 1}`"
                   >
-                    <a-spin :loading="aiLoading[index]" tip="AI正在思考中...">
-                      <template v-if="aiSuggestions[index]">
-                        <MdViewer :value="aiSuggestions[index]" />
-                      </template>
-                      <a-empty v-else description="暂无AI建议" />
-                    </a-spin>
+                    <template #extra>
+                      <a-button
+                        type="text"
+                        size="small"
+                        :loading="aiLoading[index]"
+                        @click.stop="getAiSuggestion(index)"
+                      >
+                        获取AI建议
+                      </a-button>
+                    </template>
+
+                    <!-- 新的 AI 建议卡片设计 -->
+                    <div
+                      class="ai-suggestion-container"
+                      v-if="aiSuggestions[index]"
+                    >
+                      <div class="ai-suggestion-header">
+                        <icon-robot />
+                        <span>AI 分析建议</span>
+                      </div>
+
+                      <div class="ai-suggestion-content">
+                        <div class="ai-suggestion-text-wrapper">
+                          <MdViewer :value="aiSuggestions[index]" />
+                        </div>
+                      </div>
+                    </div>
                   </a-collapse-item>
                 </a-collapse>
               </template>
@@ -243,7 +264,7 @@
             padding: 0,
           }"
         >
-          <!-- 根据是否有结果来切换布局 -->
+          <!-- 根据是否有结果切换布局 -->
           <template v-if="hasInteracted">
             <a-split
               v-model:size="splitSize"
@@ -702,6 +723,7 @@ import {
   QuestionVO,
 } from "../../../generated";
 import { eventStreamService } from "@/services/EventStreamService";
+import { ChatControllerService } from "../../../generated/services/ChatControllerService";
 
 interface Props {
   id: string;
@@ -801,14 +823,17 @@ const getState = (questionSubmitId: number) => {
   }, 500);
 };
 
-// 添加个新的 ref 来存储最后一次提交的 questionSubmitId
-const lastSubmitId = ref<number | null>(null);
+// 添加一个新的响应式变量来存储最后一次提交的完整信息
+const lastSubmitInfo = ref<{
+  requestId: string;
+  questionSubmitId: number;
+} | null>(null);
 
 /**
  * 提交代码
  */
 const doSubmit = async () => {
-  // 设置已交互状态
+  // 设置已交互��态
   hasInteracted.value = true;
   // 清除调试结果显示
   debugResult.value = null;
@@ -826,18 +851,22 @@ const doSubmit = async () => {
 
   submitLoading.value = true;
   try {
-    const res = await QuestionSubmitControllerService.doQuestionSubmitUsingPost(
-      {
-        ...form.value,
-        questionId: question.value.id,
-      }
-    );
+    const res = await QuestionSubmitControllerService.doQuestionSubmit({
+      ...form.value,
+      questionId: question.value.id,
+    });
 
     if (String(res.code) === "200" && res.data) {
-      const requestId = res.data;
+      // 保存完整的提交信息
+      lastSubmitInfo.value = {
+        requestId: res.data.requestId,
+        questionSubmitId: res.data.questionSubmitId,
+      };
 
       // 等待SSE返回结果
-      const judgeResult = await eventStreamService.waitForResult(requestId);
+      const judgeResult = await eventStreamService.waitForResult(
+        res.data.requestId
+      );
 
       // 更新提交状态
       submitStatus.value = {
@@ -906,7 +935,7 @@ const changeCode = (value: string) => {
 
 const handleLanguageChange = (value: string) => {
   form.value.language = value;
-  // 保存语言选择到本地存储
+  // 保存语言选择本地存储
   localStorage.setItem(`language_${questionId}`, value);
 };
 
@@ -943,9 +972,18 @@ const aiSuggestions = ref<string[]>([]);
 const activeTabKey = ref("1");
 const activeCollapseKeys = ref<number[]>([]);
 
+// 添加一个方法来生成唯一的 ID
+const getAiSuggestionId = (index: number) => `ai-suggestion-${index}`;
+
+// 修改 getAiSuggestion 方法
 const getAiSuggestion = async (index: number) => {
-  if (!lastSubmitId.value || submitStatus.value.status !== 3) {
+  if (submitStatus.value.judgeInfo.message == "Accepted") {
     message.error("只有在答案错误时才能获取AI建议");
+    return;
+  }
+
+  if (!lastSubmitInfo.value?.questionSubmitId) {
+    message.error("请先提交代码");
     return;
   }
 
@@ -958,18 +996,29 @@ const getAiSuggestion = async (index: number) => {
   }
 
   aiLoading.value[index] = true;
+  aiSuggestions.value[index] = ""; // 清空之前的建议
+
   try {
-    const res = await AiControllerService.analyzeErrorUsingPost(
+    const res = await ChatControllerService.analysisUserCode({
       index,
-      lastSubmitId.value
-    );
+      questionSubmitId: lastSubmitInfo.value.questionSubmitId,
+    });
+
     if (String(res.code) === "200" && res.data) {
-      aiSuggestions.value[index] = res.data;
+      const requestId = res.data;
+
+      // 等待流式响应，并实时更新内容
+      await eventStreamService.waitForStreamingResult(
+        requestId,
+        (content: string) => {
+          aiSuggestions.value[index] = content;
+        }
+      );
     } else {
       message.error("获取AI建议失败: " + res.message);
     }
   } catch (error) {
-    message.error("获取AI建议时发生误");
+    message.error("获取AI建议时发生错误");
     console.error(error);
   } finally {
     aiLoading.value[index] = false;
@@ -1059,7 +1108,7 @@ const onSubmitRecordPageChange = (page: number) => {
 
 // 获取状态对应的颜色
 const getStatusColor = (status: number, judgeInfo?: any) => {
-  // 根据 message 判断状态颜色
+  // 据 message 判断状态颜色
   if (judgeInfo?.message) {
     switch (judgeInfo.message) {
       case "Accepted":
@@ -1317,7 +1366,7 @@ pre {
   word-wrap: break-word;
 }
 
-/* 可以添加一些新的样式来美化AI建议的展示 */
+/* 可以加一些新的样式来美化AI建议的展示 */
 .ai-suggestion-tab {
   padding: 16px;
 }
@@ -1538,7 +1587,7 @@ pre {
   text-align: center;
 }
 
-/* 修复表格单元格内容的布局 */
+/* 复表格元格内容的布局 */
 .arco-table-td .arco-table-cell {
   display: flex;
   justify-content: center;
@@ -1564,7 +1613,7 @@ pre {
   color: var(--color-text-1);
 }
 
-/* 调整弹窗内容的样式 */
+/* 整弹窗内容的样式 */
 .arco-modal-content {
   padding: 24px;
   max-height: 80vh;
@@ -1851,5 +1900,79 @@ pre {
   margin-bottom: 16px;
   display: flex;
   justify-content: flex-end;
+}
+
+.ai-suggestion-container {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: var(--color-neutral-1);
+  border-radius: 4px;
+}
+
+.ai-suggestion-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: monospace;
+  line-height: 1.5;
+}
+
+.ai-suggestion-container {
+  margin-top: 16px;
+  border-radius: 8px;
+  background: var(--color-bg-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.ai-suggestion-header {
+  padding: 12px 16px;
+  background: var(--color-fill-2);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-1);
+}
+
+.ai-suggestion-header :deep(.icon-robot) {
+  font-size: 18px;
+  color: var(--color-primary);
+}
+
+.ai-suggestion-content {
+  padding: 16px;
+}
+
+.ai-suggestion-text-wrapper {
+  background: var(--color-bg-1);
+  border-radius: 4px;
+  padding: 16px;
+}
+
+/* 自定义 Markdown 样式 */
+.ai-suggestion-text-wrapper :deep(.md-viewer) {
+  background: transparent;
+  padding: 0;
+}
+
+.ai-suggestion-text-wrapper :deep(.md-viewer pre) {
+  background: var(--color-fill-1);
+  border-radius: 4px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.ai-suggestion-text-wrapper :deep(.md-viewer code) {
+  font-family: var(--font-family-mono);
+  background: var(--color-fill-1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 添加打字机光标样式 */
+:deep(.ti-cursor) {
+  color: var(--color-primary);
+  font-weight: bold;
 }
 </style>
