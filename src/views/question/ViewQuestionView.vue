@@ -98,8 +98,10 @@
                 @row-click="onRecordClick"
               >
                 <template #status="{ record }">
-                  <a-tag :color="getStatusColor(record.status)">
-                    {{ getStatusText(record.status) }}
+                  <a-tag
+                    :color="getStatusColor(record.status, record.judgeInfo)"
+                  >
+                    {{ getStatusText(record.status, record.judgeInfo) }}
                   </a-tag>
                 </template>
                 <template #language="{ record }">
@@ -505,7 +507,7 @@
                         >
                       </template>
                     </a-result>
-                    <!-- 调试结果内容 -->
+                    <!-- 试结果内容 -->
                     <div v-else-if="debugResult">
                       <a-result status="info" style="padding: 16px">
                         <template #icon>
@@ -644,7 +646,7 @@
                     @click="() => handleDebugCode(true)"
                     style="margin-right: 8px"
                   >
-                    调试代��
+                    调试代码
                   </a-button>
                   <a-button
                     type="primary"
@@ -824,7 +826,6 @@ const doSubmit = async () => {
 
   submitLoading.value = true;
   try {
-    // 发送提交请求获取请求ID
     const res = await QuestionSubmitControllerService.doQuestionSubmitUsingPost(
       {
         ...form.value,
@@ -840,25 +841,18 @@ const doSubmit = async () => {
 
       // 更新提交状态
       submitStatus.value = {
-        status: judgeResult.message === "Accepted" ? 1 : 2,
+        status: getSubmitStatus(judgeResult.message),
         judgeInfo: {
           message: judgeResult.message,
           memory: judgeResult.memory,
           time: judgeResult.time,
           inputList: judgeResult.inputList,
-          answers: judgeResult.answers,
           runOutput: judgeResult.runOutput,
+          answers: judgeResult.answers,
           compileErrorOutput: judgeResult.compileErrorOutput,
           runErrorOutput: judgeResult.runErrorOutput,
         },
       };
-
-      // 如果提交成功，可以触发其他相关操作
-      if (submitStatus.value.status === 1) {
-        message.success("提交成功");
-      } else {
-        message.error("提交失败：" + judgeResult.message);
-      }
     } else {
       message.error("提交失败：" + res.message);
     }
@@ -871,6 +865,20 @@ const doSubmit = async () => {
     console.error(error);
   } finally {
     submitLoading.value = false;
+  }
+};
+
+// 添加一个新的辅助函数来根据 message 判断状态
+const getSubmitStatus = (message: string): number => {
+  switch (message) {
+    case "Accepted":
+      return 2; // 通过
+    case "编译错误":
+      return 3; // 失败
+    case "Wrong Answer":
+      return 3; // 失败
+    default:
+      return 3; // 其他情况都视为失败
   }
 };
 
@@ -915,12 +923,16 @@ const getResultStatus = (status: number) => {
 
 const getResultTitle = (status: number) => {
   switch (status) {
+    case 0:
+      return "等待判题";
+    case 1:
+      return "判题中";
     case 2:
-      return "ACCEPTED";
+      return "通过";
     case 3:
-      return "WRONG ANSWER";
+      return submitStatus.value.judgeInfo.message || "失败";
     default:
-      return "COMPILATION ERROR";
+      return "未知状态";
   }
 };
 
@@ -1046,32 +1058,73 @@ const onSubmitRecordPageChange = (page: number) => {
 };
 
 // 获取状态对应的颜色
-const getStatusColor = (status: number) => {
+const getStatusColor = (status: number, judgeInfo?: any) => {
+  // 根据 message 判断状态颜色
+  if (judgeInfo?.message) {
+    switch (judgeInfo.message) {
+      case "Accepted":
+        return "green";
+      case "Wrong Answer":
+        return "red";
+      case "编译错误":
+        return "orange";
+      default:
+        return "red";
+    }
+  }
+
+  // 默认的状态颜色映射
   switch (status) {
+    case 0:
+      return "blue";
     case 1:
       return "blue";
     case 2:
       return "green";
     case 3:
+    case 4:
       return "red";
     default:
-      return "gray";
+      return "grey";
   }
 };
 
-// 获取状态对应的文本
-const getStatusText = (status: number) => {
+// 修改状态文本获取函数
+const getStatusText = (status: number, judgeInfo?: any) => {
+  // 如果有 judgeInfo 且包含 message，优先使用 message 的映射
+  if (judgeInfo?.message) {
+    switch (judgeInfo.message) {
+      case "Accepted":
+        return "通过";
+      case "Wrong Answer":
+        return "答案错误";
+      case "编译错误":
+        return "编译错误";
+      case "Runtime Error":
+        return "运行错误";
+      case "Time Limit Exceeded":
+        return "超时";
+      case "Memory Limit Exceeded":
+        return "内存超限";
+      default:
+        return judgeInfo.message;
+    }
+  }
+
+  // 否则使用默认的状态映射
   switch (status) {
     case 0:
-      return "等待中";
+      return "等待判题";
     case 1:
       return "判题中";
     case 2:
       return "通过";
     case 3:
       return "失败";
+    case 4:
+      return "编译错误";
     default:
-      return "未知";
+      return "未知状态";
   }
 };
 
@@ -1742,7 +1795,7 @@ pre {
     left: 50%;
     top: -2px;
     transform: translateX(-50%);
-    width: 40px; /* 中间小横条的宽度 */
+    width: 40px; /* 中间小条的宽度 */
     height: 4px; /* 中间小横条的高度 */
     background-color: var(--color-neutral-3);
     border-radius: 2px;
