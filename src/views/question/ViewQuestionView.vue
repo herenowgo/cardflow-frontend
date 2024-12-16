@@ -83,22 +83,19 @@
                       </a-button>
                     </template>
 
-                    <!-- 新的 AI 建议卡片设计 -->
-                    <div
-                      class="ai-suggestion-container"
-                      v-if="aiSuggestions[index]"
-                    >
-                      <div class="ai-suggestion-header">
-                        <icon-robot />
-                        <span>AI 分析建议</span>
-                      </div>
-
-                      <div class="ai-suggestion-content">
-                        <div class="ai-suggestion-text-wrapper">
-                          <MdViewer :value="aiSuggestions[index]" />
-                        </div>
-                      </div>
-                    </div>
+                    <!-- 使用 StreamingMarkdown 组件 -->
+                    <StreamingMarkdown
+                      v-if="aiLoading[index] || aiSuggestions[index]"
+                      :requestId="currentRequestIds[index]"
+                      :initialContent="aiSuggestions[index]"
+                      :loading="aiLoading[index]"
+                      show-header
+                      show-robot-icon
+                      title="AI 分析建议"
+                      @update="(content) => updateAiSuggestion(index, content)"
+                      @complete="() => onAiSuggestionComplete(index)"
+                      @error="(error) => handleAiSuggestionError(error, index)"
+                    />
                   </a-collapse-item>
                 </a-collapse>
               </template>
@@ -578,7 +575,7 @@
                                     <a-textarea
                                       v-model="debugTestCase"
                                       :auto-size="{ minRows: 2, maxRows: 6 }"
-                                      placeholder="在这里输入测试用例，点击上方调试按钮运行"
+                                      placeholder="在这里输入测试用例，点击上方调试��钮运行"
                                       allow-clear
                                       class="debug-input"
                                     >
@@ -616,7 +613,7 @@
                                   <a-descriptions-item label="执行用时">
                                     {{ debugResult.time?.[0] }} ms
                                   </a-descriptions-item>
-                                  <a-descriptions-item label="内存消耗">
+                                  <a-descriptions-item label="内存消���">
                                     {{ debugResult.memory?.[0] ?? 0 }} KB
                                   </a-descriptions-item>
                                 </a-descriptions>
@@ -724,6 +721,7 @@ import {
 } from "../../../generated";
 import { eventStreamService } from "@/services/EventStreamService";
 import { ChatControllerService } from "../../../generated/services/ChatControllerService";
+import StreamingMarkdown from "@/components/StreamingMarkdown.vue";
 
 interface Props {
   id: string;
@@ -833,7 +831,7 @@ const lastSubmitInfo = ref<{
  * 提交代码
  */
 const doSubmit = async () => {
-  // 设置已交互��态
+  // 设置已交互状态
   hasInteracted.value = true;
   // 清除调试结果显示
   debugResult.value = null;
@@ -935,7 +933,7 @@ const changeCode = (value: string) => {
 
 const handleLanguageChange = (value: string) => {
   form.value.language = value;
-  // 保存语言选择本地存储
+  // 保存语言选择框���值到本地存储
   localStorage.setItem(`language_${questionId}`, value);
 };
 
@@ -1005,23 +1003,13 @@ const getAiSuggestion = async (index: number) => {
     });
 
     if (String(res.code) === "200" && res.data) {
-      const requestId = res.data;
-
-      // 等待流式响应，并实时更新内容
-      await eventStreamService.waitForStreamingResult(
-        requestId,
-        (content: string) => {
-          aiSuggestions.value[index] = content;
-        }
-      );
+      currentRequestIds.value[index] = res.data; // 只设置对应索引的 requestId
     } else {
       message.error("获取AI建议失败: " + res.message);
+      aiLoading.value[index] = false;
     }
   } catch (error) {
-    message.error("获取AI建议时发生错误");
-    console.error(error);
-  } finally {
-    aiLoading.value[index] = false;
+    handleAiSuggestionError(error, index);
   }
 };
 
@@ -1287,6 +1275,23 @@ const showSolvingEditor = ref(false);
 const onSolvingSubmitted = () => {
   // 移除自动返回的逻辑
   // showSolvingEditor.value = false;
+};
+
+const currentRequestIds = ref<string[]>([]);
+
+const updateAiSuggestion = (index: number, content: string) => {
+  aiSuggestions.value[index] = content;
+};
+
+const onAiSuggestionComplete = (index: number) => {
+  aiLoading.value[index] = false;
+  currentRequestIds.value[index] = "";
+};
+
+const handleAiSuggestionError = (error: any, index: number) => {
+  message.error("获取AI建议失败");
+  console.error(error);
+  aiLoading.value[index] = false;
 };
 </script>
 
