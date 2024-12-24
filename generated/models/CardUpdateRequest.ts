@@ -6,7 +6,7 @@
 import type { AnkiInfo } from './AnkiInfo';
 
 export type CardUpdateRequest = {
-    id: string;
+    id?: string;
     ankiInfo?: AnkiInfo;
     question?: string;
     answer?: string;

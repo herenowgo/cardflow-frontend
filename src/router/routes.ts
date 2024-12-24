@@ -212,4 +212,9 @@ export const routes: Array<RouteRecordRaw> = [
       hideInMenu: true,
     },
   },
+  {
+    path: "/resource",
+    name: "学习资源",
+    component: () => import("@/views/resource/ResourceManageView.vue"),
+  },
 ];
