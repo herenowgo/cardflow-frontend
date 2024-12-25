@@ -1269,6 +1269,13 @@
   resolved "https://registry.npmmirror.com/@soda/get-current-script/-/get-current-script-1.0.2.tgz"
   integrity sha512-T7VNNlYVM1SgQ+VsMYhnDkcGmWhQdL0bDyGm5TlQ3GBXnJscEClUUOKduWTmm2zCnvNLC1hc3JpuXjs/nFOc5w==
 
+"@tato30/vue-pdf@^1.11.3":
+  version "1.11.3"
+  resolved "https://registry.npmjs.org/@tato30/vue-pdf/-/vue-pdf-1.11.3.tgz"
+  integrity sha512-YKEmy3NKAy+UsgYCu+GkKQ1VaIovjP/5lO5NmiKRjv9Jbl1LqJYGafZUt3QXp5Ijg0DN2gYDf8Jl949Lr9E7mA==
+  dependencies:
+    pdfjs-dist "4.9.124"
+
 "@trysound/sax@0.2.0":
   version "0.2.0"
   resolved "https://registry.npmmirror.com/@trysound/sax/-/sax-0.2.0.tgz"
@@ -6123,6 +6130,13 @@ pdfjs-dist@^4.7.76:
   optionalDependencies:
     "@napi-rs/canvas" "^0.1.64"
 
+pdfjs-dist@4.9.124:
+  version "4.9.124"
+  resolved "https://registry.npmjs.org/pdfjs-dist/-/pdfjs-dist-4.9.124.tgz"
+  integrity sha512-yAoM7C+IYIG23dAZHE2KqtE5exEj067Ef6oblb+AHiqLwTJSQOMB+e8ftBA3pp1+6TyE4xeofoHcu9t7XaOE0g==
+  optionalDependencies:
+    "@napi-rs/canvas" "^0.1.64"
+
 picocolors@^0.2.1:
   version "0.2.1"
   resolved "https://registry.npmmirror.com/picocolors/-/picocolors-0.2.1.tgz"
@@ -7820,7 +7834,7 @@ vue-template-es2015-compiler@^1.9.0:
   resolved "https://registry.npmmirror.com/vue-template-es2015-compiler/-/vue-template-es2015-compiler-1.9.1.tgz"
   integrity sha512-4gDntzrifFnCEvyoO8PqyJDmguXgVPxKiIxrBKjIowvL9l+N66196+72XVYR8BBf1Uv1Fgt3bGevJ+sEmxfZzw==
 
-vue@*, "vue@^2 || ^3.2.13", vue@^3.0.0, vue@^3.1.0, vue@^3.2.0, vue@^3.2.13, vue@^3.3.0, vue@3.3.11:
+vue@*, "vue@^2 || ^3.2.13", vue@^3.0.0, vue@^3.1.0, vue@^3.2.0, vue@^3.2.13, vue@^3.2.33, vue@^3.3.0, vue@3.3.11:
   version "3.3.11"
   resolved "https://registry.npmmirror.com/vue/-/vue-3.3.11.tgz"
   integrity sha512-d4oBctG92CRO1cQfVBZp6WJAs0n8AK4Xf5fNjQCBeKCvMI1efGQ5E3Alt1slFJS9fZuPcFoiAiqFvQlv1X7t/w==

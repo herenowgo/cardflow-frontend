@@ -217,4 +217,9 @@ export const routes: Array<RouteRecordRaw> = [
     name: "学习资源",
     component: () => import("@/views/resource/ResourceManageView.vue"),
   },
+  {
+    path: "/resource-preview",
+    name: "resource-preview",
+    component: () => import("@/views/resource/ResourcePreviewView.vue"),
+  },
 ];

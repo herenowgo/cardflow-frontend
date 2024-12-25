@@ -181,6 +181,16 @@
         @select="handleFolderSelect"
       />
     </a-modal>
+
+    <!-- PDF预览模态框 -->
+    <a-modal
+      v-model:visible="pdfPreviewVisible"
+      title="PDF预览"
+      fullscreen
+      @cancel="pdfPreviewVisible = false"
+    >
+      <PdfPreview v-if="pdfPreviewVisible" :source="pdfPreviewUrl" />
+    </a-modal>
   </div>
 </template>
 
@@ -195,6 +205,10 @@ import {
   IconMore,
   IconPlus,
 } from "@arco-design/web-vue/es/icon";
+import PdfPreview from "@/components/PdfPreview.vue";
+import { useRouter } from "vue-router";
+
+const router = useRouter();
 
 // 状态变量
 const loading = ref(false);
@@ -207,6 +221,8 @@ const folders = ref<any[]>([]);
 const uploadModalVisible = ref(false);
 const createFolderModalVisible = ref(false);
 const moveModalVisible = ref(false);
+const pdfPreviewVisible = ref(false);
+const pdfPreviewUrl = ref("");
 
 // 表单数据
 const uploadForm = ref({
@@ -327,13 +343,19 @@ const handlePreview = async (file: any) => {
   try {
     const res = await UserFileControllerService.previewFile(file.path);
     if (res.code === 200 && res.data) {
-      // 根据文件类型处理预览
-      if (res.data.type === "IMAGE") {
-        window.open(res.data.previewUrl, "_blank");
-      } else if (res.data.type === "PDF") {
-        window.open(res.data.previewUrl, "_blank");
+      if (res.data.type.toUpperCase() === "PDF") {
+        // 使用路由导航到新页面，传递必要的参数
+        router.push({
+          name: "resource-preview",
+          query: {
+            url: res.data.url,
+            path: file.path,
+            name: file.name,
+          },
+        });
+      } else if (res.data.type === "IMAGE") {
+        window.open(res.data.url, "_blank");
       } else {
-        // 其他类型文件处理
         const urlRes = await UserFileControllerService.getFileUrl(file.path);
         if (urlRes.code === 200 && urlRes.data) {
           window.open(urlRes.data, "_blank");
