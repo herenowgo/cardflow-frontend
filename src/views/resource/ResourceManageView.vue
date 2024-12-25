@@ -344,11 +344,9 @@ const handlePreview = async (file: any) => {
     const res = await UserFileControllerService.previewFile(file.path);
     if (res.code === 200 && res.data) {
       if (res.data.type.toUpperCase() === "PDF") {
-        // 使用路由导航到新页面，传递必要的参数
         router.push({
           name: "resource-preview",
           query: {
-            url: res.data.url,
             path: file.path,
             name: file.name,
           },
@@ -364,6 +362,7 @@ const handlePreview = async (file: any) => {
     }
   } catch (error) {
     Message.error("预览失败");
+    console.error("Preview error:", error);
   }
 };
 
