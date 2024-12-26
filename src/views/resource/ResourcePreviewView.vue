@@ -1,11 +1,22 @@
 <template>
-  <a-layout class="h-screen">
-    <a-layout-sider width="50%" class="bg-white">
+  <a-layout class="h-screen relative">
+    <a-layout-sider
+      :width="siderWidth"
+      class="bg-white resizable-sider"
+      :style="{ width: `${siderWidth}px` }"
+    >
       <div class="p-4 h-full">
         <h2 class="text-2xl font-bold mb-4">PDF Viewer</h2>
         <pdf-viewer :source="pdfUrl" />
       </div>
     </a-layout-sider>
+
+    <div
+      class="resizer"
+      @mousedown="startResize"
+      @touchstart="startResize"
+    ></div>
+
     <a-layout-content class="bg-gray-100">
       <div class="p-4">
         <h2 class="text-2xl font-bold mb-4">Flashcard Maker</h2>
@@ -21,8 +32,8 @@
           </a-form-item>
           <a-form-item>
             <a-button type="primary" html-type="submit"
-              >Create Flashcard</a-button
-            >
+              >Create Flashcard
+            </a-button>
           </a-form-item>
         </a-form>
 
@@ -36,8 +47,8 @@
                 <template #title>{{ item.question }}</template>
                 <template #extra>
                   <a-button status="danger" @click="deleteFlashcard(item)"
-                    >Delete</a-button
-                  >
+                    >Delete
+                  </a-button>
                 </template>
                 {{ item.answer }}
               </a-card>
@@ -65,14 +76,39 @@
   </a-layout>
 </template>
 
-<script setup>
-import { ref, reactive } from "vue";
+<script setup lang="ts">
+import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { useRoute } from "vue-router";
 import { Message } from "@arco-design/web-vue";
 import PdfViewer from "./PdfViewer.vue";
+import { UserFileControllerService } from "../../../generated";
 
-const pdfUrl = ref(
-  "http://code-flow-q.oss-cn-shanghai.aliyuncs.com/user/1861024855969775618/Redis%E6%A0%B8%E5%BF%83%E6%8A%80%E6%9C%AF%E4%B8%8E%E5%AE%9E%E6%88%98.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=LTAI5t7xoioU8NcvvG3FQFU8%2F20241226%2Foss-cn-shanghai%2Fs3%2Faws4_request&X-Amz-Date=20241226T134248Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&X-Amz-Signature=6a207e39769fb096fb38de6db7ff6a6e0e6e278d3118e0115b63b253a20eda11"
-); // Replace with your PDF URL
+const route = useRoute();
+const pdfUrl = ref("");
+
+onMounted(async () => {
+  // 从路由参数中获取 URL
+  const urlFromQuery = route.query.url as string;
+  if (urlFromQuery) {
+    pdfUrl.value = urlFromQuery;
+  } else {
+    // 如果 URL 不存在，可以尝试重新获取
+    const path = route.query.path as string;
+    if (path) {
+      try {
+        const res = await UserFileControllerService.previewFile(path);
+        if (res.code === 200 && res.data) {
+          pdfUrl.value = res.data.url;
+        } else {
+          Message.error("获取预览链接失败");
+        }
+      } catch (error) {
+        Message.error("加载PDF失败");
+        console.error("Load PDF error:", error);
+      }
+    }
+  }
+});
 
 const flashcard = reactive({
   question: "",
@@ -96,7 +132,7 @@ const createFlashcard = () => {
   }
 };
 
-const deleteFlashcard = (item) => {
+const deleteFlashcard = (item: any) => {
   const index = flashcards.value.indexOf(item);
   if (index > -1) {
     flashcards.value.splice(index, 1);
@@ -125,4 +161,100 @@ const analyzeFlashcards = async () => {
     analyzing.value = false;
   }
 };
+
+// 侧边栏宽度状态
+const siderWidth = ref(window.innerWidth * 0.5); // 默认50%宽度
+const minWidth = 300; // 最小宽度
+const maxWidth = window.innerWidth * 0.8; // 最大宽度
+
+// 拖拽相关状态
+const isResizing = ref(false);
+let startX = 0;
+let startWidth = 0;
+
+// 开始拖拽
+const startResize = (e: MouseEvent | TouchEvent) => {
+  isResizing.value = true;
+  startX = "touches" in e ? e.touches[0].clientX : e.clientX;
+  startWidth = siderWidth.value;
+
+  // 添加事件监听
+  document.addEventListener("mousemove", handleResize);
+  document.addEventListener("mouseup", stopResize);
+  document.addEventListener("touchmove", handleResize);
+  document.addEventListener("touchend", stopResize);
+
+  // 添加禁止选择类
+  document.body.classList.add("resize-active");
+};
+
+// 处理拖拽
+const handleResize = (e: MouseEvent | TouchEvent) => {
+  if (!isResizing.value) return;
+
+  const clientX = "touches" in e ? e.touches[0].clientX : e.clientX;
+  const delta = clientX - startX;
+  const newWidth = Math.min(Math.max(startWidth + delta, minWidth), maxWidth);
+
+  siderWidth.value = newWidth;
+};
+
+// 停止拖拽
+const stopResize = () => {
+  isResizing.value = false;
+  document.removeEventListener("mousemove", handleResize);
+  document.removeEventListener("mouseup", stopResize);
+  document.removeEventListener("touchmove", handleResize);
+  document.removeEventListener("touchend", stopResize);
+
+  document.body.classList.remove("resize-active");
+};
+
+// 清理事件监听
+onUnmounted(() => {
+  document.removeEventListener("mousemove", handleResize);
+  document.removeEventListener("mouseup", stopResize);
+  document.removeEventListener("touchmove", handleResize);
+  document.removeEventListener("touchend", stopResize);
+});
 </script>
+
+<style scoped>
+.resizable-sider {
+  position: relative;
+  transition: none;
+}
+
+.resizer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background-color: transparent;
+  cursor: col-resize;
+  transition: background-color 0.3s;
+  z-index: 100;
+  /* 调整位置到sider右侧 */
+  left: calc(v-bind(siderWidth) * 1px);
+  transform: translateX(-50%);
+}
+
+.resizer:hover,
+.resizer:active {
+  background-color: var(--color-primary-light-4);
+}
+
+/* 拖动时禁止选择文本 */
+:global(.resize-active) {
+  user-select: none;
+  cursor: col-resize;
+}
+
+/* 确保布局容器是相对定位 */
+.h-screen {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+}
+</style>

@@ -7,7 +7,6 @@
       <a-layout-content class="content">
         <router-view />
       </a-layout-content>
-      <a-layout-footer class="footer"> © 2023-2024 版权所有 </a-layout-footer>
     </a-layout>
   </div>
 </template>

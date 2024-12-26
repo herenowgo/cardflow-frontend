@@ -360,23 +360,25 @@ const handleUpload = async () => {
 };
 
 // 文件预览
-const handlePreview = async (file: UserFile) => {
+const handlePreview = async (file: any) => {
   try {
-    // 如果是PDF文件，获取预览URL并打开预览模态框
+    // 如果是PDF文件
     if (file.name.toLowerCase().endsWith(".pdf")) {
       const res = await UserFileControllerService.previewFile(file.path);
       if (res.code === 200 && res.data) {
-        pdfPreviewUrl.value = res.data.url;
-        pdfPreviewVisible.value = true;
+        // 使用 router 导航到预览页面，并传递 URL 参数
+        router.push({
+          name: "resource-preview",
+          query: {
+            url: res.data.url,
+            path: file.path,
+          },
+        });
       } else {
-        // 如果预览失败，尝试直接获取文件URL
-        const urlRes = await UserFileControllerService.getFileUrl(file.path);
-        if (urlRes.code === 200 && urlRes.data) {
-          window.open(urlRes.data, "_blank");
-        }
+        Message.error("获取预览链接失败");
       }
     } else {
-      // 非PDF文件直接获取URL并在新标签页打开
+      // 非PDF文件的处理逻辑
       const urlRes = await UserFileControllerService.getFileUrl(file.path);
       if (urlRes.code === 200 && urlRes.data) {
         window.open(urlRes.data, "_blank");

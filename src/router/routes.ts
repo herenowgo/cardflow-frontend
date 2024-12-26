@@ -204,6 +204,14 @@ export const routes: Array<RouteRecordRaw> = [
     component: WorkspaceView,
   },
   {
+    path: "/flashcard/review",
+    name: "抽认卡复习",
+    component: () => import("@/views/flashcard/ReviewView.vue"),
+    meta: {
+      keepAlive: true,
+    },
+  },
+  {
     path: "/workspace/group/:group",
     name: "groupDetail",
     component: GroupDetailView,

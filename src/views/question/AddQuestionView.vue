@@ -418,4 +418,15 @@ const handleCalculateOutput = async (index: number) => {
 :deep(.arco-collapse-item:last-child) {
   border-bottom: none;
 }
+
+/* 在需要全屏显示的组件中添加 */
+.full-height {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 移除父容器的 padding */
+:deep(.content-wrapper) {
+  padding: 0;
+}
 </style>
