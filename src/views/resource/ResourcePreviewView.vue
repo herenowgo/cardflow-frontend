@@ -1,174 +1,128 @@
 <template>
-  <div class="resource-preview-layout">
-    <!-- 左侧 PDF 预览 -->
-    <div class="pdf-section">
-      <div class="toolbar">
-        <a-button @click="router.back()">
-          <template #icon>
-            <icon-left />
-          </template>
-          返回
-        </a-button>
+  <a-layout class="h-screen">
+    <a-layout-sider width="50%" class="bg-white">
+      <div class="p-4 h-full">
+        <h2 class="text-2xl font-bold mb-4">PDF Viewer</h2>
+        <pdf-viewer :source="pdfUrl" />
       </div>
+    </a-layout-sider>
+    <a-layout-content class="bg-gray-100">
+      <div class="p-4">
+        <h2 class="text-2xl font-bold mb-4">Flashcard Maker</h2>
+        <a-form :model="flashcard" @submit.prevent="createFlashcard">
+          <a-form-item field="question" label="Question">
+            <a-input
+              v-model="flashcard.question"
+              placeholder="Enter question"
+            />
+          </a-form-item>
+          <a-form-item field="answer" label="Answer">
+            <a-textarea v-model="flashcard.answer" placeholder="Enter answer" />
+          </a-form-item>
+          <a-form-item>
+            <a-button type="primary" html-type="submit"
+              >Create Flashcard</a-button
+            >
+          </a-form-item>
+        </a-form>
 
-      <pdf-preview
-        v-if="pdfUrl"
-        :source="{
-          url: pdfUrl,
-          withCredentials: true,
-        }"
-      />
-    </div>
+        <a-divider />
 
-    <!-- 右侧面板 -->
-    <div class="interaction-section">
-      <a-tabs>
-        <a-tab-pane key="1" title="目录">
-          <div class="outline-container" v-if="outlines && outlines.length">
-            <a-tree :data="outlines" @select="handleOutlineSelect" />
-          </div>
-          <a-empty v-else description="暂无目录" />
-        </a-tab-pane>
-        <a-tab-pane key="2" title="制作卡片">
-          <div class="card-creation">
-            <a-form :model="cardForm" layout="vertical">
-              <a-form-item label="问题">
-                <a-textarea
-                  v-model="cardForm.question"
-                  :auto-size="{ minRows: 3 }"
-                  placeholder="输入问题..."
-                />
-              </a-form-item>
-              <a-form-item label="答案">
-                <a-textarea
-                  v-model="cardForm.answer"
-                  :auto-size="{ minRows: 3 }"
-                  placeholder="输入答案..."
-                />
-              </a-form-item>
-              <a-form-item>
-                <a-button type="primary" @click="createCard">创建卡片</a-button>
-              </a-form-item>
-            </a-form>
-          </div>
-        </a-tab-pane>
-        <a-tab-pane key="3" title="AI 助手">
-          <div class="ai-chat">
-            <div class="chat-messages" ref="chatContainer">
-              <div
-                v-for="(msg, index) in chatMessages"
-                :key="index"
-                :class="['message', msg.role]"
-              >
-                {{ msg.content }}
-              </div>
-            </div>
-            <div class="chat-input">
-              <a-input-search
-                v-model="chatInput"
-                placeholder="输入问题..."
-                search-button
-                @search="sendMessage"
-              />
-            </div>
-          </div>
-        </a-tab-pane>
-      </a-tabs>
-    </div>
-  </div>
+        <h3 class="text-xl font-bold mb-2">Flashcards</h3>
+        <a-list :data="flashcards" class="mb-4">
+          <template #item="{ item }">
+            <a-list-item>
+              <a-card hoverable>
+                <template #title>{{ item.question }}</template>
+                <template #extra>
+                  <a-button status="danger" @click="deleteFlashcard(item)"
+                    >Delete</a-button
+                  >
+                </template>
+                {{ item.answer }}
+              </a-card>
+            </a-list-item>
+          </template>
+        </a-list>
+
+        <a-button
+          type="primary"
+          @click="analyzeFlashcards"
+          :loading="analyzing"
+        >
+          Analyze Flashcards
+        </a-button>
+
+        <a-modal
+          v-model:visible="showAnalysis"
+          title="AI Analysis"
+          @ok="showAnalysis = false"
+        >
+          <p>{{ aiAnalysis }}</p>
+        </a-modal>
+      </div>
+    </a-layout-content>
+  </a-layout>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
+<script setup>
+import { ref, reactive } from "vue";
 import { Message } from "@arco-design/web-vue";
-import PdfPreview from "@/components/PdfPreview.vue";
-import { UserFileControllerService } from "../../../generated";
+import PdfViewer from "./PdfViewer.vue";
 
-const router = useRouter();
-const route = useRoute();
-const pdfUrl = ref("");
-const outlines = ref([]);
-const cardForm = ref({
+const pdfUrl = ref(
+  "http://code-flow-q.oss-cn-shanghai.aliyuncs.com/user/1861024855969775618/%E5%9F%BA%E4%BA%8E%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E7%9A%84%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E5%AD%A6%E5%B9%B3%E5%8F%B0%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0_%E5%94%90%E6%99%93.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=LTAI5t7xoioU8NcvvG3FQFU8%2F20241226%2Foss-cn-shanghai%2Fs3%2Faws4_request&X-Amz-Date=20241226T125218Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&X-Amz-Signature=20fa1cc249e169ce3ccba7cf672958dc0b943007e58cecf91c9aaeb4a35229e2"
+); // Replace with your PDF URL
+
+const flashcard = reactive({
   question: "",
   answer: "",
 });
-const chatMessages = ref([]);
-const chatInput = ref("");
 
-// 获取 PDF URL
-const getPdfUrl = async () => {
-  try {
-    if (!route.query.path) {
-      Message.error("文件路径不存在");
-      return;
-    }
-    console.log("Fetching PDF URL for path:", route.query.path);
-    const res = await UserFileControllerService.previewFile(
-      route.query.path as string
-    );
-    console.log("Preview file response:", res);
-    if (res.code === 200 && res.data) {
-      pdfUrl.value = res.data.url;
-      console.log("PDF URL set to:", pdfUrl.value);
-    }
-  } catch (err) {
-    console.error("Get PDF URL error:", err);
-    Message.error("获取 PDF URL 失败");
+const flashcards = ref([]);
+
+const showAnalysis = ref(false);
+const aiAnalysis = ref("");
+const analyzing = ref(false);
+
+const createFlashcard = () => {
+  if (flashcard.question && flashcard.answer) {
+    flashcards.value.push({ ...flashcard });
+    flashcard.question = "";
+    flashcard.answer = "";
+    Message.success("Flashcard created successfully");
+  } else {
+    Message.error("Please fill in both question and answer");
   }
 };
 
-// 处理目录选择
-const handleOutlineSelect = (selectedKeys: string[]) => {
-  console.log("Selected outline:", selectedKeys);
+const deleteFlashcard = (item) => {
+  const index = flashcards.value.indexOf(item);
+  if (index > -1) {
+    flashcards.value.splice(index, 1);
+    Message.success("Flashcard deleted successfully");
+  }
 };
 
-// 创建卡片
-const createCard = () => {
-  // 实现创建卡片的逻辑
-  console.log("Creating card:", cardForm.value);
+const analyzeFlashcards = async () => {
+  analyzing.value = true;
+  try {
+    // This is a mock API call. Replace with your actual AI analysis API
+    const response = await fetch("https://api.example.com/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(flashcards.value),
+    });
+    const data = await response.json();
+    aiAnalysis.value = data.analysis;
+    showAnalysis.value = true;
+  } catch (error) {
+    Message.error("Failed to analyze flashcards");
+    console.error("Error:", error);
+  } finally {
+    analyzing.value = false;
+  }
 };
-
-// 发送消息
-const sendMessage = () => {
-  if (!chatInput.value.trim()) return;
-
-  chatMessages.value.push({
-    role: "user",
-    content: chatInput.value,
-  });
-
-  chatInput.value = "";
-};
-
-onMounted(async () => {
-  await getPdfUrl();
-});
 </script>
-
-<style scoped>
-.resource-preview-layout {
-  height: 100%;
-  display: flex;
-  background: var(--color-bg-1);
-}
-
-.pdf-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--color-border);
-}
-
-.toolbar {
-  padding: 12px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-2);
-}
-
-.interaction-section {
-  width: 400px;
-  display: flex;
-  flex-direction: column;
-}
-</style>
