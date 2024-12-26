@@ -71,7 +71,7 @@ import { Message } from "@arco-design/web-vue";
 import PdfViewer from "./PdfViewer.vue";
 
 const pdfUrl = ref(
-  "http://code-flow-q.oss-cn-shanghai.aliyuncs.com/user/1861024855969775618/%E5%9F%BA%E4%BA%8E%E5%BE%AE%E6%9C%8D%E5%8A%A1%E6%9E%B6%E6%9E%84%E7%9A%84%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E5%AD%A6%E5%B9%B3%E5%8F%B0%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0_%E5%94%90%E6%99%93.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=LTAI5t7xoioU8NcvvG3FQFU8%2F20241226%2Foss-cn-shanghai%2Fs3%2Faws4_request&X-Amz-Date=20241226T125218Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&X-Amz-Signature=20fa1cc249e169ce3ccba7cf672958dc0b943007e58cecf91c9aaeb4a35229e2"
+  "http://code-flow-q.oss-cn-shanghai.aliyuncs.com/user/1861024855969775618/Redis%E6%A0%B8%E5%BF%83%E6%8A%80%E6%9C%AF%E4%B8%8E%E5%AE%9E%E6%88%98.pdf?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=LTAI5t7xoioU8NcvvG3FQFU8%2F20241226%2Foss-cn-shanghai%2Fs3%2Faws4_request&X-Amz-Date=20241226T134248Z&X-Amz-Expires=1800&X-Amz-SignedHeaders=host&X-Amz-Signature=6a207e39769fb096fb38de6db7ff6a6e0e6e278d3118e0115b63b253a20eda11"
 ); // Replace with your PDF URL
 
 const flashcard = reactive({

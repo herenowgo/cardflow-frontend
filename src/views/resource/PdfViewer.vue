@@ -1,8 +1,46 @@
 <template>
   <div class="pdf-viewer-container">
+    <!-- 添加目录抽屉 -->
+    <a-drawer
+      v-model:visible="outlineVisible"
+      :width="300"
+      title="目录"
+      placement="left"
+      unmountOnClose
+    >
+      <template v-if="outline.length">
+        <a-tree
+          :data="outline"
+          :default-expanded-keys="['0-0']"
+          @select="handleOutlineSelect"
+        >
+          <template #title="{ title, pageNumber }">
+            <span class="outline-item" @click="jumpToPage(pageNumber)">
+              {{ title }}
+              <span class="page-number">{{ pageNumber }}</span>
+            </span>
+          </template>
+        </a-tree>
+      </template>
+      <template v-else>
+        <div class="empty-outline">
+          <icon-file-pdf />
+          <span>暂无目录信息</span>
+        </div>
+      </template>
+    </a-drawer>
+
     <div class="pdf-controls">
-      <!-- 页面导航控制组 -->
+      <!-- 添加目录按钮 -->
       <div class="control-group">
+        <a-tooltip content="目录">
+          <a-button @click="toggleOutline">
+            <template #icon>
+              <icon-menu />
+            </template>
+          </a-button>
+        </a-tooltip>
+        <!-- 保持现有的控制按钮 -->
         <a-button-group>
           <a-tooltip content="上一页">
             <a-button @click="previousPage" :disabled="currentPage === 1">
@@ -106,6 +144,8 @@ import {
   IconPlus,
   IconFullscreen,
   IconExclamationCircleFill,
+  IconMenu,
+  IconFilePdf,
 } from "@arco-design/web-vue/es/icon";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -130,12 +170,17 @@ const error = ref("");
 const canvasWrapper = ref(null);
 const textLayerWrapper = ref(null);
 
+// 添加目录相关的状态
+const outlineVisible = ref(false);
+const outline = ref([]);
+
 const loadPDF = async () => {
   loading.value = true;
   error.value = "";
   try {
     pdfDoc = await pdfjsLib.getDocument(props.source).promise;
     pageCount.value = pdfDoc.numPages;
+    await loadOutline(); // 加载目录
     renderPage(currentPage.value);
   } catch (err) {
     console.error("Error loading PDF:", err);
@@ -251,6 +296,65 @@ const fitToPage = () => {
     scale.value = Math.min(scaleWidth, scaleHeight) * 0.95; // 留一些边距
     renderPage(currentPage.value);
   });
+};
+
+// 加载 PDF 大纲
+const loadOutline = async () => {
+  if (!pdfDoc) return;
+
+  try {
+    const pdfOutline = await pdfDoc.getOutline();
+    if (pdfOutline) {
+      outline.value = transformOutline(pdfOutline);
+    }
+  } catch (err) {
+    console.error("Error loading outline:", err);
+  }
+};
+
+// 转换 PDF 大纲为树形结构
+const transformOutline = (pdfOutline, parentKey = "0") => {
+  return pdfOutline.map((item, index) => {
+    const key = `${parentKey}-${index}`;
+    const result = {
+      key,
+      title: item.title,
+      pageNumber: null,
+      children: item.items ? transformOutline(item.items, key) : [],
+    };
+
+    // 获取目标页码
+    if (item.dest) {
+      if (typeof item.dest === "string") {
+        pdfDoc.getDestination(item.dest).then((dest) => {
+          if (dest) {
+            pdfDoc.getPageIndex(dest[0]).then((pageIndex) => {
+              result.pageNumber = pageIndex + 1;
+            });
+          }
+        });
+      } else if (Array.isArray(item.dest)) {
+        pdfDoc.getPageIndex(item.dest[0]).then((pageIndex) => {
+          result.pageNumber = pageIndex + 1;
+        });
+      }
+    }
+
+    return result;
+  });
+};
+
+// 处理目录项点击
+const jumpToPage = (pageNumber) => {
+  if (pageNumber && pageNumber !== currentPage.value) {
+    currentPage.value = pageNumber;
+    renderPage(pageNumber);
+  }
+};
+
+// 切换目录显示
+const toggleOutline = () => {
+  outlineVisible.value = !outlineVisible.value;
 };
 
 onMounted(() => {
@@ -398,5 +502,48 @@ watch(() => props.source, loadPDF);
 
 .text-layer-wrapper {
   opacity: 1;
+}
+
+.outline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--color-text-1);
+
+  &:hover {
+    color: rgb(var(--primary-6));
+  }
+}
+
+.page-number {
+  color: var(--color-text-3);
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.empty-outline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: var(--color-text-3);
+
+  :deep(.icon) {
+    font-size: 48px;
+    margin-bottom: 16px;
+  }
+}
+
+:deep(.arco-tree-node-title) {
+  width: 100%;
+}
+
+:deep(.arco-tree-node-selected) {
+  .outline-item {
+    color: rgb(var(--primary-6));
+  }
 }
 </style>
