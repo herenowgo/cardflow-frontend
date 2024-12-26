@@ -195,13 +195,28 @@ const renderPage = async (pageNumber) => {
 
   try {
     const page = await pdfDoc.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: scale.value });
+
+    // 计算更高的渲染分辨率
+    const pixelRatio = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: scale.value * pixelRatio });
+    // 创建用于文本层的视口，使用原始缩放
+    const textViewport = page.getViewport({ scale: scale.value });
 
     // 创建和设置画布
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
+
+    // 设置画布的实际尺寸（更高分辨率）
     canvas.height = viewport.height;
     canvas.width = viewport.width;
+
+    // 设置画布的显示尺寸（CSS尺寸）
+    canvas.style.width = `${viewport.width / pixelRatio}px`;
+    canvas.style.height = `${viewport.height / pixelRatio}px`;
+
+    // 优化渲染上下文
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
 
     // 清空容器
     canvasWrapper.value.innerHTML = "";
@@ -214,6 +229,8 @@ const renderPage = async (pageNumber) => {
     const renderContext = {
       canvasContext: context,
       viewport: viewport,
+      enableWebGL: true,
+      renderInteractiveForms: true,
     };
 
     // 同时获取文本内容
@@ -225,15 +242,17 @@ const renderPage = async (pageNumber) => {
     // 创建文本层div
     const textLayerDiv = document.createElement("div");
     textLayerDiv.className = "text-layer";
-    textLayerDiv.style.width = `${viewport.width}px`;
-    textLayerDiv.style.height = `${viewport.height}px`;
+
+    // 设置文本层的尺寸和位置
+    textLayerDiv.style.width = `${textViewport.width}px`;
+    textLayerDiv.style.height = `${textViewport.height}px`;
     textLayerWrapper.value.appendChild(textLayerDiv);
 
     // 渲染文本层
     await renderTextLayer({
       textContent,
       container: textLayerDiv,
-      viewport,
+      viewport: textViewport,
       textDivs: [],
     });
   } catch (err) {
@@ -269,14 +288,15 @@ const onScaleChange = (newScale) => {
 // 新增缩放功能
 const zoomIn = () => {
   if (scale.value < 2) {
-    scale.value = Math.min(2, scale.value + 0.25);
+    // 使用更小的缩放增量以获得更平滑的缩放效果
+    scale.value = Math.min(2, scale.value + 0.1);
     renderPage(currentPage.value);
   }
 };
 
 const zoomOut = () => {
   if (scale.value > 0.5) {
-    scale.value = Math.max(0.5, scale.value - 0.25);
+    scale.value = Math.max(0.5, scale.value - 0.1);
     renderPage(currentPage.value);
   }
 };
@@ -471,6 +491,7 @@ watch(() => props.source, loadPDF);
   bottom: 0;
   overflow: hidden;
   z-index: 2;
+  pointer-events: none; /* 允许点击穿透到文本 */
 }
 
 /* PDF.js 文本层样式 */
@@ -484,8 +505,7 @@ watch(() => props.source, loadPDF);
   opacity: 1;
   line-height: 1;
   user-select: text;
-  width: 100%;
-  height: 100%;
+  pointer-events: auto; /* 恢复文本的交互性 */
 }
 
 :deep(.text-layer > span) {
@@ -500,6 +520,7 @@ watch(() => props.source, loadPDF);
   background: rgba(0, 0, 255, 0.2);
 }
 
+/* 移除可能影响对齐的样式 */
 .text-layer-wrapper {
   opacity: 1;
 }
