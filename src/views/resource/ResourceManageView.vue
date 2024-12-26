@@ -3,19 +3,20 @@
     <!-- 顶部操作栏 -->
     <div class="operation-bar">
       <a-space>
+        <a-button v-if="currentPath !== '/'" @click="navigateUp">
+          <template #icon>
+            <icon-up />
+          </template>
+          返回根目录
+        </a-button>
         <a-upload :custom-request="customRequest" />
-        <!--        <a-button type="primary" @click="showUploadModal">-->
-        <!--          <template #icon>-->
-        <!--            <icon-plus />-->
-        <!--          </template>-->
-        <!--          上传文件-->
-        <!--        </a-button>-->
-        <!--        <a-button @click="showCreateFolderModal">-->
-        <!--          <template #icon>-->
-        <!--            <icon-folder-add />-->
-        <!--          </template>-->
-        <!--          新建文件夹-->
-        <!--        </a-button>-->
+        <!-- 只在根目录显示创建文件夹按钮 -->
+        <a-button v-if="currentPath === '/'" @click="showCreateFolderModal">
+          <template #icon>
+            <icon-folder-add />
+          </template>
+          新建文件夹
+        </a-button>
       </a-space>
 
       <a-input-search
@@ -26,24 +27,24 @@
       />
     </div>
 
-    <!-- 面包屑导航 -->
-    <div class="breadcrumb">
-      <a-breadcrumb>
-        <a-breadcrumb-item @click="navigateTo('/')">根目录</a-breadcrumb-item>
-        <a-breadcrumb-item
-          v-for="(item, index) in currentPath.split('/').filter(Boolean)"
-          :key="index"
-          @click="navigateTo(getCurrentPathByIndex(index))"
-        >
-          {{ item }}
-        </a-breadcrumb-item>
-      </a-breadcrumb>
-    </div>
-
     <!-- 文件列表 -->
     <div class="resource-grid">
       <a-spin :loading="loading">
         <div class="grid-container">
+          <!-- 返回上级目录项 -->
+          <div
+            v-if="currentPath !== '/'"
+            class="grid-item folder"
+            @click="navigateUp"
+          >
+            <div class="item-content">
+              <icon-up :style="{ fontSize: '40px', color: '#C99A4B' }" />
+              <div class="item-name">
+                <span>返回</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 文件夹 -->
           <div
             v-for="folder in filteredFolders"
@@ -54,20 +55,17 @@
             <div class="item-content">
               <icon-folder :style="{ fontSize: '40px', color: '#C99A4B' }" />
               <div class="item-name">
-                <a-typography-paragraph
-                  :editable="{
-                    onChange: (str) => handleRename(folder.path, str),
-                  }"
-                >
-                  {{ folder.name }}
-                </a-typography-paragraph>
+                <span>{{ folder.name }}</span>
               </div>
             </div>
             <div class="item-actions">
-              <a-dropdown>
-                <icon-more />
+              <a-dropdown @click.stop>
+                <icon-more @click.stop />
                 <template #content>
-                  <a-doption @click.stop="handleDelete(folder.path)"
+                  <a-doption @click.stop="showRenameModal(folder)"
+                    >重命名
+                  </a-doption>
+                  <a-doption @click.stop="handleDelete(folder.path, true)"
                     >删除
                   </a-doption>
                 </template>
@@ -82,7 +80,7 @@
             class="grid-item file"
           >
             <div class="item-content">
-              <div class="file-cover">
+              <div class="file-cover" @click="navigateToPreview(file)">
                 <img v-if="file.coverUrl" :src="file.coverUrl" alt="cover" />
                 <icon-file
                   v-else
@@ -90,22 +88,21 @@
                 />
               </div>
               <div class="item-name">
-                <a-typography-paragraph
-                  :editable="{
-                    onChange: (str) => handleRename(file.path, str),
-                  }"
-                >
-                  {{ file.name }}
-                </a-typography-paragraph>
+                <span>{{ file.name }}</span>
               </div>
             </div>
             <div class="item-actions">
-              <a-dropdown>
-                <icon-more />
+              <a-dropdown @click.stop>
+                <icon-more @click.stop />
                 <template #content>
-                  <a-doption @click="handlePreview(file)">预览</a-doption>
-                  <a-doption @click="showMoveModal(file)">移动</a-doption>
-                  <a-doption @click="handleDelete(file.path)">删除</a-doption>
+                  <a-doption @click.stop="showRenameModal(file)"
+                    >重命名
+                  </a-doption>
+                  <a-doption @click.stop="handlePreview(file)">预览</a-doption>
+                  <a-doption @click.stop="showMoveModal(file)">移动</a-doption>
+                  <a-doption @click.stop="handleDelete(file.path, false)"
+                    >删除
+                  </a-doption>
                 </template>
               </a-dropdown>
             </div>
@@ -174,12 +171,16 @@
       title="移动到"
       @ok="handleMove"
       @cancel="moveModalVisible = false"
+      :mask-closable="false"
     >
-      <a-tree
-        v-model:selected-keys="selectedFolderKeys"
-        :data="folderTree"
-        @select="handleFolderSelect"
-      />
+      <a-spin :loading="loading">
+        <a-tree
+          v-model:selected-keys="selectedFolderKeys"
+          :data="folderTree"
+          @select="handleFolderSelect"
+          :default-expanded-keys="['/']"
+        />
+      </a-spin>
     </a-modal>
 
     <!-- PDF预览模态框 -->
@@ -190,6 +191,16 @@
       @cancel="pdfPreviewVisible = false"
     >
       <PdfPreview v-if="pdfPreviewVisible" :source="pdfPreviewUrl" />
+    </a-modal>
+
+    <!-- 添加重命名模态框 -->
+    <a-modal
+      v-model:visible="renameModalVisible"
+      title="重命名"
+      @ok="handleRenameConfirm"
+      @cancel="renameModalVisible = false"
+    >
+      <a-input v-model="newName" placeholder="请输入新名称" />
     </a-modal>
   </div>
 </template>
@@ -204,9 +215,11 @@ import {
   IconFolderAdd,
   IconMore,
   IconPlus,
+  IconUp,
 } from "@arco-design/web-vue/es/icon";
 import PdfPreview from "@/components/PdfPreview.vue";
 import { useRouter } from "vue-router";
+import { UserFile } from "../../../generated/models/UserFile";
 
 const router = useRouter();
 
@@ -234,19 +247,40 @@ const selectedFolderKeys = ref<string[]>([]);
 const folderTree = ref<any[]>([]);
 const fileToMove = ref<any>(null);
 
+// 重命名相关的状态
+const renameModalVisible = ref(false);
+const newName = ref("");
+const itemToRename = ref<any>(null);
+
 // 计算属性：过滤后的文件和文件夹列表
 const filteredFiles = computed(() => {
-  if (!searchKeyword.value) return files.value;
-  return files.value.filter((file) =>
-    file.name.toLowerCase().includes(searchKeyword.value.toLowerCase())
-  );
+  let result;
+  if (!searchKeyword.value) {
+    result = files.value.filter((item) => !item.isFolder);
+  } else {
+    result = files.value.filter(
+      (item) =>
+        !item.isFolder &&
+        item.name.toLowerCase().includes(searchKeyword.value.toLowerCase())
+    );
+  }
+  // 按名称排序
+  return result.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
 });
 
 const filteredFolders = computed(() => {
-  if (!searchKeyword.value) return folders.value;
-  return folders.value.filter((folder) =>
-    folder.name.toLowerCase().includes(searchKeyword.value.toLowerCase())
-  );
+  let result;
+  if (!searchKeyword.value) {
+    result = folders.value.filter((item) => item.isFolder);
+  } else {
+    result = folders.value.filter(
+      (item) =>
+        item.isFolder &&
+        item.name.toLowerCase().includes(searchKeyword.value.toLowerCase())
+    );
+  }
+  // 按名称排序
+  return result.sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
 });
 
 // 加载文件列表
@@ -255,22 +289,9 @@ const loadFiles = async () => {
   try {
     const res = await UserFileControllerService.listFiles(currentPath.value);
     if (res.code === 200 && res.data) {
-      files.value = res.data.filter((item) => !item.isDirectory);
-      folders.value = res.data.filter((item) => item.isDirectory);
-
-      // 获取文件的预览URL
-      for (const file of files.value) {
-        try {
-          const previewRes = await UserFileControllerService.previewFile(
-            file.path
-          );
-          if (previewRes.code === 200 && previewRes.data) {
-            file.coverUrl = previewRes.data.previewUrl;
-          }
-        } catch (error) {
-          console.error("Failed to get preview for file:", file.path);
-        }
-      }
+      // 分离文件和文件夹
+      files.value = res.data.filter((item) => !item.isFolder);
+      folders.value = res.data.filter((item) => item.isFolder);
     }
   } catch (error) {
     Message.error("加载文件列表失败");
@@ -339,25 +360,26 @@ const handleUpload = async () => {
 };
 
 // 文件预览
-const handlePreview = async (file: any) => {
+const handlePreview = async (file: UserFile) => {
   try {
-    const res = await UserFileControllerService.previewFile(file.path);
-    if (res.code === 200 && res.data) {
-      if (res.data.type.toUpperCase() === "PDF") {
-        router.push({
-          name: "resource-preview",
-          query: {
-            path: file.path,
-            name: file.name,
-          },
-        });
-      } else if (res.data.type === "IMAGE") {
-        window.open(res.data.url, "_blank");
+    // 如果是PDF文件，获取预览URL并打开预览模态框
+    if (file.name.toLowerCase().endsWith(".pdf")) {
+      const res = await UserFileControllerService.previewFile(file.path);
+      if (res.code === 200 && res.data) {
+        pdfPreviewUrl.value = res.data.url;
+        pdfPreviewVisible.value = true;
       } else {
+        // 如果预览失败，尝试直接获取文件URL
         const urlRes = await UserFileControllerService.getFileUrl(file.path);
         if (urlRes.code === 200 && urlRes.data) {
           window.open(urlRes.data, "_blank");
         }
+      }
+    } else {
+      // 非PDF文件直接获取URL并在新标签页打开
+      const urlRes = await UserFileControllerService.getFileUrl(file.path);
+      if (urlRes.code === 200 && urlRes.data) {
+        window.open(urlRes.data, "_blank");
       }
     }
   } catch (error) {
@@ -371,23 +393,47 @@ const handleSearch = (value: string) => {
   searchKeyword.value = value;
 };
 
-// 获取文件夹树结构
+// 修改加载文件夹树的方法
 const loadFolderTree = async () => {
   try {
-    const res = await UserFileControllerService.listFiles("/");
+    loading.value = true;
+    const res = await UserFileControllerService.listAllFolders();
     if (res.code === 200 && res.data) {
-      const buildTree = (items: any[], parentPath = "/") => {
-        return items
-          .filter(
-            (item) => item.isDirectory && item.path.startsWith(parentPath)
-          )
-          .map((item) => ({
+      // 构建文件夹树结构
+      const buildTree = (items: any[]): any[] => {
+        const result: any[] = [];
+        const itemMap = new Map();
+
+        // 首先创建所有节点的映射
+        items.forEach((item) => {
+          itemMap.set(item.path, {
             title: item.name,
             key: item.path,
-            children: buildTree(items, item.path + "/"),
-          }));
+            children: [],
+          });
+        });
+
+        // 构建树结构
+        items.forEach((item) => {
+          const node = itemMap.get(item.path);
+          const parentPath = item.path.substring(0, item.path.lastIndexOf("/"));
+
+          if (parentPath === "") {
+            // 根目录下的文件夹
+            result.push(node);
+          } else {
+            // 子文件夹
+            const parentNode = itemMap.get(parentPath);
+            if (parentNode) {
+              parentNode.children.push(node);
+            }
+          }
+        });
+
+        return result;
       };
 
+      // 添加根目录
       folderTree.value = [
         {
           title: "根目录",
@@ -397,15 +443,64 @@ const loadFolderTree = async () => {
       ];
     }
   } catch (error) {
-    Message.error("加载文件夹结构失败");
+    console.error("Load folder tree error:", error);
+    Message.error("加载文件夹树失败");
+  } finally {
+    loading.value = false;
   }
 };
 
-// 显示移动文件模态框时加载文件夹树
+// 修改显示移动模态框的方法
 const showMoveModal = async (file: any) => {
   fileToMove.value = file;
   moveModalVisible.value = true;
   await loadFolderTree();
+  // 默认选中当前文件所在的目录
+  const currentDir = file.path.substring(0, file.path.lastIndexOf("/"));
+  selectedFolderKeys.value = [currentDir || "/"];
+};
+
+// 修改移动文件的处理方法
+const handleMove = async () => {
+  if (!fileToMove.value || !selectedFolderKeys.value.length) {
+    Message.warning("请选择目标文件夹");
+    return;
+  }
+
+  const targetPath = selectedFolderKeys.value[0];
+  const sourcePath = fileToMove.value.path;
+  const sourceDir = sourcePath.substring(0, sourcePath.lastIndexOf("/"));
+
+  // 检查是否移动到当前所在目录
+  if (targetPath === sourceDir) {
+    Message.warning("文件已在该目录中");
+    return;
+  }
+
+  // 检查是否在移动到自身或子文件夹
+  if (fileToMove.value.isFolder && targetPath.startsWith(sourcePath)) {
+    Message.error("不能将文件夹移动到自身或其子文件夹中");
+    return;
+  }
+
+  try {
+    const res = await UserFileControllerService.move(sourcePath, targetPath);
+    if (res.code === 200) {
+      Message.success("移动成功");
+      loadFiles();
+      moveModalVisible.value = false;
+    } else {
+      Message.error(res.message || "移动失败");
+    }
+  } catch (error) {
+    console.error("Move error:", error);
+    Message.error("移动失败");
+  }
+};
+
+// 修改文件夹选择的处理方法
+const handleFolderSelect = (selectedKeys: string[]) => {
+  selectedFolderKeys.value = selectedKeys;
 };
 
 // 获取存储空间统计
@@ -445,42 +540,64 @@ const handleCreateFolder = async () => {
 // 重命名
 const handleRename = async (path: string, newName: string) => {
   try {
-    await UserFileControllerService.rename(path, newName);
-    Message.success("重命名成功");
-    loadFiles();
+    // 检查新名称是否为空
+    if (!newName.trim()) {
+      Message.error("名称不能为空");
+      return false;
+    }
+
+    // 检查新名称是否包含非法字符
+    if (/[\\/:*?"<>|]/.test(newName)) {
+      Message.error('名称不能包含特殊字符: \\ / : * ? " < > |');
+      return false;
+    }
+
+    // 获取当前目录下的所有文件和文件夹
+    const res = await UserFileControllerService.listFiles(currentPath.value);
+    if (res.code === 200 && res.data) {
+      // 检查新名称是否已存在
+      const exists = res.data.some(
+        (item) => item.name === newName && item.path !== path
+      );
+      if (exists) {
+        Message.error("该名称已存在");
+        return false;
+      }
+
+      // 调用重命名API
+      const renameRes = await UserFileControllerService.rename(path, newName);
+      if (renameRes.code === 200) {
+        Message.success("重命名成功");
+        loadFiles(); // 重新加载文件列表
+        return true;
+      } else {
+        Message.error(renameRes.message || "重命名失败");
+        return false;
+      }
+    }
+    return false;
   } catch (error) {
     Message.error("重命名失败");
+    console.error("Rename error:", error);
+    return false;
   }
 };
 
-// 删除
-const handleDelete = async (path: string) => {
+// 删除文件/文件夹
+const handleDelete = async (path: string, isFolder: boolean) => {
   try {
+    const confirmMessage = isFolder
+      ? "确定要删除此文件夹及其所有内容吗?"
+      : "确定要删除此文件吗?";
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
     await UserFileControllerService.delete(path);
     Message.success("删除成功");
     loadFiles();
   } catch (error) {
     Message.error("删除失败");
-  }
-};
-
-// 移动文件
-const handleMove = async () => {
-  if (!fileToMove.value || !selectedFolderKeys.value.length) {
-    Message.warning("请选择目标文件夹");
-    return;
-  }
-
-  try {
-    await UserFileControllerService.move(
-      fileToMove.value.path,
-      selectedFolderKeys.value[0]
-    );
-    Message.success("移动成功");
-    loadFiles();
-    moveModalVisible.value = false;
-  } catch (error) {
-    Message.error("移动失败");
   }
 };
 
@@ -521,7 +638,7 @@ const getCurrentPathByIndex = (index: number) => {
   );
 };
 
-// 生命周期钩子
+// 生命周期子
 onMounted(() => {
   loadFiles();
   loadStorageStats();
@@ -545,6 +662,51 @@ const customRequest = (option) => {
 
   UserFileControllerService.uploadFile({ file: fileItem.file });
 };
+
+// 修改返回上级目录的方法
+const navigateUp = () => {
+  if (currentPath.value === "/") return;
+
+  // 直接返回根目录
+  navigateTo("/");
+};
+
+// 显示重命名模态框
+const showRenameModal = (item: any) => {
+  itemToRename.value = item;
+  newName.value = item.name;
+  renameModalVisible.value = true;
+};
+
+// 处理重命名确认
+const handleRenameConfirm = async () => {
+  if (!newName.value || !itemToRename.value) return;
+
+  try {
+    const res = await UserFileControllerService.rename(
+      itemToRename.value.path,
+      newName.value
+    );
+    if (res.code === 200) {
+      Message.success("重命名成功");
+      loadFiles(); // 重新加载文件列表
+      renameModalVisible.value = false;
+    } else {
+      Message.error(res.message || "重命名失败");
+    }
+  } catch (error) {
+    Message.error("重命名失败");
+    console.error("Rename error:", error);
+  }
+};
+
+// 在 script 分添加跳转方法
+const navigateToPreview = (file: any) => {
+  router.push({
+    name: "resource-preview",
+    query: { path: file.path },
+  });
+};
 </script>
 
 <style scoped>
@@ -554,16 +716,12 @@ const customRequest = (option) => {
 
 .operation-bar {
   display: flex;
-  margin-bottom: 20px;
-}
-
-.breadcrumb {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .grid-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
   padding: 20px 0;
 }
@@ -575,6 +733,7 @@ const customRequest = (option) => {
   padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
+  min-width: 0;
 }
 
 .grid-item:hover {
@@ -582,6 +741,8 @@ const customRequest = (option) => {
 }
 
 .item-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -606,6 +767,13 @@ const customRequest = (option) => {
 .item-name {
   width: 100%;
   text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-name span {
+  font-size: 14px;
 }
 
 .item-actions {
@@ -614,6 +782,7 @@ const customRequest = (option) => {
   right: 8px;
   opacity: 0;
   transition: opacity 0.3s;
+  z-index: 2;
 }
 
 .grid-item:hover .item-actions {
@@ -646,5 +815,108 @@ const customRequest = (option) => {
   padding: 16px;
   background-color: var(--color-bg-2);
   border-radius: 4px;
+}
+
+.grid-item.folder {
+  background-color: var(--color-fill-2);
+}
+
+.grid-item.file {
+  background-color: var(--color-bg-2);
+}
+
+.folder .item-content {
+  padding: 12px;
+}
+
+.file .item-content {
+  padding: 8px;
+}
+
+.folder .item-name {
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.file .file-cover {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 4px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.file .file-cover:hover {
+  border-color: var(--color-primary-light-3);
+  box-shadow: 0 0 8px rgba(var(--primary-6), 0.2);
+}
+
+.item-name :deep(.arco-typography) {
+  margin-bottom: 0;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-name :deep(.arco-typography-edit-content) {
+  text-align: center;
+  margin: 0 auto;
+}
+
+.item-name :deep(.arco-typography-operation) {
+  opacity: 0;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.grid-item:hover .item-name :deep(.arco-typography-operation) {
+  opacity: 1;
+}
+
+.grid-item.folder.back {
+  background-color: var(--color-fill-1);
+}
+
+.grid-item.folder.back:hover {
+  background-color: var(--color-fill-2);
+}
+
+@media screen and (max-width: 1600px) {
+  .grid-container {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media screen and (max-width: 1400px) {
+  .grid-container {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media screen and (max-width: 1200px) {
+  .grid-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .grid-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .grid-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.arco-tree {
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style>
