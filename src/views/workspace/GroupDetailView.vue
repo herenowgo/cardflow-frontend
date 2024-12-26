@@ -489,6 +489,7 @@ const syncWithAnki = async () => {
         if (!noteInfo) {
           throw new Error(`No note info found for note ${noteIds[index]}`);
         }
+        res.data?.cardIds?.push(cardInfos[index].cardId);
         return {
           id: request.id,
           ankiInfo: {
