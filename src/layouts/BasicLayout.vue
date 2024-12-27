@@ -13,14 +13,20 @@
 
 <style scoped>
 #basicLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 #basicLayout .header {
   box-shadow: #eee 1px 1px 5px;
+  padding: 0 20px; /* 添加边距让内容不会紧贴边缘 */
 }
 
 #basicLayout .content {
-  //margin-top: 16px; padding-top: 16px; //background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); margin-bottom: 16px; padding: 20px;
+  flex-grow: 1; /* 让内容区域自动占满剩余空间 */
+  padding: 20px;
+  overflow: auto; /* 防止内容溢出 */
 }
 
 #basicLayout .footer {
@@ -32,11 +38,22 @@
   right: 0;
   text-align: center;
 }
-</style>
-<script>
-import GlobalHeader from "@/components/GlobalHeader";
 
-export default {
-  components: { GlobalHeader },
-};
+@media (max-width: 768px) {
+  /* 针对小屏幕的优化 */
+  #basicLayout .header {
+    padding: 0 10px;
+  }
+
+  #basicLayout .content {
+    padding: 10px;
+  }
+
+  #basicLayout .footer {
+    font-size: 12px;
+  }
+}
+</style>
+<script setup lang="ts">
+import GlobalHeader from "@/components/GlobalHeader.vue";
 </script>

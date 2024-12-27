@@ -1,345 +1,438 @@
 <template>
-  <div id="flashcardReview">
-    <a-row :gutter="24" class="full-height">
-      <!-- 左侧抽认卡区域 -->
-      <a-col :span="16" class="full-height">
-        <a-card class="review-card">
-          <template #title>
-            <div class="card-header">
-              <span class="title">抽认卡复习</span>
-              <a-space>
-                <a-tag>剩余: {{ remainingCards }}/{{ totalCards }}</a-tag>
-                <a-progress
-                  :percent="progressPercent"
-                  size="small"
-                  :style="{ width: '200px' }"
-                />
-              </a-space>
-            </div>
-          </template>
+  <div class="flashcard-review">
+    <div class="review-container">
+      <!-- 顶部信息栏 -->
+      <div class="review-header">
+        <div class="deck-info">
+          <h2>{{ currentDeck?.name || "默认牌组" }}</h2>
+          <div class="stats">
+            <a-space>
+              <a-tag color="blue">今日待复习: {{ remainingCards }}</a-tag>
+              <a-tag color="green">已完成: {{ completedCards }}</a-tag>
+              <a-tag color="orange">正确率: {{ correctRate }}%</a-tag>
+            </a-space>
+          </div>
+        </div>
+        <div class="progress">
+          <a-progress
+            :percent="progressPercent"
+            :stroke-width="8"
+            :show-text="false"
+            class="progress-bar"
+          />
+          <span class="progress-text"
+            >{{ completedCards }}/{{ totalCards }}</span
+          >
+        </div>
+      </div>
 
-          <div class="card-container">
-            <div class="card-content" @click="flipCard">
-              <a-spin :loading="loading">
-                <div class="flashcard" :class="{ 'is-flipped': isFlipped }">
-                  <div class="flashcard-inner">
-                    <!-- 正面 -->
-                    <div class="flashcard-front">
-                      <div class="card-type">
-                        <icon-question-circle />
-                        问题
-                      </div>
-                      <div class="card-text-container">
-                        <div class="card-text">{{ currentCard.question }}</div>
-                      </div>
-                      <div class="card-hint">
-                        <icon-arrow-right />
-                        点击查看答案
-                      </div>
-                    </div>
-                    <!-- 背面 -->
-                    <div class="flashcard-back">
-                      <div class="card-type">
-                        <icon-check-circle />
-                        答案
-                      </div>
-                      <div class="card-text-container">
-                        <div class="card-text">{{ currentCard.answer }}</div>
-                      </div>
-
-                      <!-- 熟悉度评价 -->
-                      <div class="familiarity-rating" v-if="isFlipped">
-                        <div class="rating-title">
-                          对这个知识点的掌握程度如何？
-                        </div>
-                        <a-space size="large">
-                          <a-button
-                            @click.stop="rateFamiliarity(1)"
-                            type="outline"
-                            status="danger"
-                            >完全不懂
-                          </a-button>
-                          <a-button
-                            @click.stop="rateFamiliarity(2)"
-                            type="outline"
-                            status="warning"
-                            >有点模糊
-                          </a-button>
-                          <a-button
-                            @click.stop="rateFamiliarity(3)"
-                            type="outline"
-                            status="success"
-                            >基本掌握
-                          </a-button>
-                          <a-button
-                            @click.stop="rateFamiliarity(4)"
-                            type="primary"
-                            >完全掌握
-                          </a-button>
-                        </a-space>
-                      </div>
+      <!-- 卡片区域 -->
+      <div class="review-content" :class="{ 'no-cards': !currentCard }">
+        <div class="card-area">
+          <template v-if="currentCard">
+            <div
+              class="flashcard"
+              :class="{ 'is-flipped': isFlipped }"
+              @click="toggleCard"
+            >
+              <div class="flashcard-inner">
+                <!-- 正面 -->
+                <div class="flashcard-front">
+                  <div class="card-content">
+                    <div class="content-type">问题</div>
+                    <div class="content-text">
+                      <md-viewer :value="currentCard.question" />
                     </div>
                   </div>
+                  <div class="card-hint">
+                    <icon-arrow-right />
+                    <span>点击卡片翻转</span>
+                  </div>
                 </div>
-              </a-spin>
-            </div>
 
-            <div class="card-actions">
-              <a-space>
-                <a-button
-                  type="secondary"
-                  @click="previousCard"
-                  :disabled="currentIndex === 0"
-                >
-                  <template #icon><icon-left /></template>
-                  上一个
-                </a-button>
-                <a-button
-                  type="primary"
-                  @click="nextCard"
-                  :disabled="currentIndex === cards.length - 1"
-                >
-                  下一个
-                  <template #icon><icon-right /></template>
-                </a-button>
-              </a-space>
-            </div>
-          </div>
-        </a-card>
-      </a-col>
-
-      <!-- 右侧AI助手区域 -->
-      <a-col :span="8">
-        <a-card class="ai-chat-card">
-          <template #title>
-            <div class="card-header">
-              <span class="title">AI助手</span>
-              <a-button type="text" @click="clearChat">
-                <template #icon>
-                  <icon-delete />
-                </template>
-                清除对话
-              </a-button>
-            </div>
-          </template>
-
-          <div class="chat-container" ref="chatContainerRef">
-            <div
-              v-for="(msg, index) in chatHistory"
-              :key="index"
-              :class="['message', msg.isUser ? 'user-message' : 'ai-message']"
-            >
-              <a-avatar
-                :style="{
-                  backgroundColor: msg.isUser
-                    ? 'var(--color-primary-light-4)'
-                    : 'var(--color-success-light-4)',
-                }"
-              >
-                {{ msg.isUser ? "我" : "AI" }}
-              </a-avatar>
-              <div class="message-content">
-                <template v-if="msg.isLoading">
-                  <a-spin dot />
-                </template>
-                <template v-else>
-                  <MdViewer v-if="!msg.isUser" :value="msg.content" />
-                  <span v-else>{{ msg.content }}</span>
-                </template>
+                <!-- 背面 -->
+                <div class="flashcard-back">
+                  <div class="card-content">
+                    <div class="content-type">答案</div>
+                    <div class="content-text">
+                      <md-viewer :value="currentCard.answer" />
+                    </div>
+                  </div>
+                  <div class="card-hint">
+                    <icon-arrow-left />
+                    <span>点击卡片翻转</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          </template>
+        </div>
 
-          <div class="chat-input">
-            <a-input-search
-              v-model="userInput"
-              placeholder="询问AI助手..."
-              search-button
-              @press-enter="sendMessage"
-              @search="sendMessage"
+        <!-- 评分区域 -->
+        <div class="rating-area" :class="{ show: showRatingButtons }">
+          <div class="rating-title">对这个知识点的掌握程度如何？</div>
+          <div class="rating-buttons">
+            <a-button
+              class="rating-btn"
+              @click="rateCard(1)"
+              status="danger"
+              shape="round"
+              size="large"
             >
-              <template #button-icon>
-                <icon-send />
+              <template #icon>
+                <icon-close />
               </template>
-            </a-input-search>
+              完全不会 (<span class="shortcut">1</span>)
+            </a-button>
+            <a-button
+              class="rating-btn"
+              @click="rateCard(2)"
+              status="warning"
+              shape="round"
+              size="large"
+            >
+              <template #icon>
+                <icon-minus />
+              </template>
+              有点困难 (<span class="shortcut">2</span>)
+            </a-button>
+            <a-button
+              class="rating-btn"
+              @click="rateCard(3)"
+              status="success"
+              shape="round"
+              size="large"
+            >
+              <template #icon>
+                <icon-check />
+              </template>
+              记得住 (<span class="shortcut">3</span>)
+            </a-button>
+            <a-button
+              class="rating-btn"
+              @click="rateCard(4)"
+              type="primary"
+              shape="round"
+              size="large"
+            >
+              <template #icon>
+                <icon-star />
+              </template>
+              很简单 (<span class="shortcut">4</span>)
+            </a-button>
           </div>
-        </a-card>
-      </a-col>
-    </a-row>
+        </div>
+      </div>
+
+      <!-- 底部工具栏 -->
+      <div class="review-footer">
+        <a-space>
+          <a-button @click="showShortcuts">
+            <template #icon>
+              <icon-keyboard />
+            </template>
+            快捷键
+          </a-button>
+          <a-button @click="showStats">
+            <template #icon>
+              <icon-bar-chart />
+            </template>
+            统计
+          </a-button>
+          <a-button type="primary" @click="syncWithAnki" :loading="syncLoading">
+            <template #icon>
+              <icon-sync />
+            </template>
+            同步到Anki
+          </a-button>
+        </a-space>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { Message } from "@arco-design/web-vue";
 import {
-  IconLeft,
-  IconRight,
-  IconDelete,
-  IconSend,
-  IconQuestionCircle,
-  IconCheckCircle,
   IconArrowRight,
+  IconClose,
+  IconMinus,
+  IconCheck,
+  IconStar,
+  IconKeyboard,
+  IconBarChart,
+  IconSync,
+  IconArrowLeft,
 } from "@arco-design/web-vue/es/icon";
 import MdViewer from "@/components/MdViewer.vue";
 
-// 模拟数据
-const cards = ref([
+interface Card {
+  id: number;
+  question: string;
+  answer: string;
+  familiarity: number;
+  lastReviewTime?: Date;
+}
+
+interface Deck {
+  id: number;
+  name: string;
+  description?: string;
+  cardCount: number;
+}
+
+// 状态
+const currentDeck = ref<Deck>({
+  id: 1,
+  name: "Vue基础知识",
+  description: "Vue3核心概念和基础API",
+  cardCount: 50,
+});
+
+const cards = ref<Card[]>([
   {
     id: 1,
-    question: "什么是Vue的响应式原理？",
-    answer:
-      "Vue的响应式原理基于ES6的Proxy（Vue3）或Object.defineProperty（Vue2），通过劫持数据的访问和修改操作，在数据变化时自动更新视图。",
+    question: "# Vue的响应式原理是什么？",
+    answer: `Vue3的响应式原理基于Proxy实现：
+
+## 主要特点
+1. 性能更好
+2. 支持更多数据类型
+3. 可以监听动态添加的属性
+
+## 实现原理
+\`\`\`js
+const proxy = new Proxy(target, {
+  get(target, key) {
+    track(target, key)
+    return target[key]
+  },
+  set(target, key, value) {
+    target[key] = value
+    trigger(target, key)
+    return true
+  }
+})
+\`\`\``,
     familiarity: 0,
   },
-  // ... 更多卡片
+  {
+    id: 2,
+    question: "# Vue组件的生命周期有哪些？",
+    answer: `Vue3组件的主要生命周期钩子：
+
+- \`setup()\`
+- \`onBeforeMount()\`
+- \`onMounted()\`
+- \`onBeforeUpdate()\`
+- \`onUpdated()\`
+- \`onBeforeUnmount()\`
+- \`onUnmounted()\`
+
+> 注意：setup() 是组合式 API 的入口点`,
+    familiarity: 0,
+  },
+  {
+    id: 3,
+    question: "什么是Vue的计算属性？",
+    answer:
+      "计算属性是基于响应式依赖进行缓存的特殊属性：\n\n1. 只有依赖发生改变时才会重新计算\n2. 有缓存机制，多次访问只计算一次\n3. 适合处理复杂的数据计算",
+    familiarity: 0,
+  },
+  {
+    id: 4,
+    question: "Vue3的组合式API有什么优势？",
+    answer:
+      "组合式API (Composition API) 的主要优势：\n\n1. 更好的代码组织\n2. 更好的逻辑复用\n3. 更好的类型推导\n4. 更小的打包体积",
+    familiarity: 0,
+  },
 ]);
 
-const loading = ref(false);
 const currentIndex = ref(0);
 const isFlipped = ref(false);
-const userInput = ref("");
-const chatHistory = ref([]);
-const chatContainerRef = ref(null);
+const completedCards = ref(0);
+const correctAnswers = ref(0);
+const syncLoading = ref(false);
 
 // 计算属性
 const currentCard = computed(() => cards.value[currentIndex.value]);
 const totalCards = computed(() => cards.value.length);
-const remainingCards = computed(() => cards.value.length - currentIndex.value);
+const remainingCards = computed(() => totalCards.value - completedCards.value);
 const progressPercent = computed(
-  () => (currentIndex.value / totalCards.value) * 100
+  () => (completedCards.value / totalCards.value) * 100
+);
+const correctRate = computed(() =>
+  completedCards.value
+    ? Math.round((correctAnswers.value / completedCards.value) * 100)
+    : 0
 );
 
-// 卡片翻转
-const flipCard = () => {
+// 控制评分按钮显示的计算属性
+const showRatingButtons = computed(
+  () => isFlipped.value && !ratingSubmitted.value
+);
+
+// 新增状态，用于跟踪是否已提交评分
+const ratingSubmitted = ref(false);
+
+// 切换卡片正反面
+const toggleCard = () => {
+  // 如果已经提交评分，不允许再次翻转
+  if (ratingSubmitted.value) return;
   isFlipped.value = !isFlipped.value;
 };
 
-// 评价熟悉度
-const rateFamiliarity = async (level: number) => {
-  cards.value[currentIndex.value].familiarity = level;
-  await nextTick();
-  nextCard();
-};
+const rateCard = async (rating: number) => {
+  if (!currentCard.value) return;
 
-// 下一张卡片
-const nextCard = () => {
-  if (currentIndex.value < cards.value.length - 1) {
+  // 保存评分
+  await saveRating(currentCard.value.id, rating);
+
+  if (rating >= 3) correctAnswers.value++;
+  completedCards.value++;
+  ratingSubmitted.value = true; // 标记已提交评分
+
+  // 延迟切换到下一张卡片，给用户一个视觉反馈的时间
+  setTimeout(() => {
+    isFlipped.value = false;
     currentIndex.value++;
-    isFlipped.value = false;
+    ratingSubmitted.value = false; // 重置评分状态
+  }, 300);
+};
+
+const restartReview = async () => {
+  currentIndex.value = 0;
+  completedCards.value = 0;
+  correctAnswers.value = 0;
+  await loadDeckData();
+};
+
+// 键盘快捷键处理
+const handleKeyPress = (e: KeyboardEvent) => {
+  if (!currentCard.value) return;
+
+  if (e.key === " ") {
+    // 空格键用于翻转卡片
+    if (!ratingSubmitted.value) {
+      toggleCard();
+      e.preventDefault();
+    }
+  } else if (isFlipped.value && ["1", "2", "3", "4"].includes(e.key)) {
+    // 数字键用于评分
+    if (!ratingSubmitted.value) {
+      rateCard(parseInt(e.key));
+      e.preventDefault();
+    }
   }
 };
 
-// 上一张卡片
-const previousCard = () => {
-  if (currentIndex.value > 0) {
-    currentIndex.value--;
-    isFlipped.value = false;
-  }
-};
-
-// 发送消息给AI
-const sendMessage = async () => {
-  if (!userInput.value.trim()) return;
-
-  const message = userInput.value;
-  chatHistory.value.push({
-    content: message,
-    isUser: true,
-    isLoading: false,
-  });
-
-  // 添加AI响应（加载状态）
-  chatHistory.value.push({
-    content: "",
-    isUser: false,
-    isLoading: true,
-  });
-
-  userInput.value = "";
-
-  // 滚动到底部
-  await nextTick();
-  if (chatContainerRef.value) {
-    chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight;
-  }
-
+// 模拟加载数据
+const loadDeckData = async () => {
   try {
-    // TODO: 调用AI接口
-    const aiResponse = "这是AI的回复...";
+    // TODO: 替换为实际的API调用
+    // const res = await CardControllerService.getDeckCards(deckId);
+    // cards.value = res.data;
 
-    // 更新最后一条消息
-    chatHistory.value[chatHistory.value.length - 1] = {
-      content: aiResponse,
-      isUser: false,
-      isLoading: false,
-    };
+    // 模拟加载延迟
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // 使用模拟数据
+    cards.value = cards.value.map((card) => ({
+      ...card,
+      lastReviewTime: new Date(),
+    }));
   } catch (error) {
-    Message.error("AI响应失败，请重试");
-    chatHistory.value.pop(); // 移除加载中的消息
+    Message.error("加载失败，请重试");
   }
 };
 
-// 清除聊天记录
-const clearChat = () => {
-  chatHistory.value = [];
+// 模拟保存评分
+const saveRating = async (cardId: number, rating: number) => {
+  try {
+    // TODO: 替换为实际的API调用
+    // await CardControllerService.updateCardRating(cardId, rating);
+
+    // 模拟保存延迟
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    Message.success("评分已保存");
+  } catch (error) {
+    Message.error("保存失败，请重试");
+  }
 };
 
-onMounted(() => {
-  // 初始化加载
+onMounted(async () => {
+  document.addEventListener("keydown", handleKeyPress);
+  await loadDeckData();
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", handleKeyPress);
 });
 </script>
 
 <style scoped>
-#flashcardReview {
-  padding: 24px;
+.flashcard-review {
   min-height: 100vh;
   background: var(--color-fill-2);
+  padding: 24px;
 }
 
-.full-height {
-  height: 100%;
-}
-
-.review-card,
-.ai-chat-card {
-  height: calc(100vh - 72px);
+.review-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
+  gap: 24px;
+}
+
+.review-header {
   background: var(--color-bg-2);
-  border-radius: var(--border-radius-medium);
-  overflow: hidden;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.card-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: var(--padding-medium);
-}
-
-.card-header {
+.deck-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 16px;
 }
 
-.card-content {
-  flex: 1;
+.progress {
   display: flex;
   align-items: center;
-  justify-content: center;
-  min-height: 0;
+  gap: 12px;
+}
+
+.progress-bar {
+  flex: 1;
+}
+
+.review-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   position: relative;
+}
+
+.card-area {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 0;
 }
 
 .flashcard {
   width: 100%;
-  height: 500px;
   max-width: 800px;
-  margin: 0 auto;
-  perspective: 1000px;
+  height: 400px;
+  perspective: 2000px;
   cursor: pointer;
 }
 
@@ -347,7 +440,6 @@ onMounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  text-align: center;
   transition: transform 0.6s;
   transform-style: preserve-3d;
 }
@@ -362,164 +454,248 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
+  background: var(--color-bg-2);
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 24px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
-  padding: var(--padding-large);
-  border-radius: var(--border-radius-large);
-  background: var(--color-bg-3);
-  box-shadow: var(--shadow2-center);
 }
 
 .flashcard-back {
   transform: rotateY(180deg);
 }
 
-.card-type {
-  font-size: var(--font-size-body-3);
-  color: var(--color-text-2);
-  margin-bottom: var(--margin-medium);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-type :deep(.arco-icon) {
-  font-size: 20px;
-  color: var(--color-primary-6);
-}
-
-.card-text-container {
+.card-content {
   flex: 1;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: var(--padding-medium);
-  background: var(--color-fill-2);
-  border-radius: var(--border-radius-medium);
-  margin: var(--margin-medium) 0;
+  flex-direction: column;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
 }
 
-.card-text {
-  font-size: var(--font-size-title-1);
-  line-height: 1.8;
+.content-type {
+  font-size: 14px;
+  color: var(--color-text-3);
+  margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-2);
+  padding: 8px 0;
+  z-index: 1;
+}
+
+.content-text {
+  font-size: 18px;
+  line-height: 1.6;
   color: var(--color-text-1);
-  text-align: center;
   overflow-y: auto;
-  padding: var(--padding-medium);
+  padding: 0 4px;
+  max-height: 100%;
+  flex: 1;
+  /* 隐藏滚动条 - Firefox */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* 隐藏滚动条 - Webkit */
+.content-text::-webkit-scrollbar {
+  display: none;
 }
 
 .card-hint {
-  font-size: 14px;
+  text-align: center;
   color: var(--color-text-3);
+  padding: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 24px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
 }
 
-.familiarity-rating {
-  margin-top: auto;
-  width: 100%;
-  text-align: center;
-  background: var(--color-fill-2);
-  padding: var(--padding-medium);
-  border-radius: var(--border-radius-medium);
-  box-shadow: var(--shadow1-center);
+.flashcard:hover .card-hint {
+  opacity: 1;
+}
+
+.rating-area {
+  background: var(--color-bg-2);
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  transform: translateY(100%);
+  opacity: 0;
+  transition: all 0.3s ease;
+}
+
+.rating-area.show {
+  transform: translateY(0);
+  opacity: 1;
 }
 
 .rating-title {
   font-size: 16px;
+  color: var(--color-text-2);
+  text-align: center;
   margin-bottom: 20px;
-  color: var(--color-text-1);
 }
 
-.familiarity-rating .arco-space {
-  flex-wrap: wrap;
-  justify-content: center;
+.rating-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
 }
 
-.familiarity-rating .arco-btn {
-  min-width: 120px;
-  margin: 8px;
-  transition: all 0.3s ease;
+.rating-btn {
+  font-size: 14px;
+  transition: all 0.3s;
+  padding: 8px 16px;
+  border-radius: 24px;
 }
 
-.flashcard:hover {
+.rating-btn:hover {
   transform: translateY(-2px);
-  transition: transform 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.card-text-container {
-  max-height: 250px;
-  overflow: hidden;
+.shortcut {
+  opacity: 0.7;
+  font-size: 12px;
 }
 
-.card-text {
-  max-height: 100%;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-primary-light-4) transparent;
-}
-
-.card-text::-webkit-scrollbar {
-  width: 6px;
-}
-
-.card-text::-webkit-scrollbar-thumb {
-  background-color: var(--color-primary-light-4);
-  border-radius: 3px;
-}
-
-.card-text::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.chat-container {
-  flex: 1;
-  overflow-y: auto;
+.review-footer {
   padding: 16px;
-  background: var(--color-fill-2);
-  border-radius: 4px;
-  margin-bottom: 16px;
-}
-
-.message {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.message-content {
-  flex: 1;
-  padding: 12px;
-  border-radius: 8px;
   background: var(--color-bg-2);
-}
-
-.user-message .message-content {
-  background: var(--color-primary-light-1);
-  color: white;
-}
-
-.chat-input {
-  padding: 16px 0;
+  border-radius: 8px;
+  text-align: center;
 }
 
 @media screen and (max-width: 768px) {
-  .flashcard {
-    height: 400px;
+  .flashcard-review {
+    padding: 16px;
   }
 
-  .card-text {
-    font-size: var(--font-size-body-3);
+  .rating-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
-  .familiarity-rating .arco-btn {
-    padding: 4px 8px;
-    min-width: 80px;
+  .deck-info {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
   }
+
+  .content-text {
+    font-size: 16px;
+  }
+
+  .rating-btn {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+
+  .rating-area {
+    padding: 16px;
+  }
+}
+
+@media screen and (max-height: 700px) {
+  .card-area {
+    padding: 12px 0;
+  }
+
+  .rating-area {
+    padding: 16px;
+  }
+
+  .rating-title {
+    margin-bottom: 12px;
+  }
+}
+
+/* 自定义 Markdown 样式 */
+:deep(.markdown-body) {
+  background: transparent;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  /* 隐藏滚动条 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+:deep(.markdown-body)::-webkit-scrollbar {
+  display: none;
+}
+
+:deep(.markdown-body pre) {
+  background: var(--color-bg-1);
+  border-radius: 8px;
+  margin: 16px 0;
+  overflow-y: auto;
+  /* 隐藏滚动条 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* 确保代码可以换行显示 */
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+:deep(.markdown-body pre)::-webkit-scrollbar {
+  display: none;
+}
+
+:deep(.markdown-body code) {
+  background: var(--color-bg-1);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 14px;
+  word-break: break-word;
+}
+
+/* 优化代码块内容的显示 */
+:deep(.markdown-body pre code) {
+  padding: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  background: transparent;
+}
+
+:deep(.markdown-body h1) {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-top: 0;
+  font-size: 24px;
+}
+
+:deep(.markdown-body h2) {
+  border-bottom: 1px solid var(--color-border);
+  margin-top: 20px;
+  font-size: 20px;
+  padding-bottom: 8px;
+}
+
+:deep(.markdown-body blockquote) {
+  border-left-color: var(--color-primary);
+  background: var(--color-bg-1);
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+
+:deep(.markdown-body ul),
+:deep(.markdown-body ol) {
+  padding-left: 24px;
+  margin: 12px 0;
+}
+
+:deep(.markdown-body li) {
+  margin: 6px 0;
 }
 </style>
