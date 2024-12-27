@@ -440,8 +440,8 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translate3d(0, 0, 0);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
   will-change: transform;
 }
@@ -455,23 +455,25 @@ onUnmounted(() => {
   position: absolute;
   width: 100%;
   height: 100%;
-  -webkit-backface-visibility: hidden;
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   background: var(--color-bg-2);
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   padding: 24px;
   display: flex;
   flex-direction: column;
-  transform: translate3d(0, 0, 0);
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 
 .flashcard-front {
-  transform: rotateY(0) translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0) rotateY(0deg);
 }
 
 .flashcard-back {
-  transform: rotateY(180deg) translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0) rotateY(180deg);
 }
 
 .flashcard:hover {
