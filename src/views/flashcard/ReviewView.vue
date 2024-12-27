@@ -25,7 +25,7 @@
           <template v-if="currentCard">
             <div
               class="flashcard"
-              :class="{ 'is-flipped': isFlipped, 'is-ready': isReady }"
+              :class="{ 'is-flipped': isFlipped }"
               @click="toggleCard"
             >
               <div class="flashcard-inner">
@@ -247,7 +247,6 @@ const isFlipped = ref(false);
 const completedCards = ref(0);
 const correctAnswers = ref(0);
 const syncLoading = ref(false);
-const isReady = ref(false);
 
 // 计算属性
 const currentCard = computed(() => cards.value[currentIndex.value]);
@@ -324,9 +323,6 @@ const handleKeyPress = (e: KeyboardEvent) => {
 // 模拟加载数据
 const loadDeckData = async () => {
   try {
-    // 立即设置准备状态，不再等待
-    isReady.value = true;
-
     await new Promise((resolve) => setTimeout(resolve, 1000));
     cards.value = cards.value.map((card) => ({
       ...card,
@@ -434,12 +430,10 @@ onUnmounted(() => {
   height: 100%;
   perspective: 2000px;
   cursor: pointer;
+  position: relative;
+  transform: translate3d(0, 0, 0);
   transform-style: preserve-3d;
-  transition: transform 0.1s;
-}
-
-.flashcard.is-ready {
-  transition: transform 0.1s;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
 }
 
 .flashcard-inner {
@@ -447,10 +441,9 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translate3d(0, 0, 0);
   transform-style: preserve-3d;
   will-change: transform;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
 }
 
 .flashcard.is-flipped .flashcard-inner {
@@ -462,33 +455,31 @@ onUnmounted(() => {
   position: absolute;
   width: 100%;
   height: 100%;
-  backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
   background: var(--color-bg-2);
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   padding: 24px;
   display: flex;
   flex-direction: column;
-  transform-style: preserve-3d;
-  will-change: transform;
-  transform: translateZ(0.1px);
+  transform: translate3d(0, 0, 0);
 }
 
 .flashcard-front {
-  transform: rotateY(0deg) translateZ(0.1px);
+  transform: rotateY(0) translate3d(0, 0, 0);
 }
 
 .flashcard-back {
-  transform: rotateY(180deg) translateZ(0.1px);
+  transform: rotateY(180deg) translate3d(0, 0, 0);
 }
 
 .flashcard:hover {
-  transform: translateY(-2px);
+  transform: translate3d(0, -2px, 0);
 }
 
 .flashcard:active {
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
   transition: transform 0.1s;
 }
 
@@ -707,14 +698,5 @@ onUnmounted(() => {
 
 :deep(.markdown-body li) {
   margin: 4px 0;
-}
-
-/* 强制浏览器预渲染 */
-@media (prefers-reduced-motion: no-preference) {
-  .flashcard-front,
-  .flashcard-back {
-    contain: content;
-    isolation: isolate;
-  }
 }
 </style>
