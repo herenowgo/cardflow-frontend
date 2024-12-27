@@ -25,7 +25,7 @@
           <template v-if="currentCard">
             <div
               class="flashcard"
-              :class="{ 'is-flipped': isFlipped }"
+              :class="{ 'is-flipped': isFlipped, 'is-ready': isReady }"
               @click="toggleCard"
             >
               <div class="flashcard-inner">
@@ -247,13 +247,14 @@ const isFlipped = ref(false);
 const completedCards = ref(0);
 const correctAnswers = ref(0);
 const syncLoading = ref(false);
+const isReady = ref(false);
 
 // 计算属性
 const currentCard = computed(() => cards.value[currentIndex.value]);
 const totalCards = computed(() => cards.value.length);
-const remainingCards = computed(() => totalCards.value - completedCards.value);
+const remainingCards = computed(() => totalCards.value - currentIndex.value);
 const progressPercent = computed(
-  () => (completedCards.value / totalCards.value) * 100
+  () => (currentIndex.value / totalCards.value) * 100
 );
 const correctRate = computed(() =>
   completedCards.value
@@ -284,13 +285,13 @@ const rateCard = async (rating: number) => {
 
   if (rating >= 3) correctAnswers.value++;
   completedCards.value++;
-  ratingSubmitted.value = true; // 标记已提交评分
+  ratingSubmitted.value = true;
 
   // 延迟切换到下一张卡片，给用户一个视觉反馈的时间
   setTimeout(() => {
     isFlipped.value = false;
     currentIndex.value++;
-    ratingSubmitted.value = false; // 重置评分状态
+    ratingSubmitted.value = false;
   }, 300);
 };
 
@@ -323,14 +324,10 @@ const handleKeyPress = (e: KeyboardEvent) => {
 // 模拟加载数据
 const loadDeckData = async () => {
   try {
-    // TODO: 替换为实际的API调用
-    // const res = await CardControllerService.getDeckCards(deckId);
-    // cards.value = res.data;
+    // 立即设置准备状态，不再等待
+    isReady.value = true;
 
-    // 模拟加载延迟
     await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // 使用模拟数据
     cards.value = cards.value.map((card) => ({
       ...card,
       lastReviewTime: new Date(),
@@ -437,14 +434,23 @@ onUnmounted(() => {
   height: 100%;
   perspective: 2000px;
   cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.1s;
+}
+
+.flashcard.is-ready {
+  transition: transform 0.1s;
 }
 
 .flashcard-inner {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: transform 0.6s;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .flashcard.is-flipped .flashcard-inner {
@@ -457,16 +463,33 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   background: var(--color-bg-2);
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   padding: 24px;
   display: flex;
   flex-direction: column;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform: translateZ(0.1px);
+}
+
+.flashcard-front {
+  transform: rotateY(0deg) translateZ(0.1px);
 }
 
 .flashcard-back {
-  transform: rotateY(180deg);
+  transform: rotateY(180deg) translateZ(0.1px);
+}
+
+.flashcard:hover {
+  transform: translateY(-2px);
+}
+
+.flashcard:active {
+  transform: translateY(0);
+  transition: transform 0.1s;
 }
 
 .card-content {
@@ -684,5 +707,14 @@ onUnmounted(() => {
 
 :deep(.markdown-body li) {
   margin: 4px 0;
+}
+
+/* 强制浏览器预渲染 */
+@media (prefers-reduced-motion: no-preference) {
+  .flashcard-front,
+  .flashcard-back {
+    contain: content;
+    isolation: isolate;
+  }
 }
 </style>
