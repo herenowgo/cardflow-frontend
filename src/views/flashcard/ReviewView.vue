@@ -3,26 +3,19 @@
     <div class="review-container">
       <!-- 顶部信息栏 -->
       <div class="review-header">
-        <div class="deck-info">
-          <h2>{{ currentDeck?.name || "默认牌组" }}</h2>
-          <div class="stats">
+        <div class="progress">
+          <div class="progress-stats">
             <a-space>
-              <a-tag color="blue">今日待复习: {{ remainingCards }}</a-tag>
-              <a-tag color="green">已完成: {{ completedCards }}</a-tag>
-              <a-tag color="orange">正确率: {{ correctRate }}%</a-tag>
+              <span class="stat-item">待复习: {{ remainingCards }}</span>
+              <span class="stat-item">正确率: {{ correctRate }}%</span>
             </a-space>
           </div>
-        </div>
-        <div class="progress">
           <a-progress
             :percent="progressPercent"
             :stroke-width="8"
             :show-text="false"
             class="progress-bar"
           />
-          <span class="progress-text"
-            >{{ completedCards }}/{{ totalCards }}</span
-          >
         </div>
       </div>
 
@@ -376,48 +369,57 @@ onUnmounted(() => {
 .flashcard-review {
   min-height: 100vh;
   background: var(--color-fill-2);
-  padding: 24px;
+  padding: 16px;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .review-container {
   max-width: 1200px;
   margin: 0 auto;
-  height: calc(100vh - 48px);
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
 }
 
 .review-header {
   background: var(--color-bg-2);
-  padding: 20px;
+  padding: 8px 12px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-.deck-info {
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.progress-stats {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--color-text-2);
 }
 
-.progress {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.stat-item {
+  color: var(--color-text-2);
 }
 
 .progress-bar {
   flex: 1;
+  height: 6px;
 }
 
 .review-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 12px;
   position: relative;
+  min-height: 0;
 }
 
 .card-area {
@@ -425,13 +427,14 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 24px 0;
+  padding: 8px 0;
+  min-height: 0;
 }
 
 .flashcard {
   width: 100%;
   max-width: 800px;
-  height: 400px;
+  height: 100%;
   perspective: 2000px;
   cursor: pointer;
 }
@@ -470,7 +473,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px;
+  padding: 12px;
   position: relative;
   overflow: hidden;
 }
@@ -478,11 +481,11 @@ onUnmounted(() => {
 .content-type {
   font-size: 14px;
   color: var(--color-text-3);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   position: sticky;
   top: 0;
   background: var(--color-bg-2);
-  padding: 8px 0;
+  padding: 4px 0;
   z-index: 1;
 }
 
@@ -522,7 +525,7 @@ onUnmounted(() => {
 
 .rating-area {
   background: var(--color-bg-2);
-  padding: 24px;
+  padding: 12px;
   border-radius: 16px;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(100%);
@@ -539,7 +542,7 @@ onUnmounted(() => {
   font-size: 16px;
   color: var(--color-text-2);
   text-align: center;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 
 .rating-buttons {
@@ -567,7 +570,7 @@ onUnmounted(() => {
 }
 
 .review-footer {
-  padding: 16px;
+  padding: 8px;
   background: var(--color-bg-2);
   border-radius: 8px;
   text-align: center;
@@ -575,45 +578,29 @@ onUnmounted(() => {
 
 @media screen and (max-width: 768px) {
   .flashcard-review {
-    padding: 16px;
+    padding: 8px;
   }
 
-  .rating-buttons {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+  .review-header {
+    padding: 6px 8px;
   }
 
-  .deck-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-
-  .content-text {
-    font-size: 16px;
-  }
-
-  .rating-btn {
+  .progress-stats {
     font-size: 13px;
-    padding: 6px 12px;
   }
 
-  .rating-area {
-    padding: 16px;
+  .flashcard {
+    height: calc(100vh - 180px);
   }
 }
 
-@media screen and (max-height: 700px) {
-  .card-area {
-    padding: 12px 0;
+@media screen and (max-height: 600px) {
+  .flashcard {
+    height: calc(100vh - 140px);
   }
 
-  .rating-area {
-    padding: 16px;
-  }
-
-  .rating-title {
-    margin-bottom: 12px;
+  .review-header {
+    padding: 6px 12px;
   }
 }
 
@@ -622,7 +609,7 @@ onUnmounted(() => {
   background: transparent;
   font-size: inherit;
   line-height: inherit;
-  padding: 16px;
+  padding: 8px;
   height: 100%;
   overflow-y: auto;
   /* 隐藏滚动条 */
@@ -637,7 +624,7 @@ onUnmounted(() => {
 :deep(.markdown-body pre) {
   background: var(--color-bg-1);
   border-radius: 8px;
-  margin: 16px 0;
+  margin: 8px 0;
   overflow-y: auto;
   /* 隐藏滚动条 */
   scrollbar-width: none;
@@ -676,7 +663,7 @@ onUnmounted(() => {
 
 :deep(.markdown-body h2) {
   border-bottom: 1px solid var(--color-border);
-  margin-top: 20px;
+  margin-top: 12px;
   font-size: 20px;
   padding-bottom: 8px;
 }
@@ -685,17 +672,17 @@ onUnmounted(() => {
   border-left-color: var(--color-primary);
   background: var(--color-bg-1);
   border-radius: 4px;
-  padding: 12px 16px;
-  margin: 16px 0;
+  padding: 8px 12px;
+  margin: 8px 0;
 }
 
 :deep(.markdown-body ul),
 :deep(.markdown-body ol) {
-  padding-left: 24px;
-  margin: 12px 0;
+  padding-left: 20px;
+  margin: 8px 0;
 }
 
 :deep(.markdown-body li) {
-  margin: 6px 0;
+  margin: 4px 0;
 }
 </style>
