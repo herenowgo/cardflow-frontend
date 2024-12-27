@@ -252,9 +252,7 @@ const syncLoading = ref(false);
 const currentCard = computed(() => cards.value[currentIndex.value]);
 const totalCards = computed(() => cards.value.length);
 const remainingCards = computed(() => totalCards.value - currentIndex.value);
-const progressPercent = computed(
-  () => (currentIndex.value / totalCards.value) * 100
-);
+const progressPercent = computed(() => currentIndex.value / totalCards.value);
 const correctRate = computed(() =>
   completedCards.value
     ? Math.round((correctAnswers.value / completedCards.value) * 100)
@@ -279,19 +277,22 @@ const toggleCard = () => {
 const rateCard = async (rating: number) => {
   if (!currentCard.value) return;
 
-  // 保存评分
-  await saveRating(currentCard.value.id, rating);
-
+  // 立即更新状态
   if (rating >= 3) correctAnswers.value++;
   completedCards.value++;
   ratingSubmitted.value = true;
+  isFlipped.value = false;
+  currentIndex.value++;
+  ratingSubmitted.value = false;
 
-  // 延迟切换到下一张卡片，给用户一个视觉反馈的时间
-  setTimeout(() => {
-    isFlipped.value = false;
-    currentIndex.value++;
-    ratingSubmitted.value = false;
-  }, 300);
+  // 异步保存评分，不阻塞UI
+  saveRating(currentCard.value.id, rating)
+    .then(() => {
+      Message.success("评分已保存");
+    })
+    .catch(() => {
+      Message.error("保存失败，请重试");
+    });
 };
 
 const restartReview = async () => {
@@ -335,17 +336,11 @@ const loadDeckData = async () => {
 
 // 模拟保存评分
 const saveRating = async (cardId: number, rating: number) => {
-  try {
-    // TODO: 替换为实际的API调用
-    // await CardControllerService.updateCardRating(cardId, rating);
+  // TODO: 替换为实际的API调用
+  // await CardControllerService.updateCardRating(cardId, rating);
 
-    // 模拟保存延迟
-    await new Promise((resolve) => setTimeout(resolve, 300));
-
-    Message.success("评分已保存");
-  } catch (error) {
-    Message.error("保存失败，请重试");
-  }
+  // 模拟保存延迟
+  await new Promise((resolve) => setTimeout(resolve, 300));
 };
 
 onMounted(async () => {
