@@ -36,6 +36,18 @@
                     <div class="content-text">
                       <md-viewer :value="currentCard.question" />
                     </div>
+                    <div class="card-tags" v-if="currentCard.tags?.length">
+                      <a-space>
+                        <a-tag
+                          v-for="tag in currentCard.tags"
+                          :key="tag"
+                          size="small"
+                          color="arcoblue"
+                        >
+                          {{ tag }}
+                        </a-tag>
+                      </a-space>
+                    </div>
                   </div>
                   <div class="card-hint">
                     <icon-arrow-right />
@@ -49,6 +61,18 @@
                     <div class="content-type">答案</div>
                     <div class="content-text">
                       <md-viewer :value="currentCard.answer" />
+                    </div>
+                    <div class="card-tags" v-if="currentCard.tags?.length">
+                      <a-space>
+                        <a-tag
+                          v-for="tag in currentCard.tags"
+                          :key="tag"
+                          size="small"
+                          color="arcoblue"
+                        >
+                          {{ tag }}
+                        </a-tag>
+                      </a-space>
                     </div>
                   </div>
                   <div class="card-hint">
@@ -120,19 +144,19 @@
       <!-- 底部工具栏 -->
       <div class="review-footer">
         <a-space>
-          <a-button @click="showShortcuts">
+          <a-button>
             <template #icon>
               <icon-keyboard />
             </template>
             快捷键
           </a-button>
-          <a-button @click="showStats">
+          <a-button>
             <template #icon>
               <icon-bar-chart />
             </template>
             统计
           </a-button>
-          <a-button type="primary" @click="syncWithAnki" :loading="syncLoading">
+          <a-button type="primary" :loading="syncLoading">
             <template #icon>
               <icon-sync />
             </template>
@@ -153,12 +177,13 @@ import {
   IconMinus,
   IconCheck,
   IconStar,
-  IconKeyboard,
   IconBarChart,
   IconSync,
   IconArrowLeft,
 } from "@arco-design/web-vue/es/icon";
 import MdViewer from "@/components/MdViewer.vue";
+import { AnkiService } from "@/services/AnkiService";
+import { CardControllerService } from "../../../generated/services/CardControllerService.ts";
 
 interface Card {
   id: number;
@@ -166,6 +191,7 @@ interface Card {
   answer: string;
   familiarity: number;
   lastReviewTime?: Date;
+  tags?: string[];
 }
 
 interface Deck {
@@ -248,8 +274,13 @@ const completedCards = ref(0);
 const correctAnswers = ref(0);
 const syncLoading = ref(false);
 
-// 计算属性
-const currentCard = computed(() => cards.value[currentIndex.value]);
+// 添加一个新的状态来跟踪当前显示的卡片内容
+const displayCard = ref<Card | null>(null);
+
+// 修改计算属性
+const currentCard = computed(
+  () => displayCard.value || cards.value[currentIndex.value]
+);
 const totalCards = computed(() => cards.value.length);
 const remainingCards = computed(() => totalCards.value - currentIndex.value);
 const progressPercent = computed(() => currentIndex.value / totalCards.value);
@@ -277,13 +308,24 @@ const toggleCard = () => {
 const rateCard = async (rating: number) => {
   if (!currentCard.value) return;
 
-  // 立即更新状态
+  // 立即更新统计状态
   if (rating >= 3) correctAnswers.value++;
   completedCards.value++;
   ratingSubmitted.value = true;
+
+  // 保存当前卡片用于显示
+  displayCard.value = currentCard.value;
+
+  // 先翻转卡片到正面
   isFlipped.value = false;
-  currentIndex.value++;
-  ratingSubmitted.value = false;
+
+  // 等待翻转动画完成后再更新索引和显示的卡片
+  setTimeout(() => {
+    currentIndex.value++;
+    // 清除显示的卡片，使用新的当前卡片
+    displayCard.value = null;
+    ratingSubmitted.value = false;
+  }, 300); // 300ms 是翻转动画的持续时间
 
   // 异步保存评分，不阻塞UI
   saveRating(currentCard.value.id, rating)
@@ -296,6 +338,7 @@ const rateCard = async (rating: number) => {
 };
 
 const restartReview = async () => {
+  displayCard.value = null;
   currentIndex.value = 0;
   completedCards.value = 0;
   correctAnswers.value = 0;
@@ -321,15 +364,39 @@ const handleKeyPress = (e: KeyboardEvent) => {
   }
 };
 
-// 模拟加载数据
+// 修改加载数据方法
 const loadDeckData = async () => {
   try {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    cards.value = cards.value.map((card) => ({
-      ...card,
-      lastReviewTime: new Date(),
-    }));
+    // 从Anki获取所有到期的卡片
+    const deckNames = await AnkiService.getDeckNames();
+    const firstLevelDeckNames = deckNames.filter(
+      (name) => !name.includes("::")
+    );
+    const dueCardIds = await AnkiService.getDueCardsInDecks(
+      firstLevelDeckNames
+    );
+
+    // 从数据库获取卡片详细信息
+    const res = await CardControllerService.getCardsByAnkiCardIds({
+      cardIds: dueCardIds,
+    });
+
+    if (res.code === 200 && res.data) {
+      cards.value = res.data.map((card) => ({
+        id: card.id,
+        question: card.question,
+        answer: card.answer,
+        familiarity: card.familiarity || 0,
+        lastReviewTime: card.lastReviewTime
+          ? new Date(card.lastReviewTime)
+          : undefined,
+        tags: card.tags || [],
+      }));
+    } else {
+      Message.error("加载卡片失败");
+    }
   } catch (error) {
+    console.error("加载卡片失败:", error);
     Message.error("加载失败，请重试");
   }
 };
@@ -695,5 +762,11 @@ onUnmounted(() => {
 
 :deep(.markdown-body li) {
   margin: 4px 0;
+}
+
+.card-tags {
+  margin-top: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--color-border);
 }
 </style>

@@ -446,6 +446,7 @@ const cancelDelete = () => {
 };
 
 // 同步到Anki
+// todo 同步后，需要直接刷新卡片列表
 const syncWithAnki = async () => {
   try {
     // 1. 获取同步状态
@@ -575,8 +576,11 @@ const syncWithAnki = async () => {
   } catch (error) {
     console.error("Sync failed:", error);
     Message.error("同步失败");
+  } finally {
+    await loadCards();
   }
 };
+
 // 修改处理同步的辅助函数
 const processCardsSync = async (
   syncedCards: AnkiSyncedCard[],

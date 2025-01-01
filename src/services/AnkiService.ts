@@ -196,4 +196,116 @@ export class AnkiService {
       return false;
     }
   }
+
+  // 检查卡片是否到期
+  public static async areDue(cards: number[]): Promise<boolean[]> {
+    try {
+      const response = await this.invoke("areDue", {
+        cards,
+      });
+      if (response.error) return [];
+      return response.result;
+    } catch (error) {
+      console.error("Failed to check if cards are due:", error);
+      return [];
+    }
+  }
+
+  // 获取多个牌组内所有到期卡片和未学习卡片的ID
+  public static async getDueCardsInDecks(
+    deckNames: string[]
+  ): Promise<number[]> {
+    try {
+      // 构建查询字符串,使用 OR 连接多个牌组条件
+      const deckQuery = deckNames.map((name) => `deck:"${name}"`).join(" OR ");
+      const response = await this.invoke("findCards", {
+        query: `(${deckQuery}) (is:due OR is:new)`,
+      });
+
+      if (response.error) {
+        console.error("获取到期卡片和未学习卡片失败:", response.error);
+        return [];
+      }
+
+      return response.result;
+    } catch (error) {
+      console.error("获取到期卡片和未学习卡片失败:", error);
+      return [];
+    }
+  }
+
+  // 回答卡片
+  public static async answerCard(params: {
+    card: number; // 卡片ID
+    ease: number; // 1-4 对应 again, hard, good, easy
+  }): Promise<boolean> {
+    try {
+      const response = await this.invoke("answerCard", {
+        card: params.card,
+        ease: params.ease,
+      });
+
+      if (response.error) {
+        console.error("Failed to answer card:", response.error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to answer card:", error);
+      return false;
+    }
+  }
+
+  // 批量回答卡片
+  public static async answerCards(params: {
+    cards: number[]; // 卡片ID数组
+    ease: number; // 1-4 对应 again, hard, good, easy
+  }): Promise<boolean> {
+    try {
+      const response = await this.invoke("answerCards", {
+        cards: params.cards,
+        ease: params.ease,
+      });
+
+      if (response.error) {
+        console.error("Failed to answer cards:", response.error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to answer cards:", error);
+      return false;
+    }
+  }
+
+  // 获取卡片复习记录
+  public static async getReviewsOfCards(cardIds: number[]): Promise<any> {
+    try {
+      const response = await this.invoke("getReviewsOfCards", {
+        cards: cardIds,
+      });
+      if (response.error) return {};
+      return response.result;
+    } catch (error) {
+      console.error("Failed to get card reviews:", error);
+      return {};
+    }
+  }
+
+  // 获取所有牌组名称
+  public static async getDeckNames(): Promise<string[]> {
+    try {
+      const response = await this.invoke("deckNames");
+      if (response.error) {
+        console.error("获取牌组名称失败:", response.error);
+        return [];
+      }
+      return response.result as string[];
+    } catch (error) {
+      console.error("获取牌组名称失败:", error);
+      return [];
+    }
+  }
 }
