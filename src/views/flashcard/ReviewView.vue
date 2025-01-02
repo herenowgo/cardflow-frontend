@@ -95,7 +95,12 @@
         </div>
 
         <!-- AI助手窗口 -->
-        <div class="ai-helper-panel" :class="{ show: isAIChatVisible }">
+        <div
+          class="ai-helper-panel"
+          :class="{ show: isAIChatVisible }"
+          @mouseenter="isMouseInAIChat = true"
+          @mouseleave="isMouseInAIChat = false"
+        >
           <AIChat ref="aiChatRef" @close="handleAIChatClose" />
         </div>
 
@@ -514,10 +519,13 @@ const restartReview = async () => {
   await loadDeckData();
 };
 
-// 键盘快捷键处理
+// 在 script setup 中添加新的状态
+const isMouseInAIChat = ref(false);
+
+// 修改键盘事件处理函数
 const handleKeyPress = (e: KeyboardEvent) => {
-  // 如果 AI 助手对话框打开，不处理快捷键
-  if (isAIChatVisible.value) return;
+  // 只有当鼠标在 AI 助手区域时才禁用快捷键
+  if (isMouseInAIChat.value) return;
 
   if (!currentCard.value) return;
 
