@@ -162,46 +162,8 @@
             </template>
             同步到Anki
           </a-button>
-          <t-button theme="primary" @click="visibleModelessDrag = true"
-            >AI助手可拖拽</t-button
-          >
-          <t-dialog
-            v-model:visible="visibleModelessDrag"
-            :footer="false"
-            header="AI助手"
-            mode="modeless"
-            draggable
-            :on-confirm="() => (visibleModelessDrag = false)"
-          >
-            <template #body>
-              <t-chat
-                style="height: 600px"
-                :clear-history="chatList.length > 0 && !isStreamLoad"
-                @on-action="operation"
-                @clear="clearConfirm"
-              >
-                <template v-for="(item, index) in chatList" :key="index">
-                  <t-chat-item
-                    :avatar="item.avatar"
-                    :name="item.name"
-                    :role="item.role"
-                    :datetime="item.datetime"
-                    :content="item.content"
-                    :text-loading="index === 0 && loading"
-                  >
-                  </t-chat-item>
-                </template>
-                <template #footer>
-                  <t-chat-input
-                    :stop-disabled="isStreamLoad"
-                    @send="inputEnter"
-                    @stop="onStop"
-                  >
-                  </t-chat-input>
-                </template>
-              </t-chat>
-            </template>
-          </t-dialog>
+          <t-button theme="primary" @click="showAIChat">AI助手可拖拽</t-button>
+          <AIChat ref="aiChatRef" />
         </a-space>
       </div>
     </div>
@@ -227,7 +189,12 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
 import { CardControllerService } from "../../../generated/services/CardControllerService";
 import { ChatControllerService } from "../../../generated/services/ChatControllerService";
-const visibleModelessDrag = ref(false);
+import AIChat from "@/components/AIChat.vue";
+
+const aiChatRef = ref<InstanceType<typeof AIChat>>();
+const showAIChat = () => {
+  aiChatRef.value?.show();
+};
 
 // 定义类型
 interface MockResponse {
