@@ -660,33 +660,55 @@ const rateCard = async (rating: number) => {
   // 重置已发送卡片的记录，这样切换到新卡片时可以重新发送
   cardSentToAI.value.clear();
 
-  // 立即更新统计状态
-  if (rating >= 3) correctAnswers.value++;
-  completedCards.value++;
-  ratingSubmitted.value = true;
+  try {
+    // 同步到 Anki
+    if (currentCard.value.ankiInfo?.cardId) {
+      // 第一次尝试
+      let success = await AnkiService.answerCard({
+        card: currentCard.value.ankiInfo.cardId,
+        ease: rating, // 1-4 对应 again, hard, good, easy
+      });
 
-  // 保存当前卡片用于显示
-  displayCard.value = currentCard.value;
+      // 如果第一次失败，静默重试一次
+      if (!success) {
+        console.log("Anki同步失败，正在重试...");
+        success = await AnkiService.answerCard({
+          card: currentCard.value.ankiInfo.cardId,
+          ease: rating,
+        });
 
-  // 先翻转卡片到正面
-  isFlipped.value = false;
+        // 如果重试后仍然失败，提示用户
+        if (!success) {
+          Message.error("同步到 Anki 失败");
+          return;
+        }
+      }
+    }
 
-  // 等待翻转动画完成后再更新索引和显示的卡片
-  setTimeout(() => {
-    currentIndex.value++;
-    // 清除显示的卡片，使用新的当前卡片
-    displayCard.value = null;
-    ratingSubmitted.value = false;
-  }, 300); // 300ms 是翻转动画的持续时间
+    // 立即更新统计状态
+    if (rating >= 3) correctAnswers.value++;
+    completedCards.value++;
+    ratingSubmitted.value = true;
 
-  // 异步保存评分，不阻塞UI
-  saveRating(currentCard.value.id, rating)
-    .then(() => {
-      Message.success("评分已保存");
-    })
-    .catch(() => {
-      Message.error("保存失败，请重试");
-    });
+    // 保存当前卡片用于显示
+    displayCard.value = currentCard.value;
+
+    // 先翻转卡片到正面
+    isFlipped.value = false;
+
+    // 等待翻转动画完成后再更新索引和显示的卡片
+    setTimeout(() => {
+      currentIndex.value++;
+      // 清除显示的卡片，使用新的当前卡片
+      displayCard.value = null;
+      ratingSubmitted.value = false;
+    }, 300); // 300ms 是翻转动画的持续时间
+
+    Message.success("评分已保存");
+  } catch (error) {
+    console.error("保存评分失败:", error);
+    Message.error("保存失败，请重试");
+  }
 };
 
 const restartReview = async () => {

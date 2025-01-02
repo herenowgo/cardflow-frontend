@@ -240,19 +240,24 @@ export class AnkiService {
     ease: number; // 1-4 对应 again, hard, good, easy
   }): Promise<boolean> {
     try {
-      const response = await this.invoke("answerCard", {
-        card: params.card,
-        ease: params.ease,
+      const response = await this.invoke("answerCards", {
+        answers: [
+          {
+            cardId: params.card,
+            ease: params.ease,
+          },
+        ],
       });
 
       if (response.error) {
-        console.error("Failed to answer card:", response.error);
+        console.error("回答卡片失败:", response.error);
         return false;
       }
 
-      return true;
+      // 返回第一个卡片的结果
+      return Array.isArray(response.result) && response.result[0] === true;
     } catch (error) {
-      console.error("Failed to answer card:", error);
+      console.error("回答卡片失败:", error);
       return false;
     }
   }
