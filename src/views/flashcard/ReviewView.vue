@@ -302,7 +302,6 @@ const inputEnter = async function (inputValue: string) {
   if (!currentSessionId.value) {
     currentSessionId.value = generateUUID();
   }
-  console.log("Using session ID:", currentSessionId.value);
 
   // 添加用户消息
   const userMessage = {
@@ -328,7 +327,6 @@ const inputEnter = async function (inputValue: string) {
     loading.value = true;
     isStreamLoad.value = true;
     const lastItem = chatList.value[0];
-    console.log("Sending chat request...");
 
     // 发送聊天请求，使用当前会话ID
     loading.value = true;
@@ -337,14 +335,11 @@ const inputEnter = async function (inputValue: string) {
       content: inputValue,
       sessionId: currentSessionId.value,
     });
-    console.log("Chat response:", res);
 
     if (res.code == 200 && res.data) {
       currentRequestId.value = res.data;
-      console.log("Got request ID:", currentRequestId.value);
 
       // 使用 waitForStreamingResult 来获取流式响应
-      console.log("Waiting for streaming result...");
       let accumulatedContent = ""; // 累积的内容
 
       await eventStreamService.waitForStreamingResult(
@@ -359,13 +354,10 @@ const inputEnter = async function (inputValue: string) {
           if (lastItem && lastItem.role === "assistant") {
             lastItem.content = newContent;
           }
-          console.log("Added content:", addedContent);
         }
       );
-      console.log("Streaming completed");
     }
   } catch (error) {
-    console.error("Chat error:", error);
     if (chatList.value[0] && chatList.value[0].role === "assistant") {
       chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
     }

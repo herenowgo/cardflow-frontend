@@ -1,6 +1,6 @@
-import { ref } from "vue";
 import { EventMessage, StreamingEventMessage } from "@/models/EventMessage";
 import store from "@/store";
+import { ref } from "vue";
 
 interface PendingRequest {
   resolve: (value: any) => void;
@@ -209,7 +209,6 @@ class EventStreamService {
     try {
       const message = JSON.parse(event.data) as EventMessage;
       this.latestMessage.value = message;
-      console.log("Received SSE message:", message);
 
       // 处理流式消息
       if (
@@ -274,8 +273,6 @@ class EventStreamService {
       return;
     }
 
-    console.log("Processing streaming message:", message);
-
     if (data.isEnd) {
       // 处理结束消息
       const pendingRequest = this.pendingRequests.get(requestId);
@@ -288,8 +285,6 @@ class EventStreamService {
         for (const [_, content] of sortedEntries) {
           fullContent += content;
         }
-
-        console.log("Stream ended, full content:", fullContent);
 
         // 清理资源
         clearTimeout(pendingRequest.timeout);
@@ -305,12 +300,6 @@ class EventStreamService {
 
     // 存储新消息
     if (data.content) {
-      console.log(
-        "Adding new content for sequence",
-        data.sequence,
-        ":",
-        data.content
-      );
       messageMap.set(data.sequence, data.content);
 
       // 按顺序拼接消息
