@@ -58,4 +58,22 @@ export class ChatControllerService {
       mediaType: "application/json",
     });
   }
+
+  /**
+     * AI对话(可以多轮对象，不过需要传递相同的sessionId)
+     * 与AI进行对话，返回请求ID用于从流式响应中获取消息
+     * @param requestBody
+     * @returns BaseResponseString OK
+     * @throws ApiError
+     */
+    public static chat(
+        requestBody: AIChatRequest,
+    ): CancelablePromise<BaseResponseString> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/ai/chat',
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
 }

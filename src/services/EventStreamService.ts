@@ -211,7 +211,13 @@ class EventStreamService {
       this.latestMessage.value = message;
       console.log("Received SSE message:", message);
 
-      if (message.eventType === "CODE_SUGGEST" && message.requestId) {
+      // 处理流式消息
+      if (
+        (message.eventType === "CODE_SUGGEST" ||
+          message.eventType === "CHAT" ||
+          message.eventType === "ANSWER") &&
+        message.requestId
+      ) {
         // 检查是否是结束消息
         if (message.sequence === -1) {
           // 处理结束消息
@@ -263,9 +269,11 @@ class EventStreamService {
 
     const messageMap = this.streamingMessages.get(requestId);
     const handler = this.streamingHandlers.get(requestId);
-    if (!messageMap || !handler) return;
+    if (!messageMap || !handler) {
+      console.warn("No message map or handler for requestId:", requestId);
+      return;
+    }
 
-    // 打印接收到的消息以便调试
     console.log("Processing streaming message:", message);
 
     if (data.isEnd) {
@@ -281,6 +289,8 @@ class EventStreamService {
           fullContent += content;
         }
 
+        console.log("Stream ended, full content:", fullContent);
+
         // 清理资源
         clearTimeout(pendingRequest.timeout);
         this.pendingRequests.delete(requestId);
@@ -294,19 +304,43 @@ class EventStreamService {
     }
 
     // 存储新消息
-    messageMap.set(data.sequence, data.content);
+    if (data.content) {
+      console.log(
+        "Adding new content for sequence",
+        data.sequence,
+        ":",
+        data.content
+      );
+      messageMap.set(data.sequence, data.content);
 
-    // 按顺序拼接消息
-    let fullContent = "";
-    const sortedEntries = Array.from(messageMap.entries()).sort(
-      ([a], [b]) => a - b
-    );
-    for (const [_, content] of sortedEntries) {
-      fullContent += content;
+      // 按顺序拼接消息
+      let fullContent = "";
+      const sortedEntries = Array.from(messageMap.entries()).sort(
+        ([a], [b]) => a - b
+      );
+      for (const [_, content] of sortedEntries) {
+        fullContent += content;
+      }
+
+      // 立即调用更新处理函数
+      handler(fullContent);
+    } else {
+      console.warn("Empty content received for sequence:", data.sequence);
     }
+  }
 
-    // 调用更新处理函数
-    handler(fullContent);
+  // 添加取消请求的公共方法
+  public cancelRequest(requestId: string) {
+    const pendingRequest = this.pendingRequests.get(requestId);
+    if (pendingRequest) {
+      clearTimeout(pendingRequest.timeout);
+      pendingRequest.reject(new Error("用户取消生成"));
+      this.pendingRequests.delete(requestId);
+
+      // 清理相关资源
+      this.streamingHandlers.delete(requestId);
+      this.streamingMessages.delete(requestId);
+    }
   }
 }
 

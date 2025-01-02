@@ -3,10 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 
+/**
+ * AI对话请求参数
+ */
 export type AIChatRequest = {
     content?: string;
     model?: AIChatRequest.model;
     prompt?: string;
+    // 会话id，用于实现多轮对话（在多轮对话中，要传递相同的sessionId）
+    sessionId?: string;
 };
 
 export namespace AIChatRequest {
@@ -17,7 +22,4 @@ export namespace AIChatRequest {
         A2 = 'A2',
         PLUS = 'PLUS',
     }
-
-
 }
-
