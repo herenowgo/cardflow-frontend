@@ -4,7 +4,8 @@
     :footer="false"
     :header="title"
     mode="modeless"
-    :draggable="draggable"
+    :close-btn="true"
+    @close="handleClose"
     @confirm="handleClose"
   >
     <template #body>

@@ -21,68 +21,82 @@
 
       <!-- 卡片区域 -->
       <div class="review-content" :class="{ 'no-cards': !currentCard }">
-        <div class="card-area">
-          <template v-if="currentCard">
-            <div
-              class="flashcard"
-              :class="{ 'is-flipped': isFlipped }"
-              @click="toggleCard"
-            >
-              <div class="flashcard-inner">
-                <!-- 正面 -->
-                <div class="flashcard-front">
-                  <div class="card-content">
-                    <div class="content-type">问题</div>
-                    <div class="content-text">
-                      <md-viewer :value="currentCard.question" />
+        <div class="card-container" :class="{ 'shift-left': isAIChatVisible }">
+          <div class="card-area">
+            <template v-if="currentCard">
+              <div
+                class="flashcard"
+                :class="{ 'is-flipped': isFlipped }"
+                @click="toggleCard"
+              >
+                <div class="flashcard-inner">
+                  <!-- 正面 -->
+                  <div class="flashcard-front">
+                    <div class="card-content">
+                      <div class="content-type">问题</div>
+                      <div class="content-text">
+                        <md-viewer :value="currentCard.question" />
+                      </div>
+                      <div class="card-tags" v-if="currentCard.tags?.length">
+                        <a-space>
+                          <a-tag
+                            v-for="tag in currentCard.tags"
+                            :key="tag"
+                            size="small"
+                            color="arcoblue"
+                          >
+                            {{ tag }}
+                          </a-tag>
+                        </a-space>
+                      </div>
                     </div>
-                    <div class="card-tags" v-if="currentCard.tags?.length">
-                      <a-space>
-                        <a-tag
-                          v-for="tag in currentCard.tags"
-                          :key="tag"
-                          size="small"
-                          color="arcoblue"
-                        >
-                          {{ tag }}
-                        </a-tag>
-                      </a-space>
+                    <div class="card-hint">
+                      <icon-arrow-right />
+                      <span>点击卡片翻转</span>
                     </div>
                   </div>
-                  <div class="card-hint">
-                    <icon-arrow-right />
-                    <span>点击卡片翻转</span>
-                  </div>
-                </div>
 
-                <!-- 背面 -->
-                <div class="flashcard-back">
-                  <div class="card-content">
-                    <div class="content-type">答案</div>
-                    <div class="content-text">
-                      <md-viewer :value="currentCard.answer" />
+                  <!-- 背面 -->
+                  <div class="flashcard-back">
+                    <div class="card-content">
+                      <div class="content-type">答案</div>
+                      <div class="content-text">
+                        <md-viewer :value="currentCard.answer" />
+                      </div>
+                      <div class="card-tags" v-if="currentCard.tags?.length">
+                        <a-space>
+                          <a-tag
+                            v-for="tag in currentCard.tags"
+                            :key="tag"
+                            size="small"
+                            color="arcoblue"
+                          >
+                            {{ tag }}
+                          </a-tag>
+                        </a-space>
+                      </div>
                     </div>
-                    <div class="card-tags" v-if="currentCard.tags?.length">
-                      <a-space>
-                        <a-tag
-                          v-for="tag in currentCard.tags"
-                          :key="tag"
-                          size="small"
-                          color="arcoblue"
-                        >
-                          {{ tag }}
-                        </a-tag>
-                      </a-space>
+                    <div class="card-hint">
+                      <icon-arrow-left />
+                      <span>点击卡片翻转</span>
                     </div>
-                  </div>
-                  <div class="card-hint">
-                    <icon-arrow-left />
-                    <span>点击卡片翻转</span>
                   </div>
                 </div>
               </div>
-            </div>
-          </template>
+            </template>
+          </div>
+
+          <!-- AI助手按钮 -->
+          <div class="ai-helper-button" @click="showAIChat">
+            <t-button shape="circle" theme="primary" size="large">
+              <template #icon><icon-robot /></template>
+            </t-button>
+          </div>
+        </div>
+
+        <!-- AI助手窗口 -->
+        <div class="ai-helper-panel" :class="{ show: isAIChatVisible }">
+          <AIChat ref="aiChatRef" @close="handleAIChatClose" />
         </div>
 
         <!-- 评分区域 -->
@@ -162,8 +176,6 @@
             </template>
             同步到Anki
           </a-button>
-          <t-button theme="primary" @click="showAIChat">AI助手可拖拽</t-button>
-          <AIChat ref="aiChatRef" @close="handleAIChatClose" />
         </a-space>
       </div>
     </div>
@@ -184,6 +196,7 @@ import {
   IconMinus,
   IconStar,
   IconSync,
+  IconRobot,
 } from "@arco-design/web-vue/es/icon";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
@@ -201,6 +214,10 @@ const showAIChat = () => {
 
 const handleAIChatClose = () => {
   isAIChatVisible.value = false;
+  // 等待动画完成后再隐藏 AI 助手窗口
+  setTimeout(() => {
+    aiChatRef.value?.hide();
+  }, 300);
 };
 
 // 定义类型
@@ -455,6 +472,11 @@ const toggleCard = () => {
 const rateCard = async (rating: number) => {
   if (!currentCard.value) return;
 
+  // 关闭 AI 助手
+  if (isAIChatVisible.value) {
+    handleAIChatClose();
+  }
+
   // 立即更新统计状态
   if (rating >= 3) correctAnswers.value++;
   completedCards.value++;
@@ -625,6 +647,116 @@ onUnmounted(() => {
   gap: 12px;
   position: relative;
   min-height: 0;
+  overflow: visible;
+  padding: 0 60px;
+}
+
+.card-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: all 0.3s ease;
+  will-change: transform, width;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 8px 0;
+}
+
+.card-container.shift-left {
+  width: 50%;
+  transform: translateX(0);
+}
+
+.ai-helper-button {
+  position: absolute;
+  right: -60px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  transition: opacity 0.3s ease;
+}
+
+.ai-helper-panel {
+  position: absolute;
+  right: 0px;
+  top: 1%;
+  width: 41%;
+  height: 80%;
+  background: var(--color-bg-2);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  will-change: transform, opacity, visibility;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: 16px;
+  margin: 8px 0;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.ai-helper-panel.show {
+  transform: translateX(0);
+  visibility: visible;
+  opacity: 1;
+}
+
+:deep(.t-dialog) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  max-width: none;
+  box-shadow: none;
+  border-radius: 16px;
+  background: transparent;
+}
+
+:deep(.t-dialog__header) {
+  padding: 0 0 16px 0;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 16px;
+}
+
+:deep(.t-dialog__body) {
+  padding: 0;
+  height: calc(100% - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:deep(.t-chat) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  height: 100%;
+}
+
+:deep(.t-chat .t-chat__message-list) {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+:deep(.t-chat .t-chat__message-list::-webkit-scrollbar) {
+  display: none;
+}
+
+:deep(.t-chat .t-chat__input-wrapper) {
+  margin-top: 16px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+  background: transparent;
 }
 
 .card-area {
@@ -634,11 +766,11 @@ onUnmounted(() => {
   align-items: center;
   padding: 8px 0;
   min-height: 0;
+  overflow: visible;
 }
 
 .flashcard {
   width: 100%;
-  max-width: 800px;
   height: 100%;
   perspective: 2000px;
   cursor: pointer;
@@ -651,7 +783,7 @@ onUnmounted(() => {
 .flashcard-inner {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: 95%;
   transform: translate3d(0, 0, 0);
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
@@ -922,5 +1054,23 @@ onUnmounted(() => {
 
 .chat-ai {
   height: 600px;
+}
+
+.card-container.shift-left .ai-helper-button {
+  opacity: 0;
+}
+
+/* 修改卡片的过渡效果 */
+.card-container {
+  transition: width 0.3s ease;
+}
+
+.card-container.shift-left {
+  width: 50%;
+}
+
+/* 添加 AI 助手面板的过渡效果 */
+.ai-helper-panel {
+  transition: transform 0.3s ease, visibility 0.3s ease, opacity 0.3s ease;
 }
 </style>
