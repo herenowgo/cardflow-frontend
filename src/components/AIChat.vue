@@ -198,11 +198,18 @@ const handleSend = async (inputValue: string) => {
   }
 };
 
+// 添加 sendMessage 方法
+const sendMessage = async (message: string) => {
+  if (isStreamLoad.value) return;
+  await handleSend(message);
+};
+
 // 暴露方法给父组件
 defineExpose({
   show: () => (visible.value = true),
   hide: () => (visible.value = false),
   clear: handleClear,
+  sendMessage,
 });
 </script>
 

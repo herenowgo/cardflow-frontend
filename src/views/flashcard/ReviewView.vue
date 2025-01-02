@@ -26,8 +26,11 @@
             <template v-if="currentCard">
               <div
                 class="flashcard"
-                :class="{ 'is-flipped': isFlipped }"
-                @click="toggleCard"
+                :class="{
+                  'is-flipped': isFlipped,
+                  'is-editing': isEditing,
+                }"
+                @click="handleCardClick"
               >
                 <div class="flashcard-inner">
                   <!-- 正面 -->
@@ -35,24 +38,73 @@
                     <div class="card-content">
                       <div class="content-type">问题</div>
                       <div class="content-text">
-                        <md-viewer :value="currentCard.question" />
+                        <template v-if="!isEditing">
+                          <md-viewer :value="currentCard.question" />
+                        </template>
+                        <template v-else>
+                          <md-editor
+                            :value="editForm.question"
+                            :handleChange="(v) => (editForm.question = v)"
+                          />
+                        </template>
                       </div>
                       <div class="card-tags" v-if="currentCard.tags?.length">
-                        <a-space>
-                          <a-tag
-                            v-for="tag in currentCard.tags"
-                            :key="tag"
-                            size="small"
-                            color="arcoblue"
-                          >
-                            {{ tag }}
-                          </a-tag>
-                        </a-space>
+                        <template v-if="!isEditing">
+                          <a-space>
+                            <a-tag
+                              v-for="tag in currentCard.tags"
+                              :key="tag"
+                              size="small"
+                              color="arcoblue"
+                            >
+                              {{ tag }}
+                            </a-tag>
+                          </a-space>
+                        </template>
+                        <template v-else>
+                          <a-input-tag v-model="editForm.tags" allow-clear />
+                        </template>
+                      </div>
+                      <!-- 编辑按钮 -->
+                      <div class="card-actions">
+                        <a-button-group>
+                          <template v-if="!isEditing">
+                            <a-button
+                              type="text"
+                              size="small"
+                              @click.stop="showEditModal"
+                            >
+                              <template #icon><icon-edit /></template>
+                              编辑
+                            </a-button>
+                          </template>
+                          <template v-else>
+                            <a-button
+                              type="primary"
+                              size="small"
+                              @click.stop="handleEditSave"
+                            >
+                              <template #icon><icon-check /></template>
+                              完成
+                            </a-button>
+                            <a-button
+                              type="outline"
+                              size="small"
+                              @click.stop="cancelEdit"
+                            >
+                              <template #icon><icon-close /></template>
+                              取消
+                            </a-button>
+                          </template>
+                        </a-button-group>
                       </div>
                     </div>
                     <div class="card-hint">
                       <icon-arrow-right />
-                      <span>点击卡片翻转</span>
+                      <span>点击或空格使卡片翻转</span>
+                      <span class="hint-divider">|</span>
+                      <icon-robot />
+                      <span>按 <span class="shortcut">F</span> 召唤AI助手</span>
                     </div>
                   </div>
 
@@ -61,24 +113,73 @@
                     <div class="card-content">
                       <div class="content-type">答案</div>
                       <div class="content-text">
-                        <md-viewer :value="currentCard.answer" />
+                        <template v-if="!isEditing">
+                          <md-viewer :value="currentCard.answer" />
+                        </template>
+                        <template v-else>
+                          <md-editor
+                            :value="editForm.answer"
+                            :handleChange="(v) => (editForm.answer = v)"
+                          />
+                        </template>
                       </div>
                       <div class="card-tags" v-if="currentCard.tags?.length">
-                        <a-space>
-                          <a-tag
-                            v-for="tag in currentCard.tags"
-                            :key="tag"
-                            size="small"
-                            color="arcoblue"
-                          >
-                            {{ tag }}
-                          </a-tag>
-                        </a-space>
+                        <template v-if="!isEditing">
+                          <a-space>
+                            <a-tag
+                              v-for="tag in currentCard.tags"
+                              :key="tag"
+                              size="small"
+                              color="arcoblue"
+                            >
+                              {{ tag }}
+                            </a-tag>
+                          </a-space>
+                        </template>
+                        <template v-else>
+                          <a-input-tag v-model="editForm.tags" allow-clear />
+                        </template>
+                      </div>
+                      <!-- 编辑按钮 -->
+                      <div class="card-actions">
+                        <a-button-group>
+                          <template v-if="!isEditing">
+                            <a-button
+                              type="text"
+                              size="small"
+                              @click.stop="showEditModal"
+                            >
+                              <template #icon><icon-edit /></template>
+                              编辑
+                            </a-button>
+                          </template>
+                          <template v-else>
+                            <a-button
+                              type="primary"
+                              size="small"
+                              @click.stop="handleEditSave"
+                            >
+                              <template #icon><icon-check /></template>
+                              完成
+                            </a-button>
+                            <a-button
+                              type="outline"
+                              size="small"
+                              @click.stop="cancelEdit"
+                            >
+                              <template #icon><icon-close /></template>
+                              取消
+                            </a-button>
+                          </template>
+                        </a-button-group>
                       </div>
                     </div>
                     <div class="card-hint">
                       <icon-arrow-left />
-                      <span>点击卡片翻转</span>
+                      <span>点击或空格使卡片翻转</span>
+                      <span class="hint-divider">|</span>
+                      <icon-robot />
+                      <span>按 <span class="shortcut">F</span> 召唤AI助手</span>
                     </div>
                   </div>
                 </div>
@@ -184,10 +285,42 @@
         </a-space>
       </div>
     </div>
+
+    <!-- 编辑对话框 -->
+    <a-modal
+      v-model:visible="isEditModalVisible"
+      title="编辑卡片"
+      @ok="handleEditSave"
+      :mask-closable="false"
+      :closable="true"
+      :ok-text="'保存'"
+      :cancel-text="'取消'"
+    >
+      <a-form :model="editForm" layout="vertical">
+        <a-form-item label="问题">
+          <a-textarea
+            v-model="editForm.question"
+            :auto-size="{ minRows: 4, maxRows: 8 }"
+            allow-clear
+          />
+        </a-form-item>
+        <a-form-item label="答案">
+          <a-textarea
+            v-model="editForm.answer"
+            :auto-size="{ minRows: 4, maxRows: 8 }"
+            allow-clear
+          />
+        </a-form-item>
+        <a-form-item label="标签">
+          <a-input-tag v-model="editForm.tags" allow-clear />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
 <script setup lang="ts">
+import MdEditor from "@/components/MdEditor.vue";
 import MdViewer from "@/components/MdViewer.vue";
 import { AnkiService } from "@/services/AnkiService";
 import { eventStreamService } from "@/services/EventStreamService";
@@ -202,6 +335,7 @@ import {
   IconStar,
   IconSync,
   IconRobot,
+  IconEdit,
 } from "@arco-design/web-vue/es/icon";
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
@@ -212,9 +346,51 @@ import AIChat from "@/components/AIChat.vue";
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const isAIChatVisible = ref(false);
 
-const showAIChat = () => {
+const cardSentToAI = ref(new Set<string>());
+
+// 添加清理 Obsidian 链接的函数
+const cleanObsidianLinks = (text: string) => {
+  // 匹配 Obsidian 链接的正则表达式
+  const obsidianLinkRegex = /<a href="obsidian:\/\/[^>]+>.*?<\/a>/g;
+  return text.replace(obsidianLinkRegex, "");
+};
+
+const showAIChat = async () => {
   isAIChatVisible.value = true;
   aiChatRef.value?.show();
+
+  // 如果当前卡片存在且还没有发送过给 AI
+  if (currentCard.value && !cardSentToAI.value.has(currentCard.value.id)) {
+    // 清空之前的聊天记录，开始新的会话
+    aiChatRef.value?.clear();
+
+    // 清理内容中的 Obsidian 链接
+    const cleanQuestion = cleanObsidianLinks(currentCard.value.question);
+    const cleanAnswer = cleanObsidianLinks(currentCard.value.answer);
+
+    // 构造发送给 AI 的消息
+    const message = `请帮我检查这张闪卡的内容：
+
+问题：
+${cleanQuestion}
+
+答案：
+${cleanAnswer}
+
+${
+  currentCard.value.tags?.length
+    ? `标签：${currentCard.value.tags.join(", ")}`
+    : ""
+}`;
+
+    // 记录这张卡片已经发送过
+    cardSentToAI.value.add(currentCard.value.id);
+
+    // 等待 AI 助手组件完全显示后再发送消息
+    setTimeout(() => {
+      aiChatRef.value?.sendMessage(message);
+    }, 300);
+  }
 };
 
 const handleAIChatClose = () => {
@@ -233,12 +409,22 @@ interface MockResponse {
 }
 
 interface Card {
-  id: number;
+  id: string;
+  userId?: number;
+  ankiInfo?: {
+    noteId: number;
+    cardId: number;
+    modelName: string;
+    syncTime: number;
+  };
   question: string;
   answer: string;
-  familiarity?: number;
-  lastReviewTime?: Date;
   tags?: string[];
+  group?: string;
+  modifiedTime?: number;
+  isDeleted?: boolean;
+  deleteTime?: number | null;
+  createTime?: number;
 }
 
 // 修改变量定义
@@ -380,7 +566,7 @@ const currentDeck = ref<Deck>({
 
 const cards = ref<Card[]>([
   {
-    id: 1,
+    id: "1",
     question: "# Vue的响应式原理是什么？",
     answer: `Vue3的响应式原理基于Proxy实现：
 
@@ -403,10 +589,11 @@ const proxy = new Proxy(target, {
   }
 })
 \`\`\``,
-    familiarity: 0,
+    tags: ["Vue3", "响应式"],
+    group: "vue",
   },
   {
-    id: 2,
+    id: "2",
     question: "# Vue组件的生命周期有哪些？",
     answer: `Vue3组件的主要生命周期钩子：
 
@@ -419,21 +606,8 @@ const proxy = new Proxy(target, {
 - \`onUnmounted()\`
 
 > 注意：setup() 是组合式 API 的入口点`,
-    familiarity: 0,
-  },
-  {
-    id: 3,
-    question: "什么是Vue的计算属性？",
-    answer:
-      "计算属性是基于响应式依赖进行缓存的特殊属性：\n\n1. 只有依赖发生改变时才会重新计算\n2. 有缓存机制，多次访问只计算一次\n3. 适合处理复杂的数据计算",
-    familiarity: 0,
-  },
-  {
-    id: 4,
-    question: "Vue3的组合式API有什么优势？",
-    answer:
-      "组合式API (Composition API) 的主要优势：\n\n1. 更好的代码组织\n2. 更好的逻辑复用\n3. 更好的类型推导\n4. 更小的打包体积",
-    familiarity: 0,
+    tags: ["Vue3", "生命周期"],
+    group: "vue",
   },
 ]);
 
@@ -469,18 +643,22 @@ const ratingSubmitted = ref(false);
 
 // 切换卡片正反面
 const toggleCard = () => {
-  // 如果已经提交评分，不允许再次翻转
-  if (ratingSubmitted.value) return;
+  // 如果已经提交评分或正在编辑，不允许翻转
+  if (ratingSubmitted.value || isEditModalVisible.value) return;
   isFlipped.value = !isFlipped.value;
 };
 
 const rateCard = async (rating: number) => {
   if (!currentCard.value) return;
 
-  // 关闭 AI 助手
+  // 关闭 AI 助手并重置会话
   if (isAIChatVisible.value) {
     handleAIChatClose();
   }
+  // 清空 AI 助手的聊天记录，为下一张卡片准备
+  aiChatRef.value?.clear();
+  // 重置已发送卡片的记录，这样切换到新卡片时可以重新发送
+  cardSentToAI.value.clear();
 
   // 立即更新统计状态
   if (rating >= 3) correctAnswers.value++;
@@ -524,8 +702,22 @@ const isMouseInAIChat = ref(false);
 
 // 修改键盘事件处理函数
 const handleKeyPress = (e: KeyboardEvent) => {
+  // 如果在编辑模式下，不处理任何快捷键
+  if (isEditing.value) return;
+
   // 只有当鼠标在 AI 助手区域时才禁用快捷键
   if (isMouseInAIChat.value) return;
+
+  // 按 f 键召唤 AI 助手
+  if (e.key.toLowerCase() === "f") {
+    if (isAIChatVisible.value) {
+      handleAIChatClose();
+    } else {
+      showAIChat();
+    }
+    e.preventDefault();
+    return;
+  }
 
   if (!currentCard.value) return;
 
@@ -563,14 +755,17 @@ const loadDeckData = async () => {
 
     if (res.code === 200 && res.data) {
       cards.value = res.data.map((card: any) => ({
-        id: Number(card.id),
+        id: card.id, // 直接使用后端返回的 string 类型 id
+        userId: card.userId,
+        ankiInfo: card.ankiInfo,
         question: card.question || "",
         answer: card.answer || "",
-        familiarity: card.familiarity || 0,
-        lastReviewTime: card.lastReviewTime
-          ? new Date(card.lastReviewTime)
-          : undefined,
         tags: card.tags || [],
+        group: card.group,
+        modifiedTime: card.modifiedTime,
+        isDeleted: card.isDeleted,
+        deleteTime: card.deleteTime,
+        createTime: card.createTime,
       }));
     } else {
       Message.error("加载卡片失败");
@@ -581,13 +776,86 @@ const loadDeckData = async () => {
   }
 };
 
-// 模拟保存评分
-const saveRating = async (cardId: number, rating: number) => {
+// 修改保存评分的函数
+const saveRating = async (cardId: string, rating: number) => {
   // TODO: 替换为实际的API调用
   // await CardControllerService.updateCardRating(cardId, rating);
 
   // 模拟保存延迟
   await new Promise((resolve) => setTimeout(resolve, 300));
+};
+
+// 在 script setup 中添加
+const isEditModalVisible = ref(false);
+const editForm = ref({
+  question: "",
+  answer: "",
+  tags: [] as string[],
+});
+
+// 添加编辑状态
+const isEditing = ref(false);
+
+// 修改 showEditModal 函数
+const showEditModal = () => {
+  if (!currentCard.value) return;
+  editForm.value = {
+    question: currentCard.value.question,
+    answer: currentCard.value.answer,
+    tags: currentCard.value.tags || [],
+  };
+  isEditing.value = true;
+};
+
+// 修改保存函数
+const handleEditSave = async () => {
+  if (!currentCard.value) return;
+  try {
+    const res = await CardControllerService.updateCard({
+      id: currentCard.value.id,
+      question: editForm.value.question,
+      answer: editForm.value.answer,
+      tags: editForm.value.tags,
+      group: currentCard.value.group,
+    });
+
+    if (res.code === 200 && res.data) {
+      Message.success("更新成功");
+      // 更新当前卡片内容
+      if (currentCard.value) {
+        currentCard.value.question = editForm.value.question;
+        currentCard.value.answer = editForm.value.answer;
+        currentCard.value.tags = editForm.value.tags;
+      }
+      // 重置所有编辑状态
+      isEditing.value = false;
+      isEditModalVisible.value = false;
+    } else {
+      Message.error("更新失败");
+    }
+  } catch (error) {
+    console.error("更新卡片失败:", error);
+    Message.error("更新失败，请重试");
+  }
+};
+
+// 修改取消编辑函数
+const cancelEdit = () => {
+  // 重置所有编辑状态
+  isEditing.value = false;
+  isEditModalVisible.value = false;
+  editForm.value = {
+    question: currentCard.value?.question || "",
+    answer: currentCard.value?.answer || "",
+    tags: currentCard.value?.tags || [],
+  };
+};
+
+// 添加处理卡片点击的函数
+const handleCardClick = () => {
+  if (!isEditing.value) {
+    toggleCard();
+  }
 };
 
 onMounted(async () => {
@@ -723,18 +991,21 @@ onUnmounted(() => {
   max-width: none;
   box-shadow: none;
   border-radius: 16px;
-  background: transparent;
+  background: var(--color-bg-2);
+  display: flex;
+  flex-direction: column;
 }
 
 :deep(.t-dialog__header) {
-  padding: 0 0 16px 0;
+  padding: 16px;
   border-bottom: 1px solid var(--color-border);
-  margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 :deep(.t-dialog__body) {
   padding: 0;
-  height: calc(100% - 48px);
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -744,27 +1015,25 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: transparent;
-  height: 100%;
+  min-height: 0;
+  padding: 0 16px;
 }
 
 :deep(.t-chat .t-chat__message-list) {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 16px 0;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
 
-:deep(.t-chat .t-chat__message-list::-webkit-scrollbar) {
-  display: none;
-}
-
 :deep(.t-chat .t-chat__input-wrapper) {
-  margin-top: 16px;
+  padding: 16px 0;
+  margin: 0;
   border-top: 1px solid var(--color-border);
-  padding-top: 16px;
   background: transparent;
+  position: relative;
+  flex-shrink: 0;
 }
 
 .card-area {
@@ -870,9 +1139,118 @@ onUnmounted(() => {
   -ms-overflow-style: none;
 }
 
-/* 隐藏滚动条 - Webkit */
-.content-text::-webkit-scrollbar {
-  display: none;
+/* 编辑器样式 */
+.content-text :deep(.bytemd) {
+  height: 100%;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.content-text :deep(.bytemd:hover),
+.content-text :deep(.bytemd:focus-within) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light-3);
+}
+
+.content-text :deep(.bytemd-toolbar) {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-1);
+}
+
+.content-text :deep(.bytemd-editor) {
+  background: transparent;
+}
+
+.card-tags {
+  margin-top: 8px;
+  padding: 4px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.chat-ai {
+  height: 600px;
+}
+
+.card-container.shift-left .ai-helper-button {
+  opacity: 0;
+}
+
+/* 修改卡片的过渡效果 */
+.card-container {
+  transition: width 0.3s ease;
+}
+
+.card-container.shift-left {
+  width: 50%;
+}
+
+/* 添加 AI 助手面板的过渡效果 */
+.ai-helper-panel {
+  transition: transform 0.3s ease, visibility 0.3s ease, opacity 0.3s ease;
+}
+
+.card-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: auto;
+}
+
+.flashcard:hover .card-actions {
+  opacity: 1;
+}
+
+:deep(.arco-textarea-wrapper) {
+  font-family: monospace;
+}
+
+/* 修改编辑按钮的样式 */
+:deep(.arco-btn-text) {
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border);
+  &:hover {
+    background: var(--color-fill-2);
+  }
+}
+
+/* 确保编辑对话框在最上层 */
+:deep(.arco-modal-wrapper) {
+  z-index: 1000;
+}
+
+.flashcard {
+  width: 100%;
+  height: 100%;
+  perspective: 2000px;
+  cursor: pointer;
+  position: relative;
+  transform: translate3d(0, 0, 0);
+  transform-style: preserve-3d;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.flashcard.is-editing {
+  cursor: default; /* 编辑模式下移除指针样式 */
+}
+
+/* 编辑模式下的标签输入样式 */
+.card-tags :deep(.arco-input-tag) {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  transition: all 0.3s;
+  min-height: 32px;
+}
+
+.card-tags :deep(.arco-input-tag:hover),
+.card-tags :deep(.arco-input-tag:focus-within) {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light-3);
 }
 
 .card-hint {
@@ -885,6 +1263,21 @@ onUnmounted(() => {
   gap: 8px;
   opacity: 0.8;
   transition: opacity 0.3s;
+  font-size: 14px;
+}
+
+.hint-divider {
+  margin: 0 8px;
+  opacity: 0.5;
+}
+
+.card-hint .shortcut {
+  color: var(--color-primary);
+  font-weight: 500;
+  padding: 2px 6px;
+  background: var(--color-fill-2);
+  border-radius: 4px;
+  margin: 0 2px;
 }
 
 .flashcard:hover .card-hint {
@@ -1052,33 +1445,5 @@ onUnmounted(() => {
 
 :deep(.markdown-body li) {
   margin: 4px 0;
-}
-
-.card-tags {
-  margin-top: 8px;
-  padding: 4px 0;
-  border-top: 1px solid var(--color-border);
-}
-
-.chat-ai {
-  height: 600px;
-}
-
-.card-container.shift-left .ai-helper-button {
-  opacity: 0;
-}
-
-/* 修改卡片的过渡效果 */
-.card-container {
-  transition: width 0.3s ease;
-}
-
-.card-container.shift-left {
-  width: 50%;
-}
-
-/* 添加 AI 助手面板的过渡效果 */
-.ai-helper-panel {
-  transition: transform 0.3s ease, visibility 0.3s ease, opacity 0.3s ease;
 }
 </style>
