@@ -163,7 +163,7 @@
             同步到Anki
           </a-button>
           <t-button theme="primary" @click="showAIChat">AI助手可拖拽</t-button>
-          <AIChat ref="aiChatRef" />
+          <AIChat ref="aiChatRef" @close="handleAIChatClose" />
         </a-space>
       </div>
     </div>
@@ -192,8 +192,15 @@ import { ChatControllerService } from "../../../generated/services/ChatControlle
 import AIChat from "@/components/AIChat.vue";
 
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
+const isAIChatVisible = ref(false);
+
 const showAIChat = () => {
+  isAIChatVisible.value = true;
   aiChatRef.value?.show();
+};
+
+const handleAIChatClose = () => {
+  isAIChatVisible.value = false;
 };
 
 // 定义类型
@@ -487,6 +494,9 @@ const restartReview = async () => {
 
 // 键盘快捷键处理
 const handleKeyPress = (e: KeyboardEvent) => {
+  // 如果 AI 助手对话框打开，不处理快捷键
+  if (isAIChatVisible.value) return;
+
   if (!currentCard.value) return;
 
   if (e.key === " ") {
