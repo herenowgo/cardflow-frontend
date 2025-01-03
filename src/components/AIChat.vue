@@ -74,6 +74,56 @@
             :content="item.content"
             :text-loading="index === 0 && loading"
           >
+            <template #actions v-if="item.role === 'assistant'">
+              <t-space>
+                <t-button
+                  theme="default"
+                  variant="text"
+                  size="small"
+                  @click="copyContent(item.content)"
+                >
+                  <template #icon><t-icon name="file-copy" /></template>
+                  复制
+                </t-button>
+                <t-dropdown
+                  trigger="click"
+                  :min-column-width="100"
+                  :options="
+                    modelOptions.map((opt) => ({
+                      content: opt.label,
+                      value: opt.value,
+                      onClick: () => regenerateWithModel(opt.value, item),
+                    }))
+                  "
+                >
+                  <t-button
+                    theme="default"
+                    variant="text"
+                    size="small"
+                    :loading="loading"
+                    :disabled="isStreamLoad"
+                  >
+                    <template #icon><t-icon name="refresh" /></template>
+                    重新生成
+                    <t-icon
+                      name="chevron-down"
+                      size="small"
+                      style="margin-left: 4px"
+                    />
+                  </t-button>
+                </t-dropdown>
+                <t-button
+                  v-if="item.history?.length"
+                  theme="default"
+                  variant="text"
+                  size="small"
+                  @click="switchHistory(item)"
+                >
+                  <template #icon><t-icon name="swap" /></template>
+                  切换历史回复({{ item.history.length }})
+                </t-button>
+              </t-space>
+            </template>
           </t-chat-item>
         </template>
         <template #footer>
@@ -187,6 +237,12 @@ import { AIChatRequest } from "../../generated/models/AIChatRequest";
 import type { ChatMessage, ChatProps, ChatEvents } from "@/types/chat";
 import { Message } from "@arco-design/web-vue";
 
+// 添加历史记录接口定义
+interface HistoryResponse {
+  content: string;
+  datetime: string;
+}
+
 const props = withDefaults(defineProps<ChatProps>(), {
   userAvatar: "https://tdesign.gtimg.com/site/avatar.jpg",
   aiAvatar: "https://tdesign.gtimg.com/site/chat-avatar.png",
@@ -208,7 +264,7 @@ const currentSessionId = ref<string>("");
 const currentRequestId = ref<string>("");
 
 // 聊天消息列表
-const chatList = ref<ChatMessage[]>(
+const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>(
   props.initialMessages || [
     {
       avatar: props.aiAvatar,
@@ -277,16 +333,28 @@ const currentModel = ref<AIChatRequest.model>(getSavedModel());
 // 监听模型变化并保存
 watch(currentModel, (newModel) => {
   saveModelSelection(newModel);
-  // 添加模型变更消息
-  chatList.value.unshift({
-    avatar: props.aiAvatar,
-    name: props.aiName,
-    datetime: new Date().toLocaleString(),
-    content: `已切换到${
-      modelOptions.find((opt) => opt.value === newModel)?.label
-    }`,
-    role: "model-change",
-  });
+  // 只有在有对话记录时才显示模型切换提示，并插入到第一条消息之后
+  if (chatList.value.length > 0) {
+    const modelChangeMsg: ChatMessage & { history?: HistoryResponse[] } = {
+      avatar: props.aiAvatar,
+      name: props.aiName,
+      datetime: new Date().toLocaleString(),
+      content: `已切换到${
+        modelOptions.find((opt) => opt.value === newModel)?.label
+      }`,
+      role: "model-change",
+    };
+    // 找到第一条非系统消息的位置
+    const firstNonSystemIndex = chatList.value.findIndex(
+      (msg) => msg.role !== "model-change"
+    );
+    if (firstNonSystemIndex !== -1) {
+      chatList.value.splice(firstNonSystemIndex, 0, modelChangeMsg);
+    } else {
+      chatList.value.push(modelChangeMsg);
+    }
+  }
+  // 不重置会话 ID，保持相同的对话上下文
 });
 
 // 定义可用的模型列表
@@ -295,7 +363,7 @@ const modelOptions = [
   { value: AIChatRequest.model.A1, label: "A1 模型" },
   { value: AIChatRequest.model.A2, label: "A2 模型" },
   { value: AIChatRequest.model.PLUS, label: "Plus 模型" },
-  { value: AIChatRequest.model.GEMINI_EXP_1206, label: "Gemini 1206" },
+  { value: AIChatRequest.model.GEMINI_1_5_PRO_EXP, label: "Gemini 1.5 Pro" },
   { value: AIChatRequest.model.GEMINI_2_0_FLASH_EXP, label: "Gemini 2.0" },
 ];
 
@@ -516,6 +584,190 @@ const handleSend = async (inputValue: string) => {
 const sendMessage = async (message: string) => {
   if (isStreamLoad.value) return;
   await handleSend(message);
+};
+
+// 复制内容到剪贴板
+const copyContent = async (content: string) => {
+  try {
+    await navigator.clipboard.writeText(content);
+    Message.success("复制成功");
+  } catch (err) {
+    Message.error("复制失败");
+  }
+};
+
+// 重新生成回复
+const regenerateResponse = async () => {
+  if (isStreamLoad.value || chatList.value.length < 2) return;
+
+  // 获取最后一条用户消息和AI回复
+  const lastAIMessage = chatList.value.find((msg) => msg.role === "assistant");
+  const lastUserMessage = chatList.value.find((msg) => msg.role === "user");
+  if (!lastUserMessage || !lastAIMessage) return;
+
+  // 保存当前回复到历史记录
+  const history: HistoryResponse[] = lastAIMessage.history || [];
+  history.push({
+    content: lastAIMessage.content,
+    datetime: lastAIMessage.datetime,
+  });
+
+  // 创建新的 AI 回复，并保留历史记录
+  const aiMessage: ChatMessage & { history?: HistoryResponse[] } = {
+    avatar: props.aiAvatar,
+    name: props.aiName,
+    datetime: new Date().toLocaleString(),
+    content: "",
+    role: "assistant",
+    history,
+  };
+
+  // 找到原AI回复的位置并替换
+  const aiIndex = chatList.value.findIndex((msg) => msg.role === "assistant");
+  if (aiIndex !== -1) {
+    chatList.value[aiIndex] = aiMessage;
+  }
+
+  try {
+    loading.value = true;
+    isStreamLoad.value = true;
+    const lastItem = chatList.value[aiIndex];
+
+    const res = await ChatControllerService.chat({
+      model: currentModel.value,
+      content: lastUserMessage.content,
+      sessionId: currentSessionId.value,
+      prompt: systemPrompt.value || undefined,
+    });
+
+    if (res.code == 200 && res.data) {
+      currentRequestId.value = res.data;
+
+      let accumulatedContent = "";
+      await eventStreamService.waitForStreamingResult(
+        currentRequestId.value,
+        (newContent: string) => {
+          loading.value = false;
+          const addedContent = newContent.slice(accumulatedContent.length);
+          accumulatedContent = newContent;
+          if (lastItem && lastItem.role === "assistant") {
+            lastItem.content = newContent;
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Chat error:", error);
+    if (aiIndex !== -1 && chatList.value[aiIndex].role === "assistant") {
+      chatList.value[aiIndex].content = "抱歉，发生了错误，请稍后重试";
+    }
+  } finally {
+    loading.value = false;
+    isStreamLoad.value = false;
+  }
+};
+
+// 切换历史回复
+const switchHistory = (item: ChatMessage & { history?: HistoryResponse[] }) => {
+  if (!item.history?.length) return;
+
+  const currentContent = item.content;
+  const currentDatetime = item.datetime;
+
+  // 将当前回复添加到历史记录
+  item.history.push({
+    content: currentContent,
+    datetime: currentDatetime,
+  });
+
+  // 取出最后一条历史记录
+  const lastHistory = item.history.shift()!;
+
+  // 更新当前显示的内容
+  item.content = lastHistory.content;
+  item.datetime = lastHistory.datetime;
+};
+
+// 使用指定模型重新生成回复
+const regenerateWithModel = async (
+  model: AIChatRequest.model,
+  item: ChatMessage & { history?: HistoryResponse[] }
+) => {
+  // 临时保存当前模型
+  const previousModel = currentModel.value;
+  // 切换到选择的模型
+  currentModel.value = model;
+
+  // 如果选择的是当前模型，直接重新生成
+  if (model === previousModel) {
+    await regenerateResponse();
+    return;
+  }
+
+  // 获取最后一条用户消息
+  const lastUserMessage = chatList.value.find((msg) => msg.role === "user");
+  if (!lastUserMessage) return;
+
+  // 保存当前回复到历史记录
+  const history: HistoryResponse[] = item.history || [];
+  history.push({
+    content: item.content,
+    datetime: item.datetime,
+  });
+
+  // 创建新的 AI 回复，并保留历史记录
+  const aiMessage: ChatMessage & { history?: HistoryResponse[] } = {
+    avatar: props.aiAvatar,
+    name: props.aiName,
+    datetime: new Date().toLocaleString(),
+    content: "",
+    role: "assistant",
+    history,
+  };
+
+  // 找到原AI回复的位置并替换
+  const aiIndex = chatList.value.findIndex((msg) => msg.role === "assistant");
+  if (aiIndex !== -1) {
+    chatList.value[aiIndex] = aiMessage;
+  }
+
+  try {
+    loading.value = true;
+    isStreamLoad.value = true;
+    const lastItem = chatList.value[aiIndex];
+
+    const res = await ChatControllerService.chat({
+      model: currentModel.value,
+      content: lastUserMessage.content,
+      sessionId: currentSessionId.value,
+      prompt: systemPrompt.value || undefined,
+    });
+
+    if (res.code == 200 && res.data) {
+      currentRequestId.value = res.data;
+
+      let accumulatedContent = "";
+      await eventStreamService.waitForStreamingResult(
+        currentRequestId.value,
+        (newContent: string) => {
+          loading.value = false;
+          const addedContent = newContent.slice(accumulatedContent.length);
+          accumulatedContent = newContent;
+          if (lastItem && lastItem.role === "assistant") {
+            lastItem.content = newContent;
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Chat error:", error);
+    if (aiIndex !== -1 && chatList.value[aiIndex].role === "assistant") {
+      chatList.value[aiIndex].content = "抱歉，发生了错误，请稍后重试";
+    }
+  } finally {
+    loading.value = false;
+    isStreamLoad.value = false;
+  }
 };
 
 // 暴露方法给父组件

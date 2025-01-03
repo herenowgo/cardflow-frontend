@@ -21,7 +21,7 @@ export namespace AIChatRequest {
         A1 = 'A1',
         A2 = 'A2',
         PLUS = 'PLUS',
-        GEMINI_EXP_1206 = "GEMINI_EXP_1206",
+        GEMINI_1_5_PRO_EXP = "GEMINI_1_5_PRO_EXP",
         GEMINI_2_0_FLASH_EXP="GEMINI_2_0_FLASH_EXP",
     }
 }
