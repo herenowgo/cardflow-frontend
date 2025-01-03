@@ -8,6 +8,56 @@
     @close="handleClose"
     @confirm="handleClose"
   >
+    <template #header>
+      <div class="chat-header">
+        <div class="chat-title">
+          <!-- <t-icon
+            name="root-list"
+            size="20px"
+            style="margin-right: 8px; color: var(--td-brand-color)"
+          /> -->
+          {{ title }}
+        </div>
+        <div class="header-actions">
+          <t-tooltip content="设置系统提示词">
+            <t-button
+              theme="default"
+              variant="text"
+              shape="square"
+              @click="showSettings"
+            >
+              <template #icon>
+                <t-icon name="setting" />
+              </template>
+            </t-button>
+          </t-tooltip>
+          <div class="model-selector-wrapper">
+            <t-tooltip content="选择 AI 模型">
+              <t-select
+                v-model="currentModel"
+                :options="modelOptions"
+                size="small"
+                class="model-selector"
+                :popup-props="{
+                  overlayClassName: 'model-selector-popup',
+                  overlayInnerStyle: { padding: '4px' },
+                }"
+              >
+                <template #prefixIcon>
+                  <t-icon
+                    name="control-platform"
+                    style="color: var(--td-brand-color)"
+                  />
+                </template>
+                <template #suffixIcon>
+                  <!-- 移除箭头图标 -->
+                </template>
+              </t-select>
+            </t-tooltip>
+          </div>
+        </div>
+      </div>
+    </template>
     <template #body>
       <t-chat
         :style="{ height }"
@@ -37,6 +87,87 @@
       </t-chat>
     </template>
   </t-dialog>
+
+  <!-- 添加系统提示词设置对话框 -->
+  <t-dialog
+    v-model:visible="isSettingVisible"
+    header="系统提示词管理"
+    :footer="false"
+    width="540"
+  >
+    <div class="prompts-manager">
+      <div class="prompts-list">
+        <div class="prompts-header">
+          <span class="section-title">提示词列表</span>
+          <t-button theme="primary" size="small" @click="addNewPrompt">
+            <template #icon>
+              <t-icon name="add" />
+            </template>
+            新建提示词
+          </t-button>
+        </div>
+        <t-list>
+          <t-list-item
+            v-for="prompt in prompts"
+            :key="prompt.id"
+            :class="{
+              'active-prompt': currentPromptId === prompt.id,
+              'system-preset': prompt.id === 'system-preset',
+            }"
+          >
+            <div class="prompt-item">
+              <div class="prompt-info" @click="selectPrompt(prompt.id)">
+                <span class="prompt-name">{{ prompt.name }}</span>
+              </div>
+              <div class="prompt-actions" v-if="prompt.id !== 'system-preset'">
+                <t-button
+                  theme="default"
+                  variant="text"
+                  size="small"
+                  @click="editPrompt(prompt)"
+                >
+                  <template #icon><t-icon name="edit" /></template>
+                </t-button>
+                <t-button
+                  theme="danger"
+                  variant="text"
+                  size="small"
+                  @click="deletePrompt(prompt.id)"
+                >
+                  <template #icon><t-icon name="delete" /></template>
+                </t-button>
+              </div>
+            </div>
+          </t-list-item>
+        </t-list>
+      </div>
+      <div class="prompt-editor">
+        <span class="section-title">{{
+          isNewPrompt ? "新建提示词" : "编辑提示词"
+        }}</span>
+        <t-input
+          v-model="editingPrompt.name"
+          class="prompt-name-input"
+          placeholder="请输入提示词名称"
+        />
+        <t-textarea
+          v-model="editingPrompt.content"
+          class="prompt-content-input"
+          placeholder="请输入提示词内容..."
+          :autosize="{ minRows: 10, maxRows: 15 }"
+        />
+        <div class="editor-actions">
+          <t-button
+            theme="default"
+            @click="editingPrompt = { id: '', name: '', content: '' }"
+          >
+            清空
+          </t-button>
+          <t-button theme="primary" @click="savePrompt"> 保存 </t-button>
+        </div>
+      </div>
+    </div>
+  </t-dialog>
 </template>
 
 <script setup lang="ts">
@@ -48,11 +179,13 @@ import {
   watch,
   defineExpose,
   withDefaults,
+  computed,
 } from "vue";
 import { eventStreamService } from "@/services/EventStreamService";
 import { ChatControllerService } from "../../generated/services/ChatControllerService";
 import { AIChatRequest } from "../../generated/models/AIChatRequest";
 import type { ChatMessage, ChatProps, ChatEvents } from "@/types/chat";
+import { Message } from "@arco-design/web-vue";
 
 const props = withDefaults(defineProps<ChatProps>(), {
   userAvatar: "https://tdesign.gtimg.com/site/avatar.jpg",
@@ -124,16 +257,202 @@ const handleClose = () => {
   emit("close");
 };
 
+// 添加 localStorage 相关的常量和函数
+const STORAGE_KEY = "ai_chat_model";
+
+// 从 localStorage 获取保存的模型，如果没有则使用默认值
+const getSavedModel = (): AIChatRequest.model => {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  return saved ? (saved as AIChatRequest.model) : AIChatRequest.model.BASIC;
+};
+
+// 保存模型选择到 localStorage
+const saveModelSelection = (model: AIChatRequest.model) => {
+  localStorage.setItem(STORAGE_KEY, model);
+};
+
+// 修改当前选择的模型状态，使用保存的值作为初始值
+const currentModel = ref<AIChatRequest.model>(getSavedModel());
+
+// 监听模型变化并保存
+watch(currentModel, (newModel) => {
+  saveModelSelection(newModel);
+  // 添加模型变更消息
+  chatList.value.unshift({
+    avatar: props.aiAvatar,
+    name: props.aiName,
+    datetime: new Date().toLocaleString(),
+    content: `已切换到${
+      modelOptions.find((opt) => opt.value === newModel)?.label
+    }`,
+    role: "model-change",
+  });
+});
+
+// 定义可用的模型列表
+const modelOptions = [
+  { value: AIChatRequest.model.BASIC, label: "基础模型" },
+  { value: AIChatRequest.model.A1, label: "A1 模型" },
+  { value: AIChatRequest.model.A2, label: "A2 模型" },
+  { value: AIChatRequest.model.PLUS, label: "Plus 模型" },
+  { value: AIChatRequest.model.GEMINI_EXP_1206, label: "Gemini 1206" },
+  { value: AIChatRequest.model.GEMINI_2_0_FLASH_EXP, label: "Gemini 2.0" },
+];
+
+// 在 script setup 中添加提示词管理相关的代码
+interface PromptItem {
+  id: string;
+  name: string;
+  content: string;
+}
+
+const PROMPTS_STORAGE_KEY = "ai_chat_prompts";
+const CURRENT_PROMPT_KEY = "ai_chat_current_prompt";
+
+// 在 script setup 中添加系统预设提示词
+const SYSTEM_PRESET_PROMPT: PromptItem = {
+  id: "system-preset",
+  name: "系统预设",
+  content: `你是一个专业的教育辅导助手，负责审查和优化用户创建的闪卡内容。你的主要任务包括：
+
+1. 验证内容准确性：检查问题和答案中的事实、概念和解释是否准确。
+2. 评估完整性：确保答案完整地回答了问题，包含了必要的细节和解释。
+3. 检查语言流畅性：确保问题和答案表述清晰、简洁、易懂。
+4. 提供优化建议：针对内容、结构和表达方式提供改进建议，使其更适合 Anki 复习。
+
+请以专业、友好的语气提供反馈，并给出具体的修改建议。`,
+};
+
+// 从 localStorage 获取保存的所有提示词
+const getSavedPrompts = (): PromptItem[] => {
+  const saved = localStorage.getItem(PROMPTS_STORAGE_KEY);
+  const userPrompts = saved ? JSON.parse(saved) : [];
+  return [SYSTEM_PRESET_PROMPT, ...userPrompts];
+};
+
+// 从 localStorage 获取当前选中的提示词 ID
+const getCurrentPromptId = (): string => {
+  return localStorage.getItem(CURRENT_PROMPT_KEY) || "";
+};
+
+// 保存所有提示词到 localStorage
+const savePrompts = (prompts: PromptItem[]) => {
+  const userPrompts = prompts.filter((p) => p.id !== SYSTEM_PRESET_PROMPT.id);
+  localStorage.setItem(PROMPTS_STORAGE_KEY, JSON.stringify(userPrompts));
+};
+
+// 保存当前选中的提示词 ID
+const saveCurrentPromptId = (id: string) => {
+  localStorage.setItem(CURRENT_PROMPT_KEY, id);
+};
+
+// 提示词列表状态
+const prompts = ref<PromptItem[]>(getSavedPrompts());
+const currentPromptId = ref<string>(getCurrentPromptId());
+
+// 计算当前的系统提示词内容
+const systemPrompt = computed(() => {
+  // 如果选择的是系统预设，返回空字符串
+  if (currentPromptId.value === SYSTEM_PRESET_PROMPT.id) {
+    return "";
+  }
+  const current = prompts.value.find((p) => p.id === currentPromptId.value);
+  return current?.content || "";
+});
+
+// 编辑对话框状态
+const isSettingVisible = ref(false);
+const editingPrompt = ref<PromptItem>({
+  id: "",
+  name: "",
+  content: "",
+});
+const isNewPrompt = ref(false);
+
+// 打开设置对话框
+const showSettings = () => {
+  isSettingVisible.value = true;
+};
+
+// 添加新提示词
+const addNewPrompt = () => {
+  isNewPrompt.value = true;
+  editingPrompt.value = {
+    id: generateUUID(),
+    name: "",
+    content: "",
+  };
+};
+
+// 编辑提示词
+const editPrompt = (prompt: PromptItem) => {
+  isNewPrompt.value = false;
+  editingPrompt.value = { ...prompt };
+};
+
+// 删除提示词
+const deletePrompt = (id: string) => {
+  if (id === SYSTEM_PRESET_PROMPT.id) return; // 防止删除系统预设
+  prompts.value = prompts.value.filter((p) => p.id !== id);
+  if (currentPromptId.value === id) {
+    currentPromptId.value = "";
+  }
+  savePrompts(prompts.value);
+  saveCurrentPromptId(currentPromptId.value);
+  Message.success("删除提示词成功");
+};
+
+// 保存提示词
+const savePrompt = () => {
+  if (!editingPrompt.value.name.trim() || !editingPrompt.value.content.trim()) {
+    Message.warning("请填写提示词名称和内容");
+    return;
+  }
+
+  if (isNewPrompt.value) {
+    prompts.value.push({ ...editingPrompt.value });
+    Message.success("新建提示词成功");
+  } else {
+    const index = prompts.value.findIndex(
+      (p) => p.id === editingPrompt.value.id
+    );
+    if (index !== -1) {
+      prompts.value[index] = { ...editingPrompt.value };
+      Message.success("更新提示词成功");
+    }
+  }
+
+  savePrompts(prompts.value);
+  editingPrompt.value = { id: "", name: "", content: "" };
+};
+
+// 选择提示词
+const selectPrompt = (id: string) => {
+  currentPromptId.value = id;
+  saveCurrentPromptId(id);
+
+  // 添加提示词切换消息
+  const selectedPrompt = prompts.value.find((p) => p.id === id);
+  if (selectedPrompt) {
+    Message.success(`已切换到${selectedPrompt.name}提示词`);
+    chatList.value.unshift({
+      avatar: props.aiAvatar,
+      name: props.aiName,
+      datetime: new Date().toLocaleString(),
+      content: `已切换到${selectedPrompt.name}提示词`,
+      role: "model-change",
+    });
+  }
+};
+
 // 处理发送消息
 const handleSend = async (inputValue: string) => {
   if (isStreamLoad.value || !inputValue) return;
 
-  // 如果没有会话ID，生成一个新的
   if (!currentSessionId.value) {
     currentSessionId.value = generateUUID();
   }
 
-  // 添加用户消息
   const userMessage: ChatMessage = {
     avatar: props.userAvatar,
     name: props.userName,
@@ -143,7 +462,6 @@ const handleSend = async (inputValue: string) => {
   };
   chatList.value.unshift(userMessage);
 
-  // 添加AI消息占位
   const aiMessage: ChatMessage = {
     avatar: props.aiAvatar,
     name: props.aiName,
@@ -158,29 +476,25 @@ const handleSend = async (inputValue: string) => {
     isStreamLoad.value = true;
     const lastItem = chatList.value[0];
 
-    // 发送聊天请求
+    // 发送聊天请求时包含系统提示词
     const res = await ChatControllerService.chat({
-      model: AIChatRequest.model.BASIC,
+      model: currentModel.value,
       content: inputValue,
       sessionId: currentSessionId.value,
+      prompt: systemPrompt.value || undefined, // 只在有值时传递
     });
 
     if (res.code == 200 && res.data) {
       currentRequestId.value = res.data;
       emit("send", inputValue);
 
-      // 使用流式响应
       let accumulatedContent = "";
       await eventStreamService.waitForStreamingResult(
         currentRequestId.value,
         (newContent: string) => {
           loading.value = false;
-
-          // 找出新增的内容
           const addedContent = newContent.slice(accumulatedContent.length);
           accumulatedContent = newContent;
-
-          // 更新显示内容
           if (lastItem && lastItem.role === "assistant") {
             lastItem.content = newContent;
           }
@@ -214,8 +528,251 @@ defineExpose({
 </script>
 
 <style scoped>
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  padding: 0;
+}
+
+.chat-title {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--td-text-color-primary);
+}
+
+.model-selector-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+}
+
+.model-selector {
+  width: 180px;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.model-selector :deep(.t-select-input) {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  height: 100%;
+  padding: 0 8px;
+  padding-right: 4px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.model-selector :deep(.t-input__wrap) {
+  border: none !important;
+  background: transparent !important;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.model-selector :deep(.t-input) {
+  border: none !important;
+  background: transparent !important;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.model-selector :deep(.t-select-input:hover) {
+  background: var(--td-bg-color-container-hover);
+}
+
+.model-selector :deep(.t-select-input--active) {
+  background: var(--td-bg-color-container-hover);
+}
+
+.model-selector :deep(.t-select-input__prefix-icon) {
+  color: var(--td-brand-color);
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.model-selector :deep(.t-select-input__suffix-icon) {
+  display: none;
+}
+
+.model-selector :deep(.t-select-input--active .t-select-input__suffix-icon) {
+  display: none;
+}
+
+:deep(.model-selector-popup) {
+  min-width: 180px !important;
+
+  .t-select-option {
+    margin: 2px 4px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover {
+      background: var(--td-bg-color-container-hover);
+      transform: translateX(4px);
+    }
+
+    &.t-is-selected {
+      color: var(--td-brand-color);
+      background: var(--td-brand-color-light);
+      font-weight: 500;
+    }
+  }
+}
+
+:deep(.t-dialog__close) {
+  right: 16px;
+  top: 16px;
+}
+
 .t-chat {
   background: var(--td-bg-color-container);
   border-radius: var(--td-radius-medium);
+}
+
+:deep(.t-dialog__header) {
+  border-bottom: none;
+  padding: 16px 20px;
+  margin: 0;
+}
+
+:deep(.t-dialog__header-content) {
+  padding: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+}
+
+.header-actions :deep(.t-button) {
+  color: var(--td-text-color-secondary);
+
+  &:hover {
+    color: var(--td-brand-color);
+    background: var(--td-bg-color-container-hover);
+  }
+}
+
+.prompts-manager {
+  display: flex;
+  gap: 20px;
+  height: 410px;
+}
+
+.prompts-list {
+  width: 200px;
+  border-right: 1px solid var(--td-component-border);
+  padding-right: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.prompts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--td-text-color-primary);
+}
+
+.prompt-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.prompt-info {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.prompt-name {
+  font-size: 14px;
+  color: var(--td-text-color-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  padding-right: 8px;
+}
+
+.prompt-item:hover {
+  background: var(--td-bg-color-container-hover);
+}
+
+.prompt-item:hover .prompt-actions {
+  opacity: 1;
+}
+
+.active-prompt {
+  background: var(--td-brand-color-light);
+}
+
+.system-preset {
+  background: var(--td-bg-color-container-select);
+  border-left: 3px solid var(--td-brand-color);
+  margin-bottom: 8px;
+}
+
+.system-preset .prompt-info {
+  padding-left: 9px;
+}
+
+.system-preset:hover {
+  background: var(--td-bg-color-container-select);
+}
+
+.prompt-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prompt-name-input {
+  margin-bottom: 8px;
+}
+
+.prompt-content-input {
+  flex: 1;
+}
+
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
 }
 </style>
