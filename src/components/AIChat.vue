@@ -12,6 +12,18 @@
       <div class="chat-header">
         <div class="chat-title">{{ title }}</div>
         <div class="header-actions">
+          <t-tooltip content="会话列表 (Alt + S)">
+            <t-button
+              theme="default"
+              variant="text"
+              shape="square"
+              @click="isSessionsDrawerVisible = true"
+            >
+              <template #icon>
+                <t-icon name="chat" />
+              </template>
+            </t-button>
+          </t-tooltip>
           <t-tooltip content="设置系统提示词">
             <t-button
               theme="default"
@@ -221,6 +233,16 @@
     </div>
   </Drawer>
 
+  <!-- 添加会话管理抽屉 -->
+  <SessionManager
+    v-model:visible="isSessionsDrawerVisible"
+    :current-model="currentModel"
+    :current-prompt-id="currentPromptId"
+    :messages="chatList"
+    @session-switch="handleSessionSwitch"
+    @session-create="handleSessionCreate"
+  />
+
   <!-- 添加系统提示词设置对话框 -->
   <t-dialog
     v-model:visible="isSettingVisible"
@@ -322,11 +344,22 @@ import { AIChatRequest } from "../../generated/models/AIChatRequest";
 import type { ChatMessage, ChatProps, ChatEvents } from "@/types/chat";
 import { Message, Drawer } from "@arco-design/web-vue";
 import { IconClose } from "@arco-design/web-vue/es/icon";
+import SessionManager from "./SessionManager.vue";
 
 // 添加历史记录接口定义
 interface HistoryResponse {
   content: string;
   datetime: string;
+}
+
+interface ChatSession {
+  id: string;
+  sessionId: string;
+  name: string;
+  messages: (ChatMessage & { history?: HistoryResponse[] })[];
+  model: AIChatRequest.model;
+  promptId: string;
+  lastUpdated: string;
 }
 
 const props = withDefaults(defineProps<ChatProps>(), {
@@ -345,6 +378,7 @@ const emit = defineEmits<ChatEvents>();
 // 添加 localStorage 相关的常量
 const STORAGE_KEY = "ai_chat_model";
 const CARDS_STORAGE_KEY = "ai_generated_cards";
+const SESSIONS_STORAGE_KEY = "ai_chat_sessions";
 
 // 从 localStorage 获取保存的模型
 const getSavedModel = (): AIChatRequest.model => {
@@ -368,6 +402,15 @@ const saveCards = (cards: any[]) => {
   localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
 };
 
+// 生成UUID
+const generateUUID = () => {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 // 状态变量
 const visible = ref(false);
 const loading = ref(false);
@@ -378,6 +421,160 @@ const showCardsDrawer = ref(false);
 const currentCards = ref<any[]>(loadSavedCards());
 const cardsGenerating = ref(false);
 const currentModel = ref<AIChatRequest.model>(getSavedModel());
+const isFirstShow = ref(true); // 添加标记，用于判断是否是第一次显示
+const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
+  {
+    avatar: props.aiAvatar,
+    name: props.aiName,
+    datetime: new Date().toLocaleString(),
+    content: "你好！我是AI助手，有什么我可以帮你的吗？",
+    role: "assistant",
+  },
+]);
+const isSessionsDrawerVisible = ref(false);
+
+// 创建新的卡片会话
+const createNewCardSession = () => {
+  console.log("Creating new card session");
+  if (!currentSessionId.value) {
+    currentSessionId.value = generateUUID();
+    console.log("Generated new sessionId:", currentSessionId.value);
+  }
+  chatList.value = [
+    {
+      avatar: props.aiAvatar,
+      name: props.aiName,
+      datetime: new Date().toLocaleString(),
+      content: "你好！我是AI助手，有什么我可以帮你的吗？",
+      role: "assistant",
+    },
+  ];
+
+  // 更新持久化存储中的会话数据
+  const sessions = JSON.parse(
+    localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
+  );
+  if (sessions.length > 0) {
+    sessions[0].sessionId = currentSessionId.value;
+    sessions[0].messages = chatList.value; // 同时更新消息列表
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
+    console.log("Updated sessionId in storage:", currentSessionId.value);
+  }
+};
+
+// 会话管理相关的方法
+const handleSessionSwitch = (session: ChatSession) => {
+  console.log("Switching to session:", session);
+  chatList.value = session.messages;
+  currentModel.value = session.model;
+  currentPromptId.value = session.promptId;
+  currentSessionId.value = session.sessionId;
+  console.log("Current sessionId set to:", currentSessionId.value);
+};
+
+const handleSessionCreate = (session: ChatSession) => {
+  console.log("Creating new session:", session);
+  handleSessionSwitch(session);
+};
+
+// 快捷键处理
+const handleKeyDown = (e: KeyboardEvent) => {
+  // Alt + C 打开卡片抽屉
+  if (e.altKey && e.key.toLowerCase() === "c") {
+    e.preventDefault();
+    showCardsDrawer.value = true;
+  }
+  // Alt + S 打开会话列表
+  if (e.altKey && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    isSessionsDrawerVisible.value = true;
+  }
+};
+
+// 生命周期钩子
+onMounted(() => {
+  document.addEventListener("keydown", handleKeyDown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", handleKeyDown);
+});
+
+// 处理发送消息
+const handleSend = async (inputValue: string) => {
+  if (isStreamLoad.value || !inputValue) return;
+
+  console.log("Sending message with sessionId:", currentSessionId.value);
+  const userMessage: ChatMessage = {
+    avatar: props.userAvatar,
+    name: props.userName,
+    datetime: new Date().toLocaleString(),
+    content: inputValue,
+    role: "user",
+  };
+  chatList.value.unshift(userMessage);
+
+  const aiMessage: ChatMessage = {
+    avatar: props.aiAvatar,
+    name: props.aiName,
+    datetime: new Date().toLocaleString(),
+    content: "",
+    role: "assistant",
+  };
+  chatList.value.unshift(aiMessage);
+
+  try {
+    loading.value = true;
+    isStreamLoad.value = true;
+    const lastItem = chatList.value[0];
+
+    const res = await ChatControllerService.chat({
+      model: currentModel.value,
+      content: inputValue,
+      sessionId: currentSessionId.value,
+      prompt: systemPrompt.value || undefined,
+    });
+
+    if (res.code == 200 && res.data) {
+      currentRequestId.value = res.data;
+      emit("send", inputValue);
+
+      let accumulatedContent = "";
+      await eventStreamService.waitForStreamingResult(
+        currentRequestId.value,
+        (newContent: string) => {
+          loading.value = false;
+          const addedContent = newContent.slice(accumulatedContent.length);
+          accumulatedContent = newContent;
+          if (lastItem && lastItem.role === "assistant") {
+            lastItem.content = newContent;
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.error("Chat error:", error);
+    if (chatList.value[0] && chatList.value[0].role === "assistant") {
+      chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
+    }
+  } finally {
+    loading.value = false;
+    isStreamLoad.value = false;
+  }
+};
+
+// 处理清空历史
+const handleClear = () => {
+  currentSessionId.value = "";
+  createNewCardSession();
+  emit("clear");
+};
+
+// 处理关闭对话框
+const handleClose = () => {
+  visible.value = false;
+  emit("close");
+};
 
 // 定义可用的模型列表
 const modelOptions = [
@@ -613,25 +810,6 @@ const clearAllCards = () => {
   Message.success("已清空所有卡片");
 };
 
-// 添加快捷键处理
-const handleKeyDown = (e: KeyboardEvent) => {
-  // Alt + C 打开卡片抽屉
-  if (e.altKey && e.key.toLowerCase() === "c") {
-    e.preventDefault();
-    showCardsDrawer.value = true;
-  }
-};
-
-// 在组件挂载时添加快捷键监听
-onMounted(() => {
-  document.addEventListener("keydown", handleKeyDown);
-});
-
-// 在组件卸载时移除快捷键监听
-onUnmounted(() => {
-  document.removeEventListener("keydown", handleKeyDown);
-});
-
 // 监听 showCardsDrawer 的变化
 watch(showCardsDrawer, (newVal) => {
   console.log(
@@ -660,13 +838,6 @@ const operation = (type: string, options: any) => {
   console.log(type, options);
 };
 
-// 处理清空历史
-const handleClear = () => {
-  chatList.value = [];
-  currentSessionId.value = generateUUID();
-  emit("clear");
-};
-
 // 处理停止生成
 const handleStop = () => {
   if (isStreamLoad.value && currentRequestId.value) {
@@ -675,106 +846,6 @@ const handleStop = () => {
     isStreamLoad.value = false;
     emit("stop");
   }
-};
-
-// 处理关闭对话框
-const handleClose = () => {
-  visible.value = false;
-  emit("close");
-};
-
-// 生成UUID
-const generateUUID = () => {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-};
-
-// 聊天消息列表
-const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>(
-  props.initialMessages || [
-    {
-      avatar: props.aiAvatar,
-      name: props.aiName,
-      datetime: new Date().toLocaleString(),
-      content: "你好！我是AI助手，有什么我可以帮你的吗？",
-      role: "assistant",
-    },
-  ]
-);
-
-// 处理发送消息
-const handleSend = async (inputValue: string) => {
-  if (isStreamLoad.value || !inputValue) return;
-
-  if (!currentSessionId.value) {
-    currentSessionId.value = generateUUID();
-  }
-
-  const userMessage: ChatMessage = {
-    avatar: props.userAvatar,
-    name: props.userName,
-    datetime: new Date().toLocaleString(),
-    content: inputValue,
-    role: "user",
-  };
-  chatList.value.unshift(userMessage);
-
-  const aiMessage: ChatMessage = {
-    avatar: props.aiAvatar,
-    name: props.aiName,
-    datetime: new Date().toLocaleString(),
-    content: "",
-    role: "assistant",
-  };
-  chatList.value.unshift(aiMessage);
-
-  try {
-    loading.value = true;
-    isStreamLoad.value = true;
-    const lastItem = chatList.value[0];
-
-    const res = await ChatControllerService.chat({
-      model: currentModel.value,
-      content: inputValue,
-      sessionId: currentSessionId.value,
-      prompt: systemPrompt.value || undefined,
-    });
-
-    if (res.code == 200 && res.data) {
-      currentRequestId.value = res.data;
-      emit("send", inputValue);
-
-      let accumulatedContent = "";
-      await eventStreamService.waitForStreamingResult(
-        currentRequestId.value,
-        (newContent: string) => {
-          loading.value = false;
-          const addedContent = newContent.slice(accumulatedContent.length);
-          accumulatedContent = newContent;
-          if (lastItem && lastItem.role === "assistant") {
-            lastItem.content = newContent;
-          }
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Chat error:", error);
-    if (chatList.value[0] && chatList.value[0].role === "assistant") {
-      chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
-    }
-  } finally {
-    loading.value = false;
-    isStreamLoad.value = false;
-  }
-};
-
-// 添加 sendMessage 方法
-const sendMessage = async (message: string) => {
-  if (isStreamLoad.value) return;
-  await handleSend(message);
 };
 
 // 复制内容到剪贴板
@@ -791,32 +862,41 @@ const copyContent = async (content: string) => {
 const regenerateWithModel = async (model: AIChatRequest.model) => {
   if (isStreamLoad.value || chatList.value.length < 2) return;
 
+  // 找到最近的一对用户问题和AI回复
+  const lastAiMessage = chatList.value.find((msg) => msg.role === "assistant");
   const lastUserMessage = chatList.value.find((msg) => msg.role === "user");
-  if (!lastUserMessage) return;
+  if (!lastAiMessage || !lastUserMessage) return;
 
   currentModel.value = model;
-  const res = await ChatControllerService.chat({
-    model: currentModel.value,
-    content: lastUserMessage.content,
-    sessionId: currentSessionId.value,
-    prompt: systemPrompt.value || undefined,
-  });
+  loading.value = true;
+  isStreamLoad.value = true;
 
-  if (res.code == 200 && res.data) {
-    currentRequestId.value = res.data;
-    loading.value = true;
-    isStreamLoad.value = true;
+  try {
+    const res = await ChatControllerService.chat({
+      model: currentModel.value,
+      content: lastUserMessage.content,
+      sessionId: currentSessionId.value,
+      prompt: systemPrompt.value || undefined,
+    });
 
-    const aiMessage: ChatMessage = {
-      avatar: props.aiAvatar,
-      name: props.aiName,
-      datetime: new Date().toLocaleString(),
-      content: "",
-      role: "assistant",
-    };
-    chatList.value.unshift(aiMessage);
+    if (res.code == 200 && res.data) {
+      currentRequestId.value = res.data;
 
-    try {
+      // 保存当前回复到历史记录
+      if (!lastAiMessage.history) {
+        lastAiMessage.history = [];
+      }
+      lastAiMessage.history.push({
+        content: lastAiMessage.content,
+        datetime: lastAiMessage.datetime,
+      });
+
+      // 更新时间戳
+      lastAiMessage.datetime = new Date().toLocaleString();
+
+      // 清空内容，准备接收新的回复
+      lastAiMessage.content = "";
+
       let accumulatedContent = "";
       await eventStreamService.waitForStreamingResult(
         currentRequestId.value,
@@ -824,20 +904,16 @@ const regenerateWithModel = async (model: AIChatRequest.model) => {
           loading.value = false;
           const addedContent = newContent.slice(accumulatedContent.length);
           accumulatedContent = newContent;
-          if (chatList.value[0] && chatList.value[0].role === "assistant") {
-            chatList.value[0].content = newContent;
-          }
+          lastAiMessage.content = newContent;
         }
       );
-    } catch (error) {
-      console.error("Regenerate error:", error);
-      if (chatList.value[0] && chatList.value[0].role === "assistant") {
-        chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
-      }
-    } finally {
-      loading.value = false;
-      isStreamLoad.value = false;
     }
+  } catch (error) {
+    console.error("Regenerate error:", error);
+    lastAiMessage.content = "抱歉，发生了错误，请稍后重试";
+  } finally {
+    loading.value = false;
+    isStreamLoad.value = false;
   }
 };
 
@@ -860,10 +936,43 @@ const switchHistory = (item: ChatMessage & { history?: HistoryResponse[] }) => {
 
 // 暴露方法给父组件
 defineExpose({
-  show: () => (visible.value = true),
-  hide: () => (visible.value = false),
+  show: async () => {
+    // 每次显示时都先切换到主会话
+    const sessions = JSON.parse(
+      localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
+    );
+    if (sessions.length > 0) {
+      console.log("Switching to main session");
+      await handleSessionSwitch(sessions[0]);
+    }
+
+    // 只有在第一次显示时才创建新会话
+    if (isFirstShow.value) {
+      // 创建新会话
+      currentSessionId.value = "";
+      createNewCardSession();
+      isFirstShow.value = false; // 标记已经不是第一次显示了
+    }
+
+    // 最后再显示对话框
+    visible.value = true;
+  },
+  hide: () => {
+    visible.value = false;
+  },
   clear: handleClear,
-  sendMessage,
+  sendMessage: async (message: string) => {
+    if (isStreamLoad.value) return;
+    await handleSend(message);
+  },
+});
+
+// 监听 visible 的变化
+watch(visible, (newVal) => {
+  if (!newVal) {
+    // 不再在关闭时重置会话
+    emit("close");
+  }
 });
 </script>
 
@@ -1207,5 +1316,74 @@ defineExpose({
 
 .card-actions :deep(.arco-btn) {
   padding: 0 4px;
+}
+
+/* 添加会话列表样式 */
+.sessions-list {
+  height: calc(100vh - 55px);
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.session-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: var(--color-bg-2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: var(--color-fill-2);
+    transform: translateX(4px);
+  }
+
+  &.active {
+    background: var(--color-primary-light-1);
+    border-left: 3px solid var(--color-primary-6);
+  }
+}
+
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-1);
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-meta {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.session-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.session-item:hover .session-actions {
+  opacity: 1;
+}
+
+.session-item.active .session-actions {
+  opacity: 1;
 }
 </style>
