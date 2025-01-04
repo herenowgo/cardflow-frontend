@@ -727,6 +727,9 @@ const handleKeyPress = (e: KeyboardEvent) => {
   // 如果在编辑模式下，不处理任何快捷键
   if (isEditing.value) return;
 
+  // 如果 AI 助手的卡片抽屉正在显示，不处理任何快捷键
+  if (aiChatRef.value?.isCardsDrawerVisible) return;
+
   // 只有当鼠标在 AI 助手区域时才禁用快捷键
   if (isMouseInAIChat.value) return;
 

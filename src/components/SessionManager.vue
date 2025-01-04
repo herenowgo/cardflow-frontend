@@ -125,6 +125,7 @@ const emit = defineEmits<{
 // 常量
 const SESSIONS_STORAGE_KEY = "ai_chat_sessions";
 const CURRENT_SESSION_KEY = "ai_chat_current_session";
+const CURRENT_PROMPT_KEY = "ai_chat_current_prompt";
 
 // 状态
 const sessions = ref<ChatSession[]>([]);
@@ -136,9 +137,11 @@ const loadSessions = () => {
   const savedSessions = localStorage.getItem(SESSIONS_STORAGE_KEY);
   if (savedSessions) {
     sessions.value = JSON.parse(savedSessions);
-    // 确保第一个会话名称为"主会话"
+    // 确保第一个会话名称为"主会话"并使用保存的 promptId
     if (sessions.value.length > 0) {
       sessions.value[0].name = "主会话";
+      sessions.value[0].promptId =
+        localStorage.getItem(CURRENT_PROMPT_KEY) || "";
     }
     // 只为没有 sessionId 的新会话生成 sessionId
     sessions.value = sessions.value.map(
@@ -226,7 +229,10 @@ const createNewSession = () => {
       },
     ],
     model: props.currentModel,
-    promptId: props.currentPromptId,
+    promptId:
+      sessions.value.length === 0
+        ? localStorage.getItem(CURRENT_PROMPT_KEY) || ""
+        : props.currentPromptId,
     lastUpdated: new Date().toLocaleString(),
   };
 
@@ -325,11 +331,16 @@ const updateCurrentSession = () => {
         currentSession.sessionId
       );
     }
+    // 如果是主会话，保存当前的 promptId
+    localStorage.setItem(CURRENT_PROMPT_KEY, props.currentPromptId);
   }
 
   currentSession.messages = props.messages;
   currentSession.model = props.currentModel;
-  currentSession.promptId = props.currentPromptId;
+  currentSession.promptId =
+    currentSessionIndex.value === 0
+      ? localStorage.getItem(CURRENT_PROMPT_KEY) || ""
+      : props.currentPromptId;
   currentSession.lastUpdated = new Date().toLocaleString();
   saveSessions();
 };

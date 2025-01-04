@@ -44,7 +44,7 @@
               @click="showCardsDrawer = true"
             >
               <template #icon>
-                <t-icon name="layers" />
+                <t-icon name="card" />
               </template>
             </t-button>
           </t-tooltip>
@@ -203,30 +203,120 @@
           v-for="(card, index) in currentCards"
           :key="index"
           class="card-item"
+          :class="{ 'card-checked': index === lastCheckedCardIndex }"
         >
           <div class="card-content">
             <div class="card-question">
               <strong>问题: </strong>
-              {{ card.question }}
+              <div class="md-wrapper" v-if="!card.isEditing">
+                <MdViewer :value="card.question" />
+                <a-button
+                  type="text"
+                  size="small"
+                  class="edit-button"
+                  @click="card.isEditing = true"
+                >
+                  <template #icon><icon-edit /></template>
+                  编辑
+                </a-button>
+              </div>
+              <div v-else class="md-editor-wrapper">
+                <MdEditor
+                  :value="card.question"
+                  :handle-change="(v) => (card.question = v)"
+                />
+                <div class="editor-actions">
+                  <a-button
+                    type="text"
+                    status="success"
+                    size="small"
+                    @click="
+                      () => {
+                        card.isEditing = false;
+                        saveCards(currentCards.value);
+                        Message.success('保存成功');
+                      }
+                    "
+                  >
+                    <template #icon><icon-check /></template>
+                    完成
+                  </a-button>
+                </div>
+              </div>
             </div>
             <div class="card-answer">
               <strong>答案: </strong>
-              {{ card.answer }}
+              <div class="md-wrapper" v-if="!card.isEditingAnswer">
+                <MdViewer :value="card.answer" />
+                <a-button
+                  type="text"
+                  size="small"
+                  class="edit-button"
+                  @click="card.isEditingAnswer = true"
+                >
+                  <template #icon><icon-edit /></template>
+                  编辑
+                </a-button>
+              </div>
+              <div v-else class="md-editor-wrapper">
+                <MdEditor
+                  :value="card.answer"
+                  :handle-change="(v) => (card.answer = v)"
+                />
+                <div class="editor-actions">
+                  <a-button
+                    type="text"
+                    status="success"
+                    size="small"
+                    @click="
+                      () => {
+                        card.isEditingAnswer = false;
+                        saveCards(currentCards.value);
+                        Message.success('保存成功');
+                      }
+                    "
+                  >
+                    <template #icon><icon-check /></template>
+                    完成
+                  </a-button>
+                </div>
+              </div>
             </div>
             <div class="card-tags">
               <strong>标签: </strong>
-              {{ card.tags.join(", ") }}
+              <a-input-tag
+                v-model="card.tags"
+                :default-value="card.tags"
+                allow-clear
+                placeholder="请输入标签"
+                @change="
+                  () => {
+                    saveCards(currentCards.value);
+                    Message.success('标签已保存');
+                  }
+                "
+              />
             </div>
-          </div>
-          <div class="card-actions">
-            <a-button
-              type="text"
-              status="danger"
-              size="mini"
-              @click="deleteCard(index)"
-            >
-              <template #icon><icon-delete /></template>
-            </a-button>
+            <div class="card-actions">
+              <t-button
+                theme="default"
+                variant="text"
+                size="small"
+                @click.stop="checkCard(card, index)"
+              >
+                <template #icon><t-icon name="check-circle" /></template>
+                检查卡片
+              </t-button>
+              <t-button
+                theme="danger"
+                variant="text"
+                size="small"
+                @click.stop="deleteCard(index)"
+              >
+                <template #icon><t-icon name="delete" /></template>
+                删除卡片
+              </t-button>
+            </div>
           </div>
         </div>
       </div>
@@ -345,6 +435,8 @@ import type { ChatMessage, ChatProps, ChatEvents } from "@/types/chat";
 import { Message, Drawer } from "@arco-design/web-vue";
 import { IconClose } from "@arco-design/web-vue/es/icon";
 import SessionManager from "./SessionManager.vue";
+import MdViewer from "./MdViewer.vue";
+import MdEditor from "./MdEditor.vue";
 
 // 添加历史记录接口定义
 interface HistoryResponse {
@@ -362,6 +454,15 @@ interface ChatSession {
   lastUpdated: string;
 }
 
+// 添加卡片类型定义
+interface Card {
+  question: string;
+  answer: string;
+  tags: string[];
+  isEditing?: boolean;
+  isEditingAnswer?: boolean;
+}
+
 const props = withDefaults(defineProps<ChatProps>(), {
   userAvatar: "https://tdesign.gtimg.com/site/avatar.jpg",
   aiAvatar: "https://tdesign.gtimg.com/site/chat-avatar.png",
@@ -373,12 +474,19 @@ const props = withDefaults(defineProps<ChatProps>(), {
   showClear: true,
 });
 
-const emit = defineEmits<ChatEvents>();
+const emit = defineEmits<{
+  (e: "send", value: string): void;
+  (e: "stop"): void;
+  (e: "clear"): void;
+  (e: "close"): void;
+  (e: "session-create", session: ChatSession): void;
+}>();
 
 // 添加 localStorage 相关的常量
 const STORAGE_KEY = "ai_chat_model";
 const CARDS_STORAGE_KEY = "ai_generated_cards";
 const SESSIONS_STORAGE_KEY = "ai_chat_sessions";
+const CURRENT_SESSION_KEY = "ai_chat_current_session";
 
 // 从 localStorage 获取保存的模型
 const getSavedModel = (): AIChatRequest.model => {
@@ -394,7 +502,13 @@ const saveModelSelection = (model: AIChatRequest.model) => {
 // 从 localStorage 获取保存的卡片
 const loadSavedCards = () => {
   const saved = localStorage.getItem(CARDS_STORAGE_KEY);
-  return saved ? JSON.parse(saved) : [];
+  const cards = saved ? JSON.parse(saved) : [];
+  // 为每个卡片添加编辑状态标记
+  return cards.map((card: Card) => ({
+    ...card,
+    isEditing: false,
+    isEditingAnswer: false,
+  }));
 };
 
 // 保存卡片到 localStorage
@@ -432,6 +546,9 @@ const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
   },
 ]);
 const isSessionsDrawerVisible = ref(false);
+
+// 添加新的状态变量
+const lastCheckedCardIndex = ref<number | null>(null);
 
 // 创建新的卡片会话
 const createNewCardSession = () => {
@@ -474,7 +591,16 @@ const handleSessionSwitch = (session: ChatSession) => {
 
 const handleSessionCreate = (session: ChatSession) => {
   console.log("Creating new session:", session);
-  handleSessionSwitch(session);
+  // 更新当前会话的状态
+  chatList.value = session.messages;
+  currentModel.value = session.model;
+  currentPromptId.value = session.promptId;
+  currentSessionId.value = session.sessionId;
+
+  // 更新 localStorage 中的当前会话
+  localStorage.setItem(CURRENT_SESSION_KEY, session.id);
+
+  console.log("Switched to new session with sessionId:", session.sessionId);
 };
 
 // 快捷键处理
@@ -771,8 +897,14 @@ const generateCards = async (item: ChatMessage) => {
         console.log("Cards result:", result);
 
         if (result && result.cards && result.cards.length > 0) {
-          console.log("Setting cards data:", result.cards);
-          currentCards.value = [...result.cards, ...currentCards.value];
+          // 为新生成的卡片添加编辑状态标记
+          const newCards = result.cards.map((card: Card) => ({
+            ...card,
+            isEditing: false,
+            isEditingAnswer: false,
+          }));
+          console.log("Setting cards data:", newCards);
+          currentCards.value = [...newCards, ...currentCards.value];
           saveCards(currentCards.value);
           console.log("Cards data set, showing drawer...");
           showCardsDrawer.value = true;
@@ -934,6 +1066,68 @@ const switchHistory = (item: ChatMessage & { history?: HistoryResponse[] }) => {
   item.datetime = lastHistory.datetime;
 };
 
+// 修改检查卡片的方法
+const checkCard = async (card: any, index: number) => {
+  // 将卡片移动到列表顶部
+  currentCards.value.splice(index, 1);
+  currentCards.value.unshift(card);
+
+  // 保存更新后的卡片列表
+  saveCards(currentCards.value);
+
+  // 设置最后检查的卡片索引为0（因为现在在顶部）
+  lastCheckedCardIndex.value = 0;
+
+  // 创建一个新的会话，使用卡片问题作为会话名称
+  const sessionId = generateUUID();
+  const newSession: ChatSession = {
+    id: generateUUID(),
+    sessionId: sessionId,
+    name:
+      card.question.length > 30
+        ? card.question.slice(0, 30) + "..."
+        : card.question,
+    messages: [
+      {
+        avatar: props.aiAvatar,
+        name: props.aiName,
+        datetime: new Date().toLocaleString(),
+        content: "你好！我是AI助手，有什么我可以帮你的吗？",
+        role: "assistant",
+      },
+    ],
+    model: currentModel.value,
+    promptId: currentPromptId.value,
+    lastUpdated: new Date().toLocaleString(),
+  };
+
+  // 将新会话添加到会话列表
+  const allSessions = JSON.parse(
+    localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
+  );
+  allSessions.push(newSession);
+  localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(allSessions));
+
+  // 切换到新会话
+  console.log("Creating new session for card check:", newSession);
+  emit("session-create", newSession);
+
+  // 等待一下，确保会话创建完成
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  // 构建检查请求的内容
+  const checkContent = `请帮我检查这张卡片的内容：\n\n问题：${
+    card.question
+  }\n\n答案：${card.answer}\n\n标签：${card.tags.join(", ")}`;
+
+  // 发送检查请求
+  await handleSend(checkContent);
+
+  // 关闭卡片抽屉，显示对话框
+  showCardsDrawer.value = false;
+  visible.value = true;
+};
+
 // 暴露方法给父组件
 defineExpose({
   show: async () => {
@@ -965,6 +1159,7 @@ defineExpose({
     if (isStreamLoad.value) return;
     await handleSend(message);
   },
+  isCardsDrawerVisible: computed(() => showCardsDrawer.value),
 });
 
 // 监听 visible 的变化
@@ -1250,6 +1445,12 @@ watch(visible, (newVal) => {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
+  &.card-checked {
+    background: var(--td-brand-color-light);
+    border-color: var(--td-brand-color);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  }
+
   &:last-child {
     margin-bottom: 0;
   }
@@ -1306,16 +1507,23 @@ watch(visible, (newVal) => {
 }
 
 .card-actions {
-  opacity: 0;
-  transition: opacity 0.2s ease;
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid var(--color-neutral-3);
 }
 
 .card-item:hover .card-actions {
   opacity: 1;
 }
 
-.card-actions :deep(.arco-btn) {
-  padding: 0 4px;
+.card-actions :deep(.t-button) {
+  padding: 4px 8px;
+}
+
+.card-actions :deep(.t-button:hover) {
+  background: var(--td-bg-color-container-hover);
 }
 
 /* 添加会话列表样式 */
@@ -1385,5 +1593,110 @@ watch(visible, (newVal) => {
 
 .session-item.active .session-actions {
   opacity: 1;
+}
+
+.card-question,
+.card-answer,
+.card-tags {
+  margin-bottom: 12px;
+  line-height: 1.6;
+
+  strong {
+    color: var(--color-text-3);
+    margin-right: 8px;
+    display: block;
+    margin-bottom: 4px;
+  }
+}
+
+.card-content {
+  flex: 1;
+  padding: 8px;
+
+  :deep(.arco-input-wrapper) {
+    width: 100%;
+  }
+
+  :deep(.arco-textarea-wrapper) {
+    width: 100%;
+  }
+
+  :deep(.arco-input-tag) {
+    width: 100%;
+    min-height: 32px;
+  }
+}
+
+.card-item {
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-neutral-3);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &.card-checked {
+    background: var(--td-brand-color-light);
+    border-color: var(--td-brand-color);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* 添加样式 */
+.md-wrapper {
+  position: relative;
+  border: 1px solid var(--color-neutral-3);
+  border-radius: 4px;
+  padding: 12px;
+  margin-top: 8px;
+  background: var(--color-bg-1);
+
+  .edit-button {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  &:hover .edit-button {
+    opacity: 1;
+  }
+}
+
+.md-editor-wrapper {
+  margin-top: 8px;
+  border: 1px solid var(--color-neutral-3);
+  border-radius: 4px;
+  overflow: hidden;
+
+  .editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px;
+    background: var(--color-bg-2);
+    border-top: 1px solid var(--color-neutral-3);
+  }
+}
+
+:deep(.bytemd) {
+  height: auto !important;
+  min-height: 200px;
+}
+
+:deep(.bytemd-toolbar) {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+
+:deep(.markdown-body) {
+  padding: 16px;
+  background: transparent;
 }
 </style>
