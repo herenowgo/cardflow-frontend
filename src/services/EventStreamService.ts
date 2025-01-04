@@ -250,6 +250,22 @@ class EventStreamService {
           this.pendingRequests.delete(message.requestId);
           pendingRequest.resolve(message.data);
         }
+      } else if (message.eventType === "CARDS_GENERATE" && message.requestId) {
+        // 处理卡片生成事件
+        const pendingRequest = this.pendingRequests.get(message.requestId);
+        if (pendingRequest) {
+          clearTimeout(pendingRequest.timeout);
+          this.pendingRequests.delete(message.requestId);
+          pendingRequest.resolve(message.data);
+        }
+      } else if (message.eventType === "CARDS_GENERATED" && message.requestId) {
+        // 处理卡片生成事件
+        const pendingRequest = this.pendingRequests.get(message.requestId);
+        if (pendingRequest) {
+          clearTimeout(pendingRequest.timeout);
+          this.pendingRequests.delete(message.requestId);
+          pendingRequest.resolve(message.data);
+        }
       }
 
       // 继续处理其他事件类型
