@@ -291,6 +291,15 @@
                 检查卡片
               </t-button>
               <t-button
+                theme="primary"
+                variant="text"
+                size="small"
+                @click.stop="saveToCardLibrary(card, index)"
+              >
+                <template #icon><t-icon name="save" /></template>
+                收入卡片库
+              </t-button>
+              <t-button
                 theme="danger"
                 variant="text"
                 size="small"
@@ -420,6 +429,8 @@ import { IconClose } from "@arco-design/web-vue/es/icon";
 import SessionManager from "./SessionManager.vue";
 import MdViewer from "./MdViewer.vue";
 import MdEditor from "./MdEditor.vue";
+import { CardControllerService } from "../../generated/services/CardControllerService";
+import { CardAddRequest } from "../../generated/models/CardAddRequest";
 
 // 添加历史记录接口定义
 interface HistoryResponse {
@@ -439,6 +450,7 @@ interface ChatSession {
 
 // 添加卡片类型定义
 interface Card {
+  id?: string;
   question: string;
   answer: string;
   tags: string[];
@@ -1127,6 +1139,33 @@ const checkCard = async (card: any, index: number) => {
   // 关闭卡片抽屉，显示对话框
   showCardsDrawer.value = false;
   visible.value = true;
+};
+
+// 添加保存到卡片库的方法
+const saveToCardLibrary = async (card: Card, index: number) => {
+  try {
+    // 创建卡片请求对象
+    const cardAddRequest: CardAddRequest = {
+      question: card.question,
+      answer: card.answer,
+      tags: card.tags,
+      group: "all",
+    };
+
+    // 调用创建卡片接口
+    const response = await CardControllerService.createCard(cardAddRequest);
+
+    if (response.code === 200 && response.data) {
+      // 保存成功，从列表中删除这张卡片
+      currentCards.value.splice(index, 1);
+      Message.success("已成功添加到卡片库");
+    } else {
+      Message.error("添加到卡片库失败");
+    }
+  } catch (error) {
+    console.error("Save to card library error:", error);
+    Message.error("添加到卡片库失败");
+  }
 };
 
 // 暴露方法给父组件
