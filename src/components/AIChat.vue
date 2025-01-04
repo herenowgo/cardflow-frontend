@@ -230,13 +230,7 @@
                     type="text"
                     status="success"
                     size="small"
-                    @click="
-                      () => {
-                        card.isEditing = false;
-                        saveCards(currentCards.value);
-                        Message.success('保存成功');
-                      }
-                    "
+                    @click="handleCardEdit(card)"
                   >
                     <template #icon><icon-check /></template>
                     完成
@@ -268,13 +262,7 @@
                     type="text"
                     status="success"
                     size="small"
-                    @click="
-                      () => {
-                        card.isEditingAnswer = false;
-                        saveCards(currentCards.value);
-                        Message.success('保存成功');
-                      }
-                    "
+                    @click="handleAnswerEdit(card)"
                   >
                     <template #icon><icon-check /></template>
                     完成
@@ -289,12 +277,7 @@
                 :default-value="card.tags"
                 allow-clear
                 placeholder="请输入标签"
-                @change="
-                  () => {
-                    saveCards(currentCards.value);
-                    Message.success('标签已保存');
-                  }
-                "
+                @change="handleTagsChange"
               />
             </div>
             <div class="card-actions">
@@ -501,19 +484,32 @@ const saveModelSelection = (model: AIChatRequest.model) => {
 
 // 从 localStorage 获取保存的卡片
 const loadSavedCards = () => {
-  const saved = localStorage.getItem(CARDS_STORAGE_KEY);
-  const cards = saved ? JSON.parse(saved) : [];
-  // 为每个卡片添加编辑状态标记
-  return cards.map((card: Card) => ({
-    ...card,
-    isEditing: false,
-    isEditingAnswer: false,
-  }));
+  try {
+    const saved = localStorage.getItem(CARDS_STORAGE_KEY);
+    if (!saved) {
+      return [];
+    }
+    const cards = JSON.parse(saved);
+    return cards.map((card: Card) => ({
+      ...card,
+      isEditing: false,
+      isEditingAnswer: false,
+    }));
+  } catch (error) {
+    console.error("Failed to load cards:", error);
+    return [];
+  }
 };
 
 // 保存卡片到 localStorage
-const saveCards = (cards: any[]) => {
-  localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
+const saveCards = (cards: Card[]) => {
+  try {
+    localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
+  } catch (error) {
+    console.error("Failed to save cards to localStorage:", error);
+    // 可以选择添加用户提示
+    // Message.error('保存卡片失败');
+  }
 };
 
 // 生成UUID
@@ -532,7 +528,7 @@ const isStreamLoad = ref(false);
 const currentSessionId = ref<string>("");
 const currentRequestId = ref<string>("");
 const showCardsDrawer = ref(false);
-const currentCards = ref<any[]>(loadSavedCards());
+const currentCards = ref<Card[]>(loadSavedCards());
 const cardsGenerating = ref(false);
 const currentModel = ref<AIChatRequest.model>(getSavedModel());
 const isFirstShow = ref(true); // 添加标记，用于判断是否是第一次显示
@@ -619,6 +615,10 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 // 生命周期钩子
 onMounted(() => {
+  // 加载保存的卡片
+  currentCards.value = loadSavedCards();
+
+  // 添加事件监听器
   document.addEventListener("keydown", handleKeyDown);
 });
 
@@ -903,12 +903,13 @@ const generateCards = async (item: ChatMessage) => {
             isEditing: false,
             isEditingAnswer: false,
           }));
-          console.log("Setting cards data:", newCards);
+
+          // 将新卡片添加到现有卡片列表的开头
           currentCards.value = [...newCards, ...currentCards.value];
-          saveCards(currentCards.value);
-          console.log("Cards data set, showing drawer...");
+
+          // 由于添加了 watch，这里不需要显式调用 saveCards
+
           showCardsDrawer.value = true;
-          console.log("Drawer should be visible now");
           Message.success(`成功生成 ${result.cards.length} 张卡片`);
         } else {
           console.warn("No cards in result:", result);
@@ -930,14 +931,14 @@ const generateCards = async (item: ChatMessage) => {
 // 删除卡片
 const deleteCard = (index: number) => {
   currentCards.value.splice(index, 1);
-  saveCards(currentCards.value);
+  // 由于添加了 watch，这里不需要显式调用 saveCards
   Message.success("删除成功");
 };
 
 // 清空所有卡片
 const clearAllCards = () => {
   currentCards.value = [];
-  saveCards(currentCards.value);
+  // 由于添加了 watch，这里不需要显式调用 saveCards
   showCardsDrawer.value = false;
   Message.success("已清空所有卡片");
 };
@@ -955,14 +956,14 @@ watch(showCardsDrawer, (newVal) => {
 // 监听 currentCards 的变化
 watch(
   currentCards,
-  (newVal) => {
-    console.log("currentCards changed:", newVal);
-    if (newVal.length > 0) {
-      console.log("Attempting to show drawer...");
-      showCardsDrawer.value = true;
+  (newCards) => {
+    try {
+      saveCards(newCards);
+    } catch (error) {
+      console.error("Failed to auto-save cards:", error);
     }
   },
-  { deep: true }
+  { deep: true } // 深度监听以捕获嵌套属性的变化
 );
 
 // 处理操作
@@ -1169,6 +1170,26 @@ watch(visible, (newVal) => {
     emit("close");
   }
 });
+
+// 修改 handleCardEdit 函数
+const handleCardEdit = (card: Card) => {
+  card.isEditing = false;
+  saveCards(currentCards.value);
+  Message.success("保存成功");
+};
+
+// 修改 handleAnswerEdit 函数
+const handleAnswerEdit = (card: Card) => {
+  card.isEditingAnswer = false;
+  saveCards(currentCards.value);
+  Message.success("保存成功");
+};
+
+// 修改 handleTagsChange 函数
+const handleTagsChange = () => {
+  saveCards(currentCards.value);
+  Message.success("标签已保存");
+};
 </script>
 
 <style scoped>
