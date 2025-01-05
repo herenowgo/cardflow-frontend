@@ -128,8 +128,8 @@
                       theme="default"
                       variant="text"
                       size="small"
-                      :loading="cardsGenerating"
-                      @click="generateCards(item)"
+                      :loading="cardsGeneratingMap.get(index)"
+                      @click="generateCards(item, index)"
                     >
                       <template #icon><t-icon name="layers" /></template>
                       生成卡片
@@ -297,8 +297,8 @@
                     theme="default"
                     variant="text"
                     size="small"
-                    :loading="cardsGenerating"
-                    @click="generateCards(item)"
+                    :loading="cardsGeneratingMap.get(index)"
+                    @click="generateCards(item, index)"
                   >
                     <template #icon><t-icon name="layers" /></template>
                     生成卡片
@@ -470,7 +470,7 @@
                 @click.stop="checkCard(card, index)"
               >
                 <template #icon><t-icon name="check-circle" /></template>
-                检查卡片
+                智能检查
               </t-button>
               <t-button
                 theme="primary"
@@ -584,6 +584,18 @@
         </div>
       </div>
     </div>
+  </t-dialog>
+
+  <t-dialog
+    v-model:visible="isConfirmClearVisible"
+    header="确认清空"
+    :confirm-btn="{ content: '确认', theme: 'danger' }"
+    :cancel-btn="{ content: '取消' }"
+    @confirm="confirmClearAllCards"
+  >
+    <template #body>
+      <p>确定要清空所有已生成的卡片吗？此操作不可恢复。</p>
+    </template>
   </t-dialog>
 </template>
 
@@ -729,7 +741,7 @@ const currentSessionId = ref<string>("");
 const currentRequestId = ref<string>("");
 const showCardsDrawer = ref(false);
 const currentCards = ref<Card[]>(loadSavedCards());
-const cardsGenerating = ref(false);
+const cardsGeneratingMap = ref<Map<number, boolean>>(new Map());
 const currentModel = ref<AIChatRequest.model>(getSavedModel());
 const isFirstShow = ref(true);
 const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
@@ -744,6 +756,8 @@ const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
 const isSessionsDrawerVisible = ref(false);
 
 const lastCheckedCardIndex = ref<number | null>(null);
+
+const isConfirmClearVisible = ref(false);
 
 const createNewCardSession = () => {
   console.log("Creating new card session");
@@ -1028,10 +1042,10 @@ const selectPrompt = (id: string) => {
   }
 };
 
-const generateCards = async (item: ChatMessage) => {
+const generateCards = async (item: ChatMessage, index: number) => {
   try {
     console.log("Starting card generation...");
-    cardsGenerating.value = true;
+    cardsGeneratingMap.value.set(index, true);
 
     const currentIndex = chatList.value.findIndex((msg) => msg === item);
     const userQuestion = chatList.value[currentIndex + 1];
@@ -1084,7 +1098,7 @@ const generateCards = async (item: ChatMessage) => {
     console.error("Generate cards error:", error);
     Message.error("生成卡片失败");
   } finally {
-    cardsGenerating.value = false;
+    cardsGeneratingMap.value.delete(index);
   }
 };
 
@@ -1094,8 +1108,13 @@ const deleteCard = (index: number) => {
 };
 
 const clearAllCards = () => {
+  isConfirmClearVisible.value = true;
+};
+
+const confirmClearAllCards = () => {
   currentCards.value = [];
   showCardsDrawer.value = false;
+  isConfirmClearVisible.value = false;
   Message.success("已清空所有卡片");
 };
 
@@ -1222,11 +1241,11 @@ const switchHistory = (item: ChatMessage & { history?: HistoryResponse[] }) => {
 };
 
 const checkCard = async (card: any, index: number) => {
+  showCardsDrawer.value = false;
+
   currentCards.value.splice(index, 1);
   currentCards.value.unshift(card);
-
   saveCards(currentCards.value);
-
   lastCheckedCardIndex.value = 0;
 
   const sessionId = generateUUID();
@@ -1266,10 +1285,8 @@ const checkCard = async (card: any, index: number) => {
     card.question
   }\n\n答案：${card.answer}\n\n标签：${card.tags.join(", ")}`;
 
-  await handleSend(checkContent);
-
-  showCardsDrawer.value = false;
   visible.value = true;
+  await handleSend(checkContent);
 };
 
 const saveToCardLibrary = async (card: Card, index: number) => {
@@ -1295,33 +1312,69 @@ const saveToCardLibrary = async (card: Card, index: number) => {
   }
 };
 
+const sendMessage = async (message: string) => {
+  await handleSend(message);
+};
+
+const generateCardsFromText = async (text: string) => {
+  try {
+    console.log("Starting direct card generation...");
+    const res = await ChatControllerService.getCards({
+      model: currentModel.value,
+      content: text,
+      sessionId: currentSessionId.value,
+      prompt: systemPrompt.value || undefined,
+    });
+
+    console.log("API response:", res);
+
+    if (res.code == 200 && res.data) {
+      const requestId = res.data;
+      console.log("Got requestId:", requestId);
+
+      try {
+        const result = await eventStreamService.waitForResult(requestId);
+        console.log("Cards result:", result);
+
+        if (result && result.cards && result.cards.length > 0) {
+          const newCards = result.cards.map((card: Card) => ({
+            ...card,
+            isEditing: false,
+            isEditingAnswer: false,
+          }));
+
+          currentCards.value = [...newCards, ...currentCards.value];
+
+          showCardsDrawer.value = true;
+          Message.success(`成功生成 ${result.cards.length} 张卡片`);
+        } else {
+          console.warn("No cards in result:", result);
+          Message.warning("未生成任何卡片");
+        }
+      } catch (waitError) {
+        console.error("Error waiting for result:", waitError);
+        throw waitError;
+      }
+    }
+  } catch (error) {
+    console.error("Generate cards error:", error);
+    Message.error("生成卡片失败");
+  }
+};
+
 defineExpose({
-  show: async () => {
-    const sessions = JSON.parse(
-      localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
-    );
-    if (sessions.length > 0) {
-      console.log("Switching to main session");
-      await handleSessionSwitch(sessions[0]);
-    }
-
-    if (isFirstShow.value) {
-      currentSessionId.value = "";
-      createNewCardSession();
-      isFirstShow.value = false;
-    }
-
+  show: () => {
     visible.value = true;
   },
   hide: () => {
     visible.value = false;
   },
   clear: handleClear,
-  sendMessage: async (message: string) => {
-    if (isStreamLoad.value) return;
-    await handleSend(message);
+  sendMessage,
+  showCardsDrawer: () => {
+    showCardsDrawer.value = true;
   },
-  isCardsDrawerVisible: computed(() => showCardsDrawer.value),
+  generateCardsFromText,
 });
 
 watch(visible, (newVal) => {

@@ -3,6 +3,7 @@
     <a-layout-sider
       :width="siderWidth"
       class="bg-white resizable-sider"
+      :class="{ resizing: isResizing }"
       :style="{ width: `${siderWidth}px` }"
     >
       <div class="pdf-container">
@@ -14,6 +15,7 @@
 
     <div
       class="resizer"
+      :class="{ resizing: isResizing }"
       @mousedown="startResize"
       @touchstart="startResize"
     ></div>
@@ -21,6 +23,24 @@
     <a-layout-content class="bg-gray-100 chat-container">
       <AIChat ref="aiChatRef" :embedded="true" />
     </a-layout-content>
+
+    <!-- 浮动按钮组 -->
+    <div
+      v-show="showFloatButton"
+      class="float-buttons"
+      :style="{ left: `${floatButtonPos.x}px`, top: `${floatButtonPos.y}px` }"
+    >
+      <div class="float-button" @click="handleGenerateCard" title="AI 分析">
+        <t-icon name="chat" />
+      </div>
+      <div
+        class="float-button"
+        @click="handleDirectGenerate"
+        title="直接生成卡片"
+      >
+        <t-icon name="layers" />
+      </div>
+    </div>
   </a-layout>
 </template>
 
@@ -61,6 +81,9 @@ onMounted(async () => {
   if (aiChatRef.value) {
     aiChatRef.value.show();
   }
+
+  // 添加和移除事件监听器
+  document.addEventListener("mouseup", handleTextSelection);
 });
 
 // 侧边栏宽度状态
@@ -111,23 +134,88 @@ const stopResize = () => {
   document.body.classList.remove("resize-active");
 };
 
+// 添加浮动按钮相关状态
+const showFloatButton = ref(false);
+const floatButtonPos = ref({ x: 0, y: 0 });
+const selectedText = ref("");
+
+// 处理文本选择事件
+const handleTextSelection = () => {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed) {
+    showFloatButton.value = false;
+    return;
+  }
+
+  const text = selection.toString().trim();
+  if (!text) {
+    showFloatButton.value = false;
+    return;
+  }
+
+  selectedText.value = text;
+  const range = selection.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+
+  // 设置浮动按钮位置在选区的右上角
+  floatButtonPos.value = {
+    x: rect.right + 10,
+    y: rect.top - 10,
+  };
+  showFloatButton.value = true;
+};
+
+// 处理生成卡片
+const handleGenerateCard = async () => {
+  if (!selectedText.value) return;
+
+  // 隐藏浮动按钮
+  showFloatButton.value = false;
+
+  // 构造消息内容
+  const message = `请根据以下内容生成一张学习卡片：\n\n${selectedText.value}`;
+
+  // 发送到 AI 助手
+  if (aiChatRef.value) {
+    await aiChatRef.value.sendMessage(message);
+  }
+};
+
+// 修改 handleDirectGenerate 方法
+const handleDirectGenerate = async () => {
+  if (!selectedText.value) return;
+
+  // 隐藏浮动按钮
+  showFloatButton.value = false;
+
+  // 直接调用 AI 助手的生成卡片方法
+  if (aiChatRef.value) {
+    await aiChatRef.value.generateCardsFromText(selectedText.value);
+  }
+};
+
 // 清理事件监听
 onUnmounted(() => {
   document.removeEventListener("mousemove", handleResize);
   document.removeEventListener("mouseup", stopResize);
   document.removeEventListener("touchmove", handleResize);
   document.removeEventListener("touchend", stopResize);
+  document.removeEventListener("mouseup", handleTextSelection);
 });
 </script>
 
 <style scoped>
 .resizable-sider {
   position: relative;
-  transition: none;
+  transition: width 0.3s;
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  &.resizing {
+    transition: none;
+  }
 }
 
 .pdf-container {
@@ -157,23 +245,77 @@ onUnmounted(() => {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 6px;
-  background-color: transparent;
+  width: 8px;
+  background-color: var(--color-neutral-2);
   cursor: col-resize;
-  transition: background-color 0.3s;
+  transition: all 0.3s;
   z-index: 100;
   left: calc(v-bind(siderWidth) * 1px);
   transform: translateX(-50%);
-}
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
-.resizer:hover,
-.resizer:active {
-  background-color: var(--color-primary-light-4);
+  &::before {
+    content: "";
+    position: absolute;
+    left: 3px;
+    width: 2px;
+    height: 100%;
+    background: var(--color-neutral-3);
+  }
+
+  &::after {
+    content: "⋮";
+    color: var(--color-neutral-5);
+    font-size: 16px;
+    line-height: 1;
+    writing-mode: vertical-lr;
+    letter-spacing: 2px;
+    opacity: 0.8;
+    transition: all 0.3s;
+  }
+
+  &:hover {
+    background-color: var(--color-neutral-3);
+    width: 10px;
+
+    &::after {
+      color: var(--color-neutral-7);
+      letter-spacing: 3px;
+      font-size: 18px;
+    }
+  }
+
+  &.resizing,
+  &:active {
+    transition: none;
+    background-color: var(--color-neutral-4);
+    width: 12px;
+
+    &::after {
+      transition: none;
+      color: var(--color-neutral-8);
+      letter-spacing: 4px;
+      font-size: 20px;
+    }
+  }
 }
 
 :global(.resize-active) {
   user-select: none;
   cursor: col-resize;
+
+  .resizer {
+    background-color: var(--color-neutral-4);
+    width: 12px;
+
+    &::after {
+      color: var(--color-neutral-8);
+      letter-spacing: 4px;
+      font-size: 20px;
+    }
+  }
 }
 
 .h-screen {
@@ -204,5 +346,41 @@ onUnmounted(() => {
 
 :deep(.t-chat) {
   height: 100% !important;
+}
+
+.float-buttons {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  gap: 8px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.float-button {
+  background: var(--td-brand-color);
+  color: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+  font-size: 16px;
+
+  &:hover {
+    transform: scale(1.1);
+    background: var(--td-brand-color-hover);
+  }
+
+  &:active {
+    transform: scale(0.95);
+    background: var(--td-brand-color-active);
+  }
 }
 </style>
