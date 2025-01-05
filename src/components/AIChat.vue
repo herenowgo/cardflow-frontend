@@ -99,15 +99,32 @@
               "
             >
               <t-space>
-                <t-button
-                  theme="default"
-                  variant="text"
-                  size="small"
-                  @click="copyContent(item.content)"
+                <t-dropdown
+                  trigger="click"
+                  :min-column-width="100"
+                  :options="[
+                    {
+                      content: '复制 Markdown',
+                      value: 'markdown',
+                      onClick: () => copyContent(item.content, 'markdown'),
+                    },
+                    {
+                      content: '复制 HTML',
+                      value: 'html',
+                      onClick: () => copyContent(item.content, 'html'),
+                    },
+                  ]"
                 >
-                  <template #icon><t-icon name="file-copy" /></template>
-                  复制
-                </t-button>
+                  <t-button theme="default" variant="text" size="small">
+                    <template #icon><t-icon name="file-copy" /></template>
+                    复制
+                    <t-icon
+                      name="chevron-down"
+                      size="small"
+                      style="margin-left: 4px"
+                    />
+                  </t-button>
+                </t-dropdown>
                 <t-button
                   theme="default"
                   variant="text"
@@ -431,6 +448,7 @@ import MdViewer from "./MdViewer.vue";
 import MdEditor from "./MdEditor.vue";
 import { CardControllerService } from "../../generated/services/CardControllerService";
 import { CardAddRequest } from "../../generated/models/CardAddRequest";
+import { marked } from "marked";
 
 // 添加历史记录接口定义
 interface HistoryResponse {
@@ -994,11 +1012,21 @@ const handleStop = () => {
 };
 
 // 复制内容到剪贴板
-const copyContent = async (content: string) => {
+const copyContent = async (content: string, format: "markdown" | "html") => {
   try {
-    await navigator.clipboard.writeText(content);
-    Message.success("复制成功");
+    let textToCopy = content;
+
+    if (format === "html") {
+      // 将 Markdown 转换为 HTML
+      textToCopy = marked(content);
+    }
+
+    await navigator.clipboard.writeText(textToCopy);
+    Message.success(
+      `已复制为 ${format === "markdown" ? "Markdown" : "HTML"} 格式`
+    );
   } catch (err) {
+    console.error("Copy failed:", err);
     Message.error("复制失败");
   }
 };

@@ -490,6 +490,7 @@ const syncWithAnki = async () => {
         if (!noteInfo) {
           throw new Error(`No note info found for note ${noteIds[index]}`);
         }
+        // 将新卡片的 cardId 添加到 res.data.cardIds 中
         res.data?.cardIds?.push(cardInfos[index].cardId);
         return {
           id: request.id,
