@@ -1,14 +1,186 @@
 <template>
-  <t-dialog
-    v-model:visible="visible"
-    :footer="false"
-    :header="title"
-    mode="modeless"
-    :close-btn="true"
-    @close="handleClose"
-    @confirm="handleClose"
-  >
-    <template #header>
+  <template v-if="!props.embedded">
+    <t-dialog
+      v-model:visible="visible"
+      :footer="false"
+      :header="title"
+      mode="modeless"
+      :close-btn="true"
+      @close="handleClose"
+      @confirm="handleClose"
+    >
+      <template #header>
+        <div class="chat-header">
+          <div class="chat-title">{{ title }}</div>
+          <div class="header-actions">
+            <t-tooltip content="会话列表 (Alt + S)">
+              <t-button
+                theme="default"
+                variant="text"
+                shape="square"
+                @click="isSessionsDrawerVisible = true"
+              >
+                <template #icon>
+                  <t-icon name="chat" />
+                </template>
+              </t-button>
+            </t-tooltip>
+            <t-tooltip content="设置系统提示词">
+              <t-button
+                theme="default"
+                variant="text"
+                shape="square"
+                @click="showSettings"
+              >
+                <template #icon>
+                  <t-icon name="setting" />
+                </template>
+              </t-button>
+            </t-tooltip>
+            <t-tooltip content="查看已生成卡片 (Alt + C)">
+              <t-button
+                theme="default"
+                variant="text"
+                shape="square"
+                @click="showCardsDrawer = true"
+              >
+                <template #icon>
+                  <t-icon name="card" />
+                </template>
+              </t-button>
+            </t-tooltip>
+            <div class="model-selector-wrapper">
+              <t-tooltip content="选择 AI 模型">
+                <t-select
+                  v-model="currentModel"
+                  :options="modelOptions"
+                  size="small"
+                  class="model-selector"
+                  :popup-props="{
+                    overlayClassName: 'model-selector-popup',
+                    overlayInnerStyle: { padding: '4px' },
+                  }"
+                >
+                  <template #prefixIcon>
+                    <t-icon
+                      name="control-platform"
+                      style="color: var(--td-brand-color)"
+                    />
+                  </template>
+                </t-select>
+              </t-tooltip>
+            </div>
+          </div>
+        </div>
+      </template>
+      <template #body>
+        <div class="chat-body">
+          <t-chat
+            :style="{ height }"
+            :clear-history="chatList.length > 0 && !isStreamLoad && showClear"
+            @on-action="operation"
+            @clear="handleClear"
+          >
+            <template v-for="(item, index) in chatList" :key="index">
+              <t-chat-item
+                :avatar="item.avatar"
+                :name="item.name"
+                :role="item.role"
+                :datetime="item.datetime"
+                :content="item.content"
+                :text-loading="index === 0 && loading"
+              >
+                <template
+                  #actions
+                  v-if="
+                    item.role === 'assistant' &&
+                    !(index === 0 && (loading || isStreamLoad))
+                  "
+                >
+                  <t-space>
+                    <t-dropdown
+                      trigger="click"
+                      :min-column-width="100"
+                      :options="[
+                        {
+                          content: '复制 Markdown',
+                          value: 'markdown',
+                          onClick: () => copyContent(item.content, 'markdown'),
+                        },
+                        {
+                          content: '复制 HTML',
+                          value: 'html',
+                          onClick: () => copyContent(item.content, 'html'),
+                        },
+                      ]"
+                    >
+                      <t-button theme="default" variant="text" size="small">
+                        <template #icon><t-icon name="file-copy" /></template>
+                        复制
+                        <t-icon
+                          name="chevron-down"
+                          size="small"
+                          style="margin-left: 4px"
+                        />
+                      </t-button>
+                    </t-dropdown>
+                    <t-button
+                      theme="default"
+                      variant="text"
+                      size="small"
+                      :loading="cardsGenerating"
+                      @click="generateCards(item)"
+                    >
+                      <template #icon><t-icon name="layers" /></template>
+                      生成卡片
+                    </t-button>
+                    <t-dropdown
+                      trigger="click"
+                      :min-column-width="100"
+                      :options="modelOptions.map((opt: ModelOption) => ({
+                        content: opt.label,
+                        value: opt.value,
+                        onClick: () => regenerateWithModel(opt.value),
+                      }))"
+                    >
+                      <t-button theme="default" variant="text" size="small">
+                        <template #icon><t-icon name="refresh" /></template>
+                        重新生成
+                        <t-icon
+                          name="chevron-down"
+                          size="small"
+                          style="margin-left: 4px"
+                        />
+                      </t-button>
+                    </t-dropdown>
+                    <t-button
+                      v-if="item.history?.length"
+                      theme="default"
+                      variant="text"
+                      size="small"
+                      @click="switchHistory(item)"
+                    >
+                      <template #icon><t-icon name="swap" /></template>
+                      切换历史回复({{ item.history.length }})
+                    </t-button>
+                  </t-space>
+                </template>
+              </t-chat-item>
+            </template>
+            <template #footer>
+              <t-chat-input
+                :stop-disabled="isStreamLoad"
+                @send="handleSend"
+                @stop="handleStop"
+              />
+            </template>
+          </t-chat>
+        </div>
+      </template>
+    </t-dialog>
+  </template>
+  <template v-else>
+    <div class="embedded-chat">
       <div class="chat-header">
         <div class="chat-title">{{ title }}</div>
         <div class="header-actions">
@@ -66,123 +238,116 @@
                     style="color: var(--td-brand-color)"
                   />
                 </template>
-                <template #suffixIcon>
-                  <!-- 移除箭头图标 -->
-                </template>
               </t-select>
             </t-tooltip>
           </div>
         </div>
       </div>
-    </template>
-    <template #body>
-      <t-chat
-        :style="{ height }"
-        :clear-history="chatList.length > 0 && !isStreamLoad && showClear"
-        @on-action="operation"
-        @clear="handleClear"
-      >
-        <template v-for="(item, index) in chatList" :key="index">
-          <t-chat-item
-            :avatar="item.avatar"
-            :name="item.name"
-            :role="item.role"
-            :datetime="item.datetime"
-            :content="item.content"
-            :text-loading="index === 0 && loading"
-          >
-            <template
-              #actions
-              v-if="
-                item.role === 'assistant' &&
-                !(index === 0 && (loading || isStreamLoad))
-              "
+      <div class="chat-body">
+        <t-chat
+          :style="{ height: 'calc(100% - 48px)' }"
+          :clear-history="chatList.length > 0 && !isStreamLoad && showClear"
+          @on-action="operation"
+          @clear="handleClear"
+        >
+          <template v-for="(item, index) in chatList" :key="index">
+            <t-chat-item
+              :avatar="item.avatar"
+              :name="item.name"
+              :role="item.role"
+              :datetime="item.datetime"
+              :content="item.content"
+              :text-loading="index === 0 && loading"
             >
-              <t-space>
-                <t-dropdown
-                  trigger="click"
-                  :min-column-width="100"
-                  :options="[
-                    {
-                      content: '复制 Markdown',
-                      value: 'markdown',
-                      onClick: () => copyContent(item.content, 'markdown'),
-                    },
-                    {
-                      content: '复制 HTML',
-                      value: 'html',
-                      onClick: () => copyContent(item.content, 'html'),
-                    },
-                  ]"
-                >
-                  <t-button theme="default" variant="text" size="small">
-                    <template #icon><t-icon name="file-copy" /></template>
-                    复制
-                    <t-icon
-                      name="chevron-down"
-                      size="small"
-                      style="margin-left: 4px"
-                    />
+              <template
+                #actions
+                v-if="
+                  item.role === 'assistant' &&
+                  !(index === 0 && (loading || isStreamLoad))
+                "
+              >
+                <t-space>
+                  <t-dropdown
+                    trigger="click"
+                    :min-column-width="100"
+                    :options="[
+                      {
+                        content: '复制 Markdown',
+                        value: 'markdown',
+                        onClick: () => copyContent(item.content, 'markdown'),
+                      },
+                      {
+                        content: '复制 HTML',
+                        value: 'html',
+                        onClick: () => copyContent(item.content, 'html'),
+                      },
+                    ]"
+                  >
+                    <t-button theme="default" variant="text" size="small">
+                      <template #icon><t-icon name="file-copy" /></template>
+                      复制
+                      <t-icon
+                        name="chevron-down"
+                        size="small"
+                        style="margin-left: 4px"
+                      />
+                    </t-button>
+                  </t-dropdown>
+                  <t-button
+                    theme="default"
+                    variant="text"
+                    size="small"
+                    :loading="cardsGenerating"
+                    @click="generateCards(item)"
+                  >
+                    <template #icon><t-icon name="layers" /></template>
+                    生成卡片
                   </t-button>
-                </t-dropdown>
-                <t-button
-                  theme="default"
-                  variant="text"
-                  size="small"
-                  :loading="cardsGenerating"
-                  @click="generateCards(item)"
-                >
-                  <template #icon><t-icon name="layers" /></template>
-                  生成卡片
-                </t-button>
-                <t-dropdown
-                  trigger="click"
-                  :min-column-width="100"
-                  :options="
-                    modelOptions.map((opt) => ({
+                  <t-dropdown
+                    trigger="click"
+                    :min-column-width="100"
+                    :options="modelOptions.map((opt: ModelOption) => ({
                       content: opt.label,
                       value: opt.value,
                       onClick: () => regenerateWithModel(opt.value),
-                    }))
-                  "
-                >
-                  <t-button theme="default" variant="text" size="small">
-                    <template #icon><t-icon name="refresh" /></template>
-                    重新生成
-                    <t-icon
-                      name="chevron-down"
-                      size="small"
-                      style="margin-left: 4px"
-                    />
+                    }))"
+                  >
+                    <t-button theme="default" variant="text" size="small">
+                      <template #icon><t-icon name="refresh" /></template>
+                      重新生成
+                      <t-icon
+                        name="chevron-down"
+                        size="small"
+                        style="margin-left: 4px"
+                      />
+                    </t-button>
+                  </t-dropdown>
+                  <t-button
+                    v-if="item.history?.length"
+                    theme="default"
+                    variant="text"
+                    size="small"
+                    @click="switchHistory(item)"
+                  >
+                    <template #icon><t-icon name="swap" /></template>
+                    切换历史回复({{ item.history.length }})
                   </t-button>
-                </t-dropdown>
-                <t-button
-                  v-if="item.history?.length"
-                  theme="default"
-                  variant="text"
-                  size="small"
-                  @click="switchHistory(item)"
-                >
-                  <template #icon><t-icon name="swap" /></template>
-                  切换历史回复({{ item.history.length }})
-                </t-button>
-              </t-space>
-            </template>
-          </t-chat-item>
-        </template>
-        <template #footer>
-          <t-chat-input
-            :stop-disabled="isStreamLoad"
-            @send="handleSend"
-            @stop="handleStop"
-          >
-          </t-chat-input>
-        </template>
-      </t-chat>
-    </template>
-  </t-dialog>
+                </t-space>
+              </template>
+            </t-chat-item>
+          </template>
+          <template #footer>
+            <t-chat-input
+              :stop-disabled="isStreamLoad"
+              @send="handleSend"
+              @stop="handleStop"
+            />
+          </template>
+        </t-chat>
+      </div>
+    </div>
+  </template>
 
-  <!-- 修改卡片预览抽屉 -->
   <Drawer
     v-model:visible="showCardsDrawer"
     :width="500"
@@ -240,7 +405,7 @@
               <div v-else class="md-editor-wrapper">
                 <MdEditor
                   :value="card.question"
-                  :handle-change="(v) => (card.question = v)"
+                  :handle-change="(value: string) => (card.question = value)"
                 />
                 <div class="editor-actions">
                   <a-button
@@ -272,7 +437,7 @@
               <div v-else class="md-editor-wrapper">
                 <MdEditor
                   :value="card.answer"
-                  :handle-change="(v) => (card.answer = v)"
+                  :handle-change="(value: string) => (card.answer = value)"
                 />
                 <div class="editor-actions">
                   <a-button
@@ -332,7 +497,6 @@
     </div>
   </Drawer>
 
-  <!-- 添加会话管理抽屉 -->
   <SessionManager
     v-model:visible="isSessionsDrawerVisible"
     :current-model="currentModel"
@@ -342,7 +506,6 @@
     @session-create="handleSessionCreate"
   />
 
-  <!-- 添加系统提示词设置对话框 -->
   <t-dialog
     v-model:visible="isSettingVisible"
     header="系统提示词管理"
@@ -450,7 +613,6 @@ import { CardControllerService } from "../../generated/services/CardControllerSe
 import { CardAddRequest } from "../../generated/models/CardAddRequest";
 import { marked } from "marked";
 
-// 添加历史记录接口定义
 interface HistoryResponse {
   content: string;
   datetime: string;
@@ -466,7 +628,6 @@ interface ChatSession {
   lastUpdated: string;
 }
 
-// 添加卡片类型定义
 interface Card {
   id?: string;
   question: string;
@@ -476,7 +637,24 @@ interface Card {
   isEditingAnswer?: boolean;
 }
 
-const props = withDefaults(defineProps<ChatProps>(), {
+interface ModelOption {
+  value: AIChatRequest.model;
+  label: string;
+}
+
+interface Props {
+  userAvatar?: string;
+  aiAvatar?: string;
+  userName?: string;
+  aiName?: string;
+  title?: string;
+  height?: string;
+  draggable?: boolean;
+  showClear?: boolean;
+  embedded?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
   userAvatar: "https://tdesign.gtimg.com/site/avatar.jpg",
   aiAvatar: "https://tdesign.gtimg.com/site/chat-avatar.png",
   userName: "自己",
@@ -485,6 +663,7 @@ const props = withDefaults(defineProps<ChatProps>(), {
   height: "600px",
   draggable: true,
   showClear: true,
+  embedded: false,
 });
 
 const emit = defineEmits<{
@@ -495,24 +674,20 @@ const emit = defineEmits<{
   (e: "session-create", session: ChatSession): void;
 }>();
 
-// 添加 localStorage 相关的常量
 const STORAGE_KEY = "ai_chat_model";
 const CARDS_STORAGE_KEY = "ai_generated_cards";
 const SESSIONS_STORAGE_KEY = "ai_chat_sessions";
 const CURRENT_SESSION_KEY = "ai_chat_current_session";
 
-// 从 localStorage 获取保存的模型
 const getSavedModel = (): AIChatRequest.model => {
   const saved = localStorage.getItem(STORAGE_KEY);
   return saved ? (saved as AIChatRequest.model) : AIChatRequest.model.BASIC;
 };
 
-// 保存模型选择到 localStorage
 const saveModelSelection = (model: AIChatRequest.model) => {
   localStorage.setItem(STORAGE_KEY, model);
 };
 
-// 从 localStorage 获取保存的卡片
 const loadSavedCards = () => {
   try {
     const saved = localStorage.getItem(CARDS_STORAGE_KEY);
@@ -531,18 +706,14 @@ const loadSavedCards = () => {
   }
 };
 
-// 保存卡片到 localStorage
 const saveCards = (cards: Card[]) => {
   try {
     localStorage.setItem(CARDS_STORAGE_KEY, JSON.stringify(cards));
   } catch (error) {
     console.error("Failed to save cards to localStorage:", error);
-    // 可以选择添加用户提示
-    // Message.error('保存卡片失败');
   }
 };
 
-// 生成UUID
 const generateUUID = () => {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0;
@@ -551,7 +722,6 @@ const generateUUID = () => {
   });
 };
 
-// 状态变量
 const visible = ref(false);
 const loading = ref(false);
 const isStreamLoad = ref(false);
@@ -561,7 +731,7 @@ const showCardsDrawer = ref(false);
 const currentCards = ref<Card[]>(loadSavedCards());
 const cardsGenerating = ref(false);
 const currentModel = ref<AIChatRequest.model>(getSavedModel());
-const isFirstShow = ref(true); // 添加标记，用于判断是否是第一次显示
+const isFirstShow = ref(true);
 const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
   {
     avatar: props.aiAvatar,
@@ -573,10 +743,8 @@ const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
 ]);
 const isSessionsDrawerVisible = ref(false);
 
-// 添加新的状态变量
 const lastCheckedCardIndex = ref<number | null>(null);
 
-// 创建新的卡片会话
 const createNewCardSession = () => {
   console.log("Creating new card session");
   if (!currentSessionId.value) {
@@ -593,19 +761,17 @@ const createNewCardSession = () => {
     },
   ];
 
-  // 更新持久化存储中的会话数据
   const sessions = JSON.parse(
     localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
   );
   if (sessions.length > 0) {
     sessions[0].sessionId = currentSessionId.value;
-    sessions[0].messages = chatList.value; // 同时更新消息列表
+    sessions[0].messages = chatList.value;
     localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
     console.log("Updated sessionId in storage:", currentSessionId.value);
   }
 };
 
-// 会话管理相关的方法
 const handleSessionSwitch = (session: ChatSession) => {
   console.log("Switching to session:", session);
   chatList.value = session.messages;
@@ -617,38 +783,30 @@ const handleSessionSwitch = (session: ChatSession) => {
 
 const handleSessionCreate = (session: ChatSession) => {
   console.log("Creating new session:", session);
-  // 更新当前会话的状态
   chatList.value = session.messages;
   currentModel.value = session.model;
   currentPromptId.value = session.promptId;
   currentSessionId.value = session.sessionId;
 
-  // 更新 localStorage 中的当前会话
   localStorage.setItem(CURRENT_SESSION_KEY, session.id);
 
   console.log("Switched to new session with sessionId:", session.sessionId);
 };
 
-// 快捷键处理
 const handleKeyDown = (e: KeyboardEvent) => {
-  // Alt + C 打开卡片抽屉
   if (e.altKey && e.key.toLowerCase() === "c") {
     e.preventDefault();
     showCardsDrawer.value = true;
   }
-  // Alt + S 打开会话列表
   if (e.altKey && e.key.toLowerCase() === "s") {
     e.preventDefault();
     isSessionsDrawerVisible.value = true;
   }
 };
 
-// 生命周期钩子
 onMounted(() => {
-  // 加载保存的卡片
   currentCards.value = loadSavedCards();
 
-  // 添加事件监听器
   document.addEventListener("keydown", handleKeyDown);
 });
 
@@ -656,7 +814,6 @@ onUnmounted(() => {
   document.removeEventListener("keydown", handleKeyDown);
 });
 
-// 处理发送消息
 const handleSend = async (inputValue: string) => {
   if (isStreamLoad.value || !inputValue) return;
 
@@ -719,21 +876,18 @@ const handleSend = async (inputValue: string) => {
   }
 };
 
-// 处理清空历史
 const handleClear = () => {
   currentSessionId.value = "";
   createNewCardSession();
   emit("clear");
 };
 
-// 处理关闭对话框
 const handleClose = () => {
   visible.value = false;
   emit("close");
 };
 
-// 定义可用的模型列表
-const modelOptions = [
+const modelOptions: ModelOption[] = [
   { value: AIChatRequest.model.BASIC, label: "基础模型" },
   { value: AIChatRequest.model.A1, label: "A1 模型" },
   { value: AIChatRequest.model.A2, label: "A2 模型" },
@@ -742,12 +896,10 @@ const modelOptions = [
   { value: AIChatRequest.model.GEMINI_2_0_FLASH_EXP, label: "Gemini 2.0" },
 ];
 
-// 监听模型变化并保存
 watch(currentModel, (newModel) => {
   saveModelSelection(newModel);
 });
 
-// 添加提示词管理相关的代码
 interface PromptItem {
   id: string;
   name: string;
@@ -757,7 +909,6 @@ interface PromptItem {
 const PROMPTS_STORAGE_KEY = "ai_chat_prompts";
 const CURRENT_PROMPT_KEY = "ai_chat_current_prompt";
 
-// 添加系统预设提示词
 const SYSTEM_PRESET_PROMPT: PromptItem = {
   id: "system-preset",
   name: "系统预设",
@@ -771,30 +922,25 @@ const SYSTEM_PRESET_PROMPT: PromptItem = {
 请以专业、友好的语气提供反馈，并给出具体的修改建议。`,
 };
 
-// 从 localStorage 获取保存的所有提示词
 const getSavedPrompts = (): PromptItem[] => {
   const saved = localStorage.getItem(PROMPTS_STORAGE_KEY);
   const userPrompts = saved ? JSON.parse(saved) : [];
   return [SYSTEM_PRESET_PROMPT, ...userPrompts];
 };
 
-// 从 localStorage 获取当前选中的提示词 ID
 const getCurrentPromptId = (): string => {
   return localStorage.getItem(CURRENT_PROMPT_KEY) || "";
 };
 
-// 保存所有提示词到 localStorage
 const savePrompts = (prompts: PromptItem[]) => {
   const userPrompts = prompts.filter((p) => p.id !== SYSTEM_PRESET_PROMPT.id);
   localStorage.setItem(PROMPTS_STORAGE_KEY, JSON.stringify(userPrompts));
 };
 
-// 保存当前选中的提示词 ID
 const saveCurrentPromptId = (id: string) => {
   localStorage.setItem(CURRENT_PROMPT_KEY, id);
 };
 
-// 提示词列表状态
 const prompts = ref<PromptItem[]>(getSavedPrompts());
 const currentPromptId = ref<string>(getCurrentPromptId());
 const isSettingVisible = ref(false);
@@ -805,9 +951,7 @@ const editingPrompt = ref<PromptItem>({
 });
 const isNewPrompt = ref(false);
 
-// 计算当前的系统提示词内容
 const systemPrompt = computed(() => {
-  // 如果选择的是系统预设，返回空字符串
   if (currentPromptId.value === SYSTEM_PRESET_PROMPT.id) {
     return "";
   }
@@ -815,12 +959,10 @@ const systemPrompt = computed(() => {
   return current?.content || "";
 });
 
-// 打开设置对话框
 const showSettings = () => {
   isSettingVisible.value = true;
 };
 
-// 添加新提示词
 const addNewPrompt = () => {
   isNewPrompt.value = true;
   editingPrompt.value = {
@@ -830,15 +972,13 @@ const addNewPrompt = () => {
   };
 };
 
-// 编辑提示词
 const editPrompt = (prompt: PromptItem) => {
   isNewPrompt.value = false;
   editingPrompt.value = { ...prompt };
 };
 
-// 删除提示词
 const deletePrompt = (id: string) => {
-  if (id === SYSTEM_PRESET_PROMPT.id) return; // 防止删除系统预设
+  if (id === SYSTEM_PRESET_PROMPT.id) return;
   prompts.value = prompts.value.filter((p) => p.id !== id);
   if (currentPromptId.value === id) {
     currentPromptId.value = "";
@@ -848,7 +988,6 @@ const deletePrompt = (id: string) => {
   Message.success("删除提示词成功");
 };
 
-// 保存提示词
 const savePrompt = () => {
   if (!editingPrompt.value.name.trim() || !editingPrompt.value.content.trim()) {
     Message.warning("请填写提示词名称和内容");
@@ -872,12 +1011,10 @@ const savePrompt = () => {
   editingPrompt.value = { id: "", name: "", content: "" };
 };
 
-// 选择提示词
 const selectPrompt = (id: string) => {
   currentPromptId.value = id;
   saveCurrentPromptId(id);
 
-  // 添加提示词切换消息
   const selectedPrompt = prompts.value.find((p) => p.id === id);
   if (selectedPrompt) {
     Message.success(`已切换到${selectedPrompt.name}提示词`);
@@ -891,13 +1028,11 @@ const selectPrompt = (id: string) => {
   }
 };
 
-// 生成卡片的方法
 const generateCards = async (item: ChatMessage) => {
   try {
     console.log("Starting card generation...");
     cardsGenerating.value = true;
 
-    // 查找当前 AI 回复对应的用户问题
     const currentIndex = chatList.value.findIndex((msg) => msg === item);
     const userQuestion = chatList.value[currentIndex + 1];
 
@@ -906,7 +1041,6 @@ const generateCards = async (item: ChatMessage) => {
       return;
     }
 
-    // 组合问题和回答
     const combinedContent = `问题：${userQuestion.content}\n\n回答：${item.content}`;
 
     const res = await ChatControllerService.getCards({
@@ -927,17 +1061,13 @@ const generateCards = async (item: ChatMessage) => {
         console.log("Cards result:", result);
 
         if (result && result.cards && result.cards.length > 0) {
-          // 为新生成的卡片添加编辑状态标记
           const newCards = result.cards.map((card: Card) => ({
             ...card,
             isEditing: false,
             isEditingAnswer: false,
           }));
 
-          // 将新卡片添加到现有卡片列表的开头
           currentCards.value = [...newCards, ...currentCards.value];
-
-          // 由于添加了 watch，这里不需要显式调用 saveCards
 
           showCardsDrawer.value = true;
           Message.success(`成功生成 ${result.cards.length} 张卡片`);
@@ -958,22 +1088,17 @@ const generateCards = async (item: ChatMessage) => {
   }
 };
 
-// 删除卡片
 const deleteCard = (index: number) => {
   currentCards.value.splice(index, 1);
-  // 由于添加了 watch，这里不需要显式调用 saveCards
   Message.success("删除成功");
 };
 
-// 清空所有卡片
 const clearAllCards = () => {
   currentCards.value = [];
-  // 由于添加了 watch，这里不需要显式调用 saveCards
   showCardsDrawer.value = false;
   Message.success("已清空所有卡片");
 };
 
-// 监听 showCardsDrawer 的变化
 watch(showCardsDrawer, (newVal) => {
   console.log(
     "showCardsDrawer changed:",
@@ -983,7 +1108,6 @@ watch(showCardsDrawer, (newVal) => {
   );
 });
 
-// 监听 currentCards 的变化
 watch(
   currentCards,
   (newCards) => {
@@ -993,15 +1117,13 @@ watch(
       console.error("Failed to auto-save cards:", error);
     }
   },
-  { deep: true } // 深度监听以捕获嵌套属性的变化
+  { deep: true }
 );
 
-// 处理操作
 const operation = (type: string, options: any) => {
   console.log(type, options);
 };
 
-// 处理停止生成
 const handleStop = () => {
   if (isStreamLoad.value && currentRequestId.value) {
     eventStreamService.cancelRequest(currentRequestId.value);
@@ -1011,14 +1133,12 @@ const handleStop = () => {
   }
 };
 
-// 复制内容到剪贴板
 const copyContent = async (content: string, format: "markdown" | "html") => {
   try {
     let textToCopy = content;
 
     if (format === "html") {
-      // 将 Markdown 转换为 HTML
-      textToCopy = marked(content);
+      textToCopy = await Promise.resolve(marked(content));
     }
 
     await navigator.clipboard.writeText(textToCopy);
@@ -1031,11 +1151,9 @@ const copyContent = async (content: string, format: "markdown" | "html") => {
   }
 };
 
-// 重新生成回复
 const regenerateWithModel = async (model: AIChatRequest.model) => {
   if (isStreamLoad.value || chatList.value.length < 2) return;
 
-  // 找到最近的一对用户问题和AI回复
   const lastAiMessage = chatList.value.find((msg) => msg.role === "assistant");
   const lastUserMessage = chatList.value.find((msg) => msg.role === "user");
   if (!lastAiMessage || !lastUserMessage) return;
@@ -1055,7 +1173,6 @@ const regenerateWithModel = async (model: AIChatRequest.model) => {
     if (res.code == 200 && res.data) {
       currentRequestId.value = res.data;
 
-      // 保存当前回复到历史记录
       if (!lastAiMessage.history) {
         lastAiMessage.history = [];
       }
@@ -1064,10 +1181,8 @@ const regenerateWithModel = async (model: AIChatRequest.model) => {
         datetime: lastAiMessage.datetime,
       });
 
-      // 更新时间戳
       lastAiMessage.datetime = new Date().toLocaleString();
 
-      // 清空内容，准备接收新的回复
       lastAiMessage.content = "";
 
       let accumulatedContent = "";
@@ -1090,7 +1205,6 @@ const regenerateWithModel = async (model: AIChatRequest.model) => {
   }
 };
 
-// 切换历史回复
 const switchHistory = (item: ChatMessage & { history?: HistoryResponse[] }) => {
   if (!item.history?.length) return;
 
@@ -1107,19 +1221,14 @@ const switchHistory = (item: ChatMessage & { history?: HistoryResponse[] }) => {
   item.datetime = lastHistory.datetime;
 };
 
-// 修改检查卡片的方法
 const checkCard = async (card: any, index: number) => {
-  // 将卡片移动到列表顶部
   currentCards.value.splice(index, 1);
   currentCards.value.unshift(card);
 
-  // 保存更新后的卡片列表
   saveCards(currentCards.value);
 
-  // 设置最后检查的卡片索引为0（因为现在在顶部）
   lastCheckedCardIndex.value = 0;
 
-  // 创建一个新的会话，使用卡片问题作为会话名称
   const sessionId = generateUUID();
   const newSession: ChatSession = {
     id: generateUUID(),
@@ -1142,37 +1251,29 @@ const checkCard = async (card: any, index: number) => {
     lastUpdated: new Date().toLocaleString(),
   };
 
-  // 将新会话添加到会话列表
   const allSessions = JSON.parse(
     localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
   );
   allSessions.push(newSession);
   localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(allSessions));
 
-  // 切换到新会话
   console.log("Creating new session for card check:", newSession);
   emit("session-create", newSession);
 
-  // 等待一下，确保会话创建完成
   await new Promise((resolve) => setTimeout(resolve, 100));
 
-  // 构建检查请求的内容
   const checkContent = `请帮我检查这张卡片的内容：\n\n问题：${
     card.question
   }\n\n答案：${card.answer}\n\n标签：${card.tags.join(", ")}`;
 
-  // 发送检查请求
   await handleSend(checkContent);
 
-  // 关闭卡片抽屉，显示对话框
   showCardsDrawer.value = false;
   visible.value = true;
 };
 
-// 添加保存到卡片库的方法
 const saveToCardLibrary = async (card: Card, index: number) => {
   try {
-    // 创建卡片请求对象
     const cardAddRequest: CardAddRequest = {
       question: card.question,
       answer: card.answer,
@@ -1180,11 +1281,9 @@ const saveToCardLibrary = async (card: Card, index: number) => {
       group: "all",
     };
 
-    // 调用创建卡片接口
     const response = await CardControllerService.createCard(cardAddRequest);
 
     if (response.code === 200 && response.data) {
-      // 保存成功，从列表中删除这张卡片
       currentCards.value.splice(index, 1);
       Message.success("已成功添加到卡片库");
     } else {
@@ -1196,10 +1295,8 @@ const saveToCardLibrary = async (card: Card, index: number) => {
   }
 };
 
-// 暴露方法给父组件
 defineExpose({
   show: async () => {
-    // 每次显示时都先切换到主会话
     const sessions = JSON.parse(
       localStorage.getItem(SESSIONS_STORAGE_KEY) || "[]"
     );
@@ -1208,15 +1305,12 @@ defineExpose({
       await handleSessionSwitch(sessions[0]);
     }
 
-    // 只有在第一次显示时才创建新会话
     if (isFirstShow.value) {
-      // 创建新会话
       currentSessionId.value = "";
       createNewCardSession();
-      isFirstShow.value = false; // 标记已经不是第一次显示了
+      isFirstShow.value = false;
     }
 
-    // 最后再显示对话框
     visible.value = true;
   },
   hide: () => {
@@ -1230,32 +1324,39 @@ defineExpose({
   isCardsDrawerVisible: computed(() => showCardsDrawer.value),
 });
 
-// 监听 visible 的变化
 watch(visible, (newVal) => {
   if (!newVal) {
-    // 不再在关闭时重置会话
     emit("close");
   }
 });
 
-// 修改 handleCardEdit 函数
 const handleCardEdit = (card: Card) => {
   card.isEditing = false;
   saveCards(currentCards.value);
   Message.success("保存成功");
 };
 
-// 修改 handleAnswerEdit 函数
 const handleAnswerEdit = (card: Card) => {
   card.isEditingAnswer = false;
   saveCards(currentCards.value);
   Message.success("保存成功");
 };
 
-// 修改 handleTagsChange 函数
 const handleTagsChange = () => {
   saveCards(currentCards.value);
   Message.success("标签已保存");
+};
+
+const handleQuestionChange = (value: string) => {
+  if (currentCards.value.length > 0) {
+    currentCards.value[0].question = value;
+  }
+};
+
+const handleAnswerChange = (value: string) => {
+  if (currentCards.value.length > 0) {
+    currentCards.value[0].answer = value;
+  }
 };
 </script>
 
@@ -1285,7 +1386,7 @@ const handleTagsChange = () => {
 }
 
 .model-selector {
-  width: 180px;
+  width: 140px;
   transition: all 0.3s ease;
   height: 100%;
 }
@@ -1341,7 +1442,7 @@ const handleTagsChange = () => {
 }
 
 :deep(.model-selector-popup) {
-  min-width: 180px !important;
+  min-width: 140px !important;
 
   .t-select-option {
     margin: 2px 4px;
@@ -1614,7 +1715,6 @@ const handleTagsChange = () => {
   background: var(--td-bg-color-container-hover);
 }
 
-/* 添加会话列表样式 */
 .sessions-list {
   height: calc(100vh - 55px);
   overflow-y: auto;
@@ -1735,7 +1835,6 @@ const handleTagsChange = () => {
   }
 }
 
-/* 添加样式 */
 .md-wrapper {
   position: relative;
   border: 1px solid var(--color-neutral-3);
@@ -1786,5 +1885,41 @@ const handleTagsChange = () => {
 :deep(.markdown-body) {
   padding: 16px;
   background: transparent;
+}
+
+.embedded-chat {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--td-bg-color-container);
+  border-radius: var(--td-radius-medium);
+  overflow: hidden;
+}
+
+.embedded-chat .chat-header {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--td-component-border);
+  background: var(--td-bg-color-container);
+  flex-shrink: 0;
+}
+
+.embedded-chat .chat-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.embedded-chat :deep(.t-chat) {
+  height: 100% !important;
+  border-radius: 0;
+}
+
+.embedded-chat :deep(.t-chat__main) {
+  padding: 16px;
+}
+
+.embedded-chat :deep(.t-chat__footer) {
+  border-top: 1px solid var(--td-component-border);
+  padding: 16px;
 }
 </style>
