@@ -1,10 +1,10 @@
 <template>
   <div id="basicLayout">
     <a-layout style="min-height: 100vh">
-      <a-layout-header class="header">
+      <a-layout-header v-if="!hideHeader" class="header">
         <GlobalHeader />
       </a-layout-header>
-      <a-layout-content class="content">
+      <a-layout-content :class="{ content: true, 'no-header': hideHeader }">
         <router-view />
       </a-layout-content>
     </a-layout>
@@ -20,13 +20,17 @@
 
 #basicLayout .header {
   box-shadow: #eee 1px 1px 5px;
-  padding: 0 20px; /* 添加边距让内容不会紧贴边缘 */
+  padding: 0 20px;
 }
 
 #basicLayout .content {
-  flex-grow: 1; /* 让内容区域自动占满剩余空间 */
+  flex-grow: 1;
   padding: 20px;
-  overflow: auto; /* 防止内容溢出 */
+  overflow: auto;
+}
+
+#basicLayout .content.no-header {
+  padding: 0;
 }
 
 #basicLayout .footer {
@@ -40,7 +44,6 @@
 }
 
 @media (max-width: 768px) {
-  /* 针对小屏幕的优化 */
   #basicLayout .header {
     padding: 0 10px;
   }
@@ -49,11 +52,21 @@
     padding: 10px;
   }
 
+  #basicLayout .content.no-header {
+    padding: 0;
+  }
+
   #basicLayout .footer {
     font-size: 12px;
   }
 }
 </style>
+
 <script setup lang="ts">
 import GlobalHeader from "@/components/GlobalHeader.vue";
+import { useRoute } from "vue-router";
+import { computed } from "vue";
+
+const route = useRoute();
+const hideHeader = computed(() => route.meta.hideHeader);
 </script>

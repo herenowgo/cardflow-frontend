@@ -229,5 +229,9 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/resource-preview",
     name: "resource-preview",
     component: () => import("@/views/resource/ResourcePreviewView.vue"),
+    meta: {
+      hideHeader: true,
+      hideInMenu: true,
+    },
   },
 ];

@@ -5,9 +5,13 @@
       class="bg-white resizable-sider"
       :style="{ width: `${siderWidth}px` }"
     >
-      <div class="p-4 h-full">
-        <h2 class="text-2xl font-bold mb-4">PDF Viewer</h2>
-        <pdf-viewer :source="pdfUrl" />
+      <div class="pdf-container">
+        <div class="pdf-toolbar">
+          <!-- 工具栏内容 -->
+        </div>
+        <div class="pdf-content">
+          <pdf-viewer :source="pdfUrl" />
+        </div>
       </div>
     </a-layout-sider>
 
@@ -18,59 +22,42 @@
     ></div>
 
     <a-layout-content class="bg-gray-100">
-      <div class="p-4">
-        <h2 class="text-2xl font-bold mb-4">Flashcard Maker</h2>
+      <div class="p-4 h-full overflow-auto">
         <a-form :model="flashcard" @submit.prevent="createFlashcard">
-          <a-form-item field="question" label="Question">
-            <a-input
-              v-model="flashcard.question"
-              placeholder="Enter question"
+          <a-form-item field="question" label="笔记标题">
+            <a-input v-model="flashcard.question" placeholder="输入笔记标题" />
+          </a-form-item>
+          <a-form-item field="answer" label="笔记内容">
+            <a-textarea
+              v-model="flashcard.answer"
+              placeholder="输入笔记内容"
+              :auto-size="{ minRows: 3, maxRows: 6 }"
             />
           </a-form-item>
-          <a-form-item field="answer" label="Answer">
-            <a-textarea v-model="flashcard.answer" placeholder="Enter answer" />
-          </a-form-item>
           <a-form-item>
-            <a-button type="primary" html-type="submit"
-              >Create Flashcard
-            </a-button>
+            <a-button type="primary" html-type="submit">保存笔记</a-button>
           </a-form-item>
         </a-form>
 
         <a-divider />
 
-        <h3 class="text-xl font-bold mb-2">Flashcards</h3>
-        <a-list :data="flashcards" class="mb-4">
-          <template #item="{ item }">
-            <a-list-item>
-              <a-card hoverable>
-                <template #title>{{ item.question }}</template>
-                <template #extra>
-                  <a-button status="danger" @click="deleteFlashcard(item)"
-                    >Delete
-                  </a-button>
-                </template>
-                {{ item.answer }}
-              </a-card>
-            </a-list-item>
-          </template>
-        </a-list>
-
-        <a-button
-          type="primary"
-          @click="analyzeFlashcards"
-          :loading="analyzing"
-        >
-          Analyze Flashcards
-        </a-button>
-
-        <a-modal
-          v-model:visible="showAnalysis"
-          title="AI Analysis"
-          @ok="showAnalysis = false"
-        >
-          <p>{{ aiAnalysis }}</p>
-        </a-modal>
+        <div class="notes-list">
+          <a-list :data="flashcards" class="mb-4">
+            <template #item="{ item }">
+              <a-list-item>
+                <a-card hoverable class="w-full">
+                  <template #title>{{ item.question }}</template>
+                  <template #extra>
+                    <a-button status="danger" @click="deleteFlashcard(item)"
+                      >删除</a-button
+                    >
+                  </template>
+                  <div class="whitespace-pre-wrap">{{ item.answer }}</div>
+                </a-card>
+              </a-list-item>
+            </template>
+          </a-list>
+        </div>
       </div>
     </a-layout-content>
   </a-layout>
@@ -84,20 +71,18 @@ import PdfViewer from "./PdfViewer.vue";
 import { UserFileControllerService } from "../../../generated";
 
 const route = useRoute();
-const pdfUrl = ref("");
+const pdfUrl = ref<string>("");
 
 onMounted(async () => {
-  // 从路由参数中获取 URL
   const urlFromQuery = route.query.url as string;
   if (urlFromQuery) {
     pdfUrl.value = urlFromQuery;
   } else {
-    // 如果 URL 不存在，可以尝试重新获取
     const path = route.query.path as string;
     if (path) {
       try {
         const res = await UserFileControllerService.previewFile(path);
-        if (res.code === 200 && res.data) {
+        if (res.code === 200 && res.data?.url) {
           pdfUrl.value = res.data.url;
         } else {
           Message.error("获取预览链接失败");
@@ -110,12 +95,17 @@ onMounted(async () => {
   }
 });
 
-const flashcard = reactive({
+interface Note {
+  question: string;
+  answer: string;
+}
+
+const flashcard = reactive<Note>({
   question: "",
   answer: "",
 });
 
-const flashcards = ref([]);
+const flashcards = ref<Note[]>([]);
 
 const showAnalysis = ref(false);
 const aiAnalysis = ref("");
@@ -132,11 +122,11 @@ const createFlashcard = () => {
   }
 };
 
-const deleteFlashcard = (item: any) => {
+const deleteFlashcard = (item: Note) => {
   const index = flashcards.value.indexOf(item);
   if (index > -1) {
     flashcards.value.splice(index, 1);
-    Message.success("Flashcard deleted successfully");
+    Message.success("笔记删除成功");
   }
 };
 
@@ -223,6 +213,38 @@ onUnmounted(() => {
 .resizable-sider {
   position: relative;
   transition: none;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pdf-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.pdf-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px; /* 工具栏固定高度 */
+  z-index: 10;
+  background-color: white;
+  border-bottom: 1px solid #eee;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pdf-content {
+  padding-top: 32px; /* 与工具栏高度相同 */
+  height: 100%;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .resizer {
@@ -235,7 +257,6 @@ onUnmounted(() => {
   cursor: col-resize;
   transition: background-color 0.3s;
   z-index: 100;
-  /* 调整位置到sider右侧 */
   left: calc(v-bind(siderWidth) * 1px);
   transform: translateX(-50%);
 }
@@ -245,16 +266,19 @@ onUnmounted(() => {
   background-color: var(--color-primary-light-4);
 }
 
-/* 拖动时禁止选择文本 */
 :global(.resize-active) {
   user-select: none;
   cursor: col-resize;
 }
 
-/* 确保布局容器是相对定位 */
 .h-screen {
   position: relative;
   height: 100vh;
   overflow: hidden;
+}
+
+.notes-list {
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
 }
 </style>
