@@ -8,7 +8,7 @@
     >
       <div class="pdf-container">
         <div class="pdf-content">
-          <pdf-viewer :source="pdfUrl" />
+          <pdf-viewer :source="pdfUrl" :path="filePath" />
         </div>
       </div>
     </a-layout-sider>
@@ -54,16 +54,21 @@ import { UserFileControllerService } from "../../../generated";
 
 const route = useRoute();
 const pdfUrl = ref<string>("");
+const filePath = ref<string>("");
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 
 onMounted(async () => {
   const urlFromQuery = route.query.url as string;
+  const pathFromQuery = route.query.path as string;
+
   if (urlFromQuery) {
     pdfUrl.value = urlFromQuery;
+    filePath.value = pathFromQuery || "";
   } else {
     const path = route.query.path as string;
     if (path) {
       try {
+        filePath.value = path;
         const res = await UserFileControllerService.previewFile(path);
         if (res.code === 200 && res.data?.url) {
           pdfUrl.value = res.data.url;

@@ -56,7 +56,8 @@
               :min="1"
               :max="pageCount"
               @change="onPageChange"
-              :style="{ width: '60px' }"
+              :style="{ width: '80px' }"
+              :controls="false"
             />
             <span class="page-separator">/</span>
             <span class="total-pages">{{ pageCount }}</span>
@@ -155,6 +156,10 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  path: {
+    type: String,
+    required: true,
+  },
 });
 
 const pdfContainer = ref(null);
@@ -174,6 +179,25 @@ const textLayerWrapper = ref(null);
 const outlineVisible = ref(false);
 const outline = ref([]);
 
+// 添加保存和恢复阅读进度的函数
+const saveReadingProgress = () => {
+  // 使用文件路径作为 key
+  const key = `pdf-progress-${props.path}`;
+  localStorage.setItem(key, currentPage.value.toString());
+};
+
+const restoreReadingProgress = () => {
+  const key = `pdf-progress-${props.source}`;
+  const savedPage = localStorage.getItem(key);
+  if (savedPage) {
+    const page = parseInt(savedPage);
+    // 确保页码在有效范围内
+    if (page >= 1 && page <= pageCount.value) {
+      currentPage.value = page;
+    }
+  }
+};
+
 const loadPDF = async () => {
   loading.value = true;
   error.value = "";
@@ -181,6 +205,17 @@ const loadPDF = async () => {
     pdfDoc = await pdfjsLib.getDocument(props.source).promise;
     pageCount.value = pdfDoc.numPages;
     await loadOutline(); // 加载目录
+
+    // 在设置了 pageCount 后再恢复进度，使用文件路径作为 key
+    const key = `pdf-progress-${props.path}`;
+    const savedPage = localStorage.getItem(key);
+    if (savedPage) {
+      const page = parseInt(savedPage);
+      if (page >= 1 && page <= pageCount.value) {
+        currentPage.value = page;
+      }
+    }
+
     renderPage(currentPage.value);
   } catch (err) {
     console.error("Error loading PDF:", err);
@@ -264,12 +299,14 @@ const renderPage = async (pageNumber) => {
 const onPageChange = (page) => {
   currentPage.value = page;
   renderPage(page);
+  saveReadingProgress();
 };
 
 const previousPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
     renderPage(currentPage.value);
+    saveReadingProgress();
   }
 };
 
@@ -277,6 +314,7 @@ const nextPage = () => {
   if (currentPage.value < pageCount.value) {
     currentPage.value++;
     renderPage(currentPage.value);
+    saveReadingProgress();
   }
 };
 
@@ -369,6 +407,7 @@ const jumpToPage = (pageNumber) => {
   if (pageNumber && pageNumber !== currentPage.value) {
     currentPage.value = pageNumber;
     renderPage(pageNumber);
+    saveReadingProgress();
   }
 };
 
