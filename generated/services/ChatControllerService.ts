@@ -13,7 +13,7 @@ import { request as __request } from "../core/request";
 export class ChatControllerService {
   /**
    * @param requestBody
-   * @returns BaseResponseString OK
+   * @returns BaseResponseString OK   其中的data是响应的id，用于获取流式响应
    * @throws ApiError
    */
   public static getTags(

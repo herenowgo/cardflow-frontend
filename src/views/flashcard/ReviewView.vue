@@ -77,6 +77,15 @@
                               <template #icon><icon-edit /></template>
                               编辑
                             </a-button>
+                            <a-button
+                              type="text"
+                              size="small"
+                              @click.stop="generateTags"
+                              :loading="isGeneratingTags"
+                            >
+                              <template #icon><icon-tag /></template>
+                              自动标签
+                            </a-button>
                           </template>
                           <template v-else>
                             <a-button
@@ -151,6 +160,15 @@
                             >
                               <template #icon><icon-edit /></template>
                               编辑
+                            </a-button>
+                            <a-button
+                              type="text"
+                              size="small"
+                              @click.stop="generateTags"
+                              :loading="isGeneratingTags"
+                            >
+                              <template #icon><icon-tag /></template>
+                              自动标签
                             </a-button>
                           </template>
                           <template v-else>
@@ -336,8 +354,9 @@ import {
   IconSync,
   IconRobot,
   IconEdit,
+  IconTag,
 } from "@arco-design/web-vue/es/icon";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
 import { CardControllerService } from "../../../generated/services/CardControllerService";
 import { ChatControllerService } from "../../../generated/services/ChatControllerService";
@@ -727,8 +746,8 @@ const handleKeyPress = (e: KeyboardEvent) => {
   // 如果在编辑模式下，不处理任何快捷键
   if (isEditing.value) return;
 
-  // 如果 AI 助手的卡片抽屉正在显示，不处理任何快捷键
-  if (aiChatRef.value?.isCardsDrawerVisible) return;
+  // 如果 AI 助手正在显示，不处理任何快捷键
+  if (isAIChatVisible.value) return;
 
   // 只有当鼠标在 AI 助手区域时才禁用快捷键
   if (isMouseInAIChat.value) return;
@@ -880,6 +899,96 @@ const cancelEdit = () => {
 const handleCardClick = () => {
   if (!isEditing.value) {
     toggleCard();
+  }
+};
+
+// 添加标签生成相关的状态
+const isGeneratingTags = ref(false);
+
+// 修改生成标签的函数
+const generateTags = async (e: Event) => {
+  e.stopPropagation(); // 阻止事件冒泡，避免触发卡片翻转
+  if (!currentCard.value) return;
+
+  try {
+    isGeneratingTags.value = true;
+    const content = `问题：${currentCard.value.question}\n\n答案：${currentCard.value.answer}`;
+
+    // 使用 AI 助手中的当前模型
+    const model =
+      aiChatRef.value?.getCurrentModel() || AIChatRequest.model.BASIC;
+
+    const res = await ChatControllerService.getTags({
+      model: model,
+      content,
+    });
+
+    if (res.code == 200 && res.data) {
+      const requestId = res.data;
+      let tagsUpdated = false;
+
+      try {
+        // 使用 eventStreamService 处理流式响应
+        await eventStreamService.waitForStreamingResult(
+          requestId,
+          async (newContent: string) => {
+            try {
+              const eventData = JSON.parse(newContent);
+              if (
+                eventData.eventType === "TAGS" &&
+                Array.isArray(eventData.data)
+              ) {
+                const tags = eventData.data;
+                if (tags.length > 0 && currentCard.value && !tagsUpdated) {
+                  tagsUpdated = true;
+                  // 更新当前卡片的标签
+                  currentCard.value.tags = [...tags];
+                  // 同时更新编辑表单中的标签
+                  editForm.value.tags = [...tags];
+
+                  try {
+                    // 立即保存更新，只更新标签字段
+                    await CardControllerService.updateCard({
+                      id: currentCard.value.id,
+                      tags: tags,
+                    });
+
+                    isGeneratingTags.value = false;
+                    Message.success({
+                      content: `已生成 ${tags.length} 个标签`,
+                      duration: 2000,
+                    });
+                  } catch (saveError) {
+                    console.error("保存标签失败:", saveError);
+                    Message.error("保存标签失败，请重试");
+                  }
+                }
+              }
+            } catch (parseError) {
+              console.error("解析标签失败:", parseError, newContent);
+            }
+          }
+        );
+      } catch (streamError: any) {
+        if (streamError?.message === "Request timeout") {
+          // 如果是超时错误，检查卡片标签是否已更新
+          if (tagsUpdated) {
+            // 如果标签已经更新了，就不需要做任何事
+            return;
+          }
+          Message.error("生成标签超时，请重试");
+        } else {
+          throw streamError;
+        }
+      }
+    } else {
+      Message.error("生成标签失败");
+    }
+  } catch (error) {
+    console.error("生成标签失败:", error);
+    Message.error("生成标签失败，请重试");
+  } finally {
+    isGeneratingTags.value = false;
   }
 };
 

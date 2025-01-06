@@ -214,7 +214,8 @@ class EventStreamService {
       if (
         (message.eventType === "CODE_SUGGEST" ||
           message.eventType === "CHAT" ||
-          message.eventType === "ANSWER") &&
+          message.eventType === "ANSWER" ||
+          message.eventType === "TAGS") &&
         message.requestId
       ) {
         // 检查是否是结束消息
@@ -233,11 +234,18 @@ class EventStreamService {
           // 处理正常消息
           const sequence =
             typeof message.sequence === "number" ? message.sequence : 1;
+
+          // 对于 TAGS 事件类型，将数组转换为字符串
+          const content =
+            message.eventType === "TAGS"
+              ? JSON.stringify({ eventType: "TAGS", data: message.data })
+              : message.data || "";
+
           const streamingMessage: StreamingEventMessage = {
             requestId: message.requestId,
             data: {
               sequence: sequence,
-              content: message.data || "",
+              content: content,
               isEnd: false,
             },
           };

@@ -1375,6 +1375,7 @@ defineExpose({
     showCardsDrawer.value = true;
   },
   generateCardsFromText,
+  getCurrentModel: () => currentModel.value,
 });
 
 watch(visible, (newVal) => {
