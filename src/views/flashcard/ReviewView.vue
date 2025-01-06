@@ -969,6 +969,7 @@ const generateTags = async (e: Event) => {
 
     if (res.code == 200 && res.data) {
       const requestId = res.data;
+      let tagsReceived = false;
 
       try {
         await eventStreamService.waitForStreamingResult(
@@ -981,7 +982,8 @@ const generateTags = async (e: Event) => {
                 Array.isArray(eventData.data)
               ) {
                 const tags: Tag[] = eventData.data;
-                if (tags.length > 0) {
+                if (tags.length > 0 && !tagsReceived) {
+                  tagsReceived = true;
                   // 保存现有标签和新生成的标签
                   existingTags.value = currentCard.value?.tags || [];
                   selectedExistingTags.value = [...existingTags.value];
@@ -992,6 +994,7 @@ const generateTags = async (e: Event) => {
 
                   // 显示标签选择对话框
                   isTagsModalVisible.value = true;
+                  isGeneratingTags.value = false;
                   Message.success({
                     content: `已生成 ${newGeneratedTags.value.length} 个新标签`,
                     duration: 2000,
@@ -1000,10 +1003,15 @@ const generateTags = async (e: Event) => {
               }
             } catch (parseError) {
               console.error("解析标签失败:", parseError, newContent);
+              isGeneratingTags.value = false;
             }
           }
         );
       } catch (streamError: any) {
+        if (streamError?.message === "Request timeout" && tagsReceived) {
+          // 如果已经收到并处理了标签，忽略超时错误
+          return;
+        }
         if (streamError?.message === "Request timeout") {
           Message.error("生成标签超时，请重试");
         } else {
@@ -1021,7 +1029,7 @@ const generateTags = async (e: Event) => {
   }
 };
 
-// 添加保存选中标签的函数
+// 修改保存选中标签的函数
 const handleTagsSave = async () => {
   if (!currentCard.value) return;
 
@@ -1047,9 +1055,10 @@ const handleTagsSave = async () => {
   }
 };
 
-// 添加取消选择的函数
+// 修改取消选择的函数
 const handleTagsCancel = () => {
   isTagsModalVisible.value = false;
+  isGeneratingTags.value = false;
 };
 
 onMounted(async () => {
