@@ -6,9 +6,25 @@
       :class="{ resizing: isResizing }"
       :style="{ width: `${siderWidth}px` }"
     >
-      <div class="pdf-container">
-        <div class="pdf-content">
-          <pdf-viewer :source="pdfUrl" :path="filePath" />
+      <div class="viewer-controls">
+        <a-radio-group
+          v-model="currentView"
+          type="button"
+          size="small"
+          :style="{ marginBottom: '8px' }"
+        >
+          <a-radio value="pdf">PDF 阅读</a-radio>
+          <a-radio value="web">网页浏览</a-radio>
+        </a-radio-group>
+      </div>
+      <div class="viewer-container">
+        <div v-show="currentView === 'pdf'" class="pdf-container">
+          <div class="pdf-content">
+            <pdf-viewer :source="pdfUrl" :path="filePath" />
+          </div>
+        </div>
+        <div v-show="currentView === 'web'" class="web-container">
+          <web-viewer ref="webViewerRef" />
         </div>
       </div>
     </a-layout-sider>
@@ -49,6 +65,7 @@ import { ref, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import { Message } from "@arco-design/web-vue";
 import PdfViewer from "./PdfViewer.vue";
+import WebViewer from "./WebViewer.vue";
 import AIChat from "@/components/AIChat.vue";
 import { UserFileControllerService } from "../../../generated";
 
@@ -56,17 +73,27 @@ const route = useRoute();
 const pdfUrl = ref<string>("");
 const filePath = ref<string>("");
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
+const webViewerRef = ref<InstanceType<typeof WebViewer>>();
+const currentView = ref<"pdf" | "web">("pdf");
 
 onMounted(async () => {
   const urlFromQuery = route.query.url as string;
   const pathFromQuery = route.query.path as string;
+  const webUrl = route.query.webUrl as string;
 
-  if (urlFromQuery) {
+  if (webUrl) {
+    currentView.value = "web";
+    if (webViewerRef.value) {
+      webViewerRef.value.loadUrl(webUrl);
+    }
+  } else if (urlFromQuery) {
+    currentView.value = "pdf";
     pdfUrl.value = urlFromQuery;
     filePath.value = pathFromQuery || "";
   } else {
     const path = route.query.path as string;
     if (path) {
+      currentView.value = "pdf";
       try {
         filePath.value = path;
         const res = await UserFileControllerService.previewFile(path);
@@ -387,5 +414,22 @@ onUnmounted(() => {
     transform: scale(0.95);
     background: var(--td-brand-color-active);
   }
+}
+
+.viewer-controls {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  justify-content: center;
+}
+
+.viewer-container {
+  flex: 1;
+  height: calc(100% - 52px);
+  overflow: hidden;
+}
+
+.web-container {
+  height: 100%;
 }
 </style>
