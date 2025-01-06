@@ -13,6 +13,18 @@
         <div class="chat-header">
           <div class="chat-title">{{ title }}</div>
           <div class="header-actions">
+            <div class="default-tags-wrapper">
+              <t-tooltip content="设置默认标签">
+                <a-input-tag
+                  v-model="defaultTags"
+                  size="small"
+                  class="default-tags-input"
+                  placeholder="设置默认标签"
+                  allow-clear
+                  @change="handleDefaultTagsChange"
+                />
+              </t-tooltip>
+            </div>
             <t-tooltip content="会话列表 (Alt + S)">
               <t-button
                 theme="default"
@@ -184,6 +196,18 @@
       <div class="chat-header">
         <div class="chat-title">{{ title }}</div>
         <div class="header-actions">
+          <div class="default-tags-wrapper">
+            <t-tooltip content="设置默认标签">
+              <a-input-tag
+                v-model="defaultTags"
+                size="small"
+                class="default-tags-input"
+                placeholder="设置默认标签"
+                allow-clear
+                @change="handleDefaultTagsChange"
+              />
+            </t-tooltip>
+          </div>
           <t-tooltip content="会话列表 (Alt + S)">
             <t-button
               theme="default"
@@ -744,6 +768,46 @@ const currentCards = ref<Card[]>(loadSavedCards());
 const cardsGeneratingMap = ref<Map<number, boolean>>(new Map());
 const currentModel = ref<AIChatRequest.model>(getSavedModel());
 const isFirstShow = ref(true);
+const defaultTags = ref<string[]>([]);
+
+const TAGS_STORAGE_KEY = "ai_chat_default_tags";
+
+const loadSavedTags = () => {
+  try {
+    const saved = localStorage.getItem(TAGS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.error("Failed to load default tags:", error);
+    return [];
+  }
+};
+
+const saveDefaultTags = (tags: string[]) => {
+  try {
+    localStorage.setItem(TAGS_STORAGE_KEY, JSON.stringify(tags));
+  } catch (error) {
+    console.error("Failed to save default tags:", error);
+  }
+};
+
+const handleDefaultTagsChange = (value: any[], ev: Event) => {
+  defaultTags.value = value.map((tag) => {
+    if (typeof tag === "object" && tag.value !== undefined) {
+      return String(tag.value);
+    }
+    return String(tag);
+  });
+  saveDefaultTags(defaultTags.value);
+  Message.success("默认标签已保存");
+};
+
+interface TagData {
+  value: string | number;
+  label?: string;
+  closable?: boolean;
+  [key: string]: any;
+}
+
 const chatList = ref<(ChatMessage & { history?: HistoryResponse[] })[]>([
   {
     avatar: props.aiAvatar,
@@ -820,6 +884,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 onMounted(() => {
   currentCards.value = loadSavedCards();
+  defaultTags.value = loadSavedTags();
 
   document.addEventListener("keydown", handleKeyDown);
 });
@@ -1060,8 +1125,6 @@ const generateCards = async (item: ChatMessage, index: number) => {
     const res = await ChatControllerService.getCards({
       model: currentModel.value,
       content: combinedContent,
-      sessionId: currentSessionId.value,
-      prompt: systemPrompt.value || undefined,
     });
 
     console.log("API response:", res);
@@ -1077,6 +1140,7 @@ const generateCards = async (item: ChatMessage, index: number) => {
         if (result && result.cards && result.cards.length > 0) {
           const newCards = result.cards.map((card: Card) => ({
             ...card,
+            tags: [...(card.tags || []), ...defaultTags.value],
             isEditing: false,
             isEditingAnswer: false,
           }));
@@ -1322,8 +1386,6 @@ const generateCardsFromText = async (text: string) => {
     const res = await ChatControllerService.getCards({
       model: currentModel.value,
       content: text,
-      sessionId: currentSessionId.value,
-      prompt: systemPrompt.value || undefined,
     });
 
     console.log("API response:", res);
@@ -1975,5 +2037,39 @@ const handleAnswerChange = (value: string) => {
 .embedded-chat :deep(.t-chat__footer) {
   border-top: 1px solid var(--td-component-border);
   padding: 16px;
+}
+
+.default-tags-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  min-width: 200px;
+}
+
+.default-tags-input {
+  width: 100%;
+  transition: all 0.3s ease;
+  height: 100%;
+}
+
+.default-tags-input :deep(.arco-input-tag) {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  height: 100%;
+  padding: 0 8px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: var(--td-bg-color-container-hover);
+  }
+}
+
+.default-tags-input :deep(.arco-tag) {
+  margin: 2px;
+  background: var(--td-brand-color-light);
+  border-color: var(--td-brand-color-light);
+  color: var(--td-brand-color);
 }
 </style>
