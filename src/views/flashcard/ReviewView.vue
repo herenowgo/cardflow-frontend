@@ -334,6 +334,41 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 标签选择对话框 -->
+    <a-modal
+      v-model:visible="isTagsModalVisible"
+      title="选择标签"
+      @ok="handleTagsSave"
+      @cancel="handleTagsCancel"
+      :mask-closable="false"
+      :closable="true"
+      :ok-text="'保存'"
+      :cancel-text="'取消'"
+    >
+      <div class="tags-selection">
+        <div class="tags-section">
+          <div class="section-title">现有标签</div>
+          <a-space wrap>
+            <a-checkbox-group v-model="selectedExistingTags">
+              <template v-for="tag in existingTags" :key="tag">
+                <a-checkbox :value="tag">{{ tag }}</a-checkbox>
+              </template>
+            </a-checkbox-group>
+          </a-space>
+        </div>
+        <div class="tags-section">
+          <div class="section-title">新生成的标签</div>
+          <a-space wrap>
+            <a-checkbox-group v-model="selectedNewTags">
+              <template v-for="tag in newGeneratedTags" :key="tag">
+                <a-checkbox :value="tag">{{ tag }}</a-checkbox>
+              </template>
+            </a-checkbox-group>
+          </a-space>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
@@ -905,16 +940,25 @@ const handleCardClick = () => {
 // 添加标签生成相关的状态
 const isGeneratingTags = ref(false);
 
+// 在 script setup 中添加新的状态
+const isTagsModalVisible = ref(false);
+const newGeneratedTags = ref<string[]>([]);
+const selectedNewTags = ref<string[]>([]);
+const existingTags = ref<string[]>([]);
+const selectedExistingTags = ref<string[]>([]);
+
+// 添加类型定义
+type Tag = string;
+
 // 修改生成标签的函数
 const generateTags = async (e: Event) => {
-  e.stopPropagation(); // 阻止事件冒泡，避免触发卡片翻转
+  e.stopPropagation();
   if (!currentCard.value) return;
 
   try {
     isGeneratingTags.value = true;
     const content = `问题：${currentCard.value.question}\n\n答案：${currentCard.value.answer}`;
 
-    // 使用 AI 助手中的当前模型
     const model =
       aiChatRef.value?.getCurrentModel() || AIChatRequest.model.BASIC;
 
@@ -925,10 +969,8 @@ const generateTags = async (e: Event) => {
 
     if (res.code == 200 && res.data) {
       const requestId = res.data;
-      let tagsUpdated = false;
 
       try {
-        // 使用 eventStreamService 处理流式响应
         await eventStreamService.waitForStreamingResult(
           requestId,
           async (newContent: string) => {
@@ -938,30 +980,22 @@ const generateTags = async (e: Event) => {
                 eventData.eventType === "TAGS" &&
                 Array.isArray(eventData.data)
               ) {
-                const tags = eventData.data;
-                if (tags.length > 0 && currentCard.value && !tagsUpdated) {
-                  tagsUpdated = true;
-                  // 更新当前卡片的标签
-                  currentCard.value.tags = [...tags];
-                  // 同时更新编辑表单中的标签
-                  editForm.value.tags = [...tags];
+                const tags: Tag[] = eventData.data;
+                if (tags.length > 0) {
+                  // 保存现有标签和新生成的标签
+                  existingTags.value = currentCard.value?.tags || [];
+                  selectedExistingTags.value = [...existingTags.value];
+                  newGeneratedTags.value = tags.filter(
+                    (tag: Tag) => !existingTags.value.includes(tag)
+                  );
+                  selectedNewTags.value = [...newGeneratedTags.value];
 
-                  try {
-                    // 立即保存更新，只更新标签字段
-                    await CardControllerService.updateCard({
-                      id: currentCard.value.id,
-                      tags: tags,
-                    });
-
-                    isGeneratingTags.value = false;
-                    Message.success({
-                      content: `已生成 ${tags.length} 个标签`,
-                      duration: 2000,
-                    });
-                  } catch (saveError) {
-                    console.error("保存标签失败:", saveError);
-                    Message.error("保存标签失败，请重试");
-                  }
+                  // 显示标签选择对话框
+                  isTagsModalVisible.value = true;
+                  Message.success({
+                    content: `已生成 ${newGeneratedTags.value.length} 个新标签`,
+                    duration: 2000,
+                  });
                 }
               }
             } catch (parseError) {
@@ -971,11 +1005,6 @@ const generateTags = async (e: Event) => {
         );
       } catch (streamError: any) {
         if (streamError?.message === "Request timeout") {
-          // 如果是超时错误，检查卡片标签是否已更新
-          if (tagsUpdated) {
-            // 如果标签已经更新了，就不需要做任何事
-            return;
-          }
           Message.error("生成标签超时，请重试");
         } else {
           throw streamError;
@@ -990,6 +1019,37 @@ const generateTags = async (e: Event) => {
   } finally {
     isGeneratingTags.value = false;
   }
+};
+
+// 添加保存选中标签的函数
+const handleTagsSave = async () => {
+  if (!currentCard.value) return;
+
+  try {
+    // 合并选中的现有标签和新标签
+    const finalTags = [...selectedExistingTags.value, ...selectedNewTags.value];
+
+    // 更新卡片标签
+    await CardControllerService.updateCard({
+      id: currentCard.value.id,
+      tags: finalTags,
+    });
+
+    // 更新本地状态
+    currentCard.value.tags = finalTags;
+    editForm.value.tags = finalTags;
+
+    Message.success("标签已更新");
+    isTagsModalVisible.value = false;
+  } catch (error) {
+    console.error("保存标签失败:", error);
+    Message.error("保存标签失败，请重试");
+  }
+};
+
+// 添加取消选择的函数
+const handleTagsCancel = () => {
+  isTagsModalVisible.value = false;
 };
 
 onMounted(async () => {
@@ -1579,5 +1639,37 @@ onUnmounted(() => {
 
 :deep(.markdown-body li) {
   margin: 4px 0;
+}
+
+.tags-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tags-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  margin-bottom: 4px;
+}
+
+:deep(.arco-checkbox) {
+  margin-right: 12px;
+  margin-bottom: 8px;
+}
+
+:deep(.arco-checkbox-group) {
+  width: 100%;
+}
+
+:deep(.arco-space-wrap) {
+  width: 100%;
 }
 </style>
