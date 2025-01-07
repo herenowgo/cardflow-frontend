@@ -1,5 +1,5 @@
 <template>
-  <div class="flashcard-review">
+  <div class="flashcard-review fullscreen">
     <div class="review-container">
       <!-- 顶部信息栏 -->
       <div class="review-header">
@@ -1081,7 +1081,12 @@ onUnmounted(() => {
 
 <style scoped>
 .flashcard-review {
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
   background: var(--color-fill-2);
   padding: 16px;
   height: 100vh;
@@ -1099,7 +1104,7 @@ onUnmounted(() => {
 
 .review-header {
   background: var(--color-bg-2);
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
@@ -1107,7 +1112,7 @@ onUnmounted(() => {
 .progress {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .progress-stats {
@@ -1136,6 +1141,7 @@ onUnmounted(() => {
   min-height: 0;
   overflow: visible;
   padding: 0 60px;
+  margin: 8px 0;
 }
 
 .card-container {
@@ -1252,9 +1258,8 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 8px 0;
   min-height: 0;
-  overflow: visible;
+  padding: 4px 0;
 }
 
 .flashcard {
@@ -1497,7 +1502,7 @@ onUnmounted(() => {
 
 .rating-area {
   background: var(--color-bg-2);
-  padding: 12px;
+  padding: 8px;
   border-radius: 16px;
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(100%);
@@ -1514,7 +1519,7 @@ onUnmounted(() => {
   font-size: 16px;
   color: var(--color-text-2);
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .rating-buttons {
@@ -1542,7 +1547,7 @@ onUnmounted(() => {
 }
 
 .review-footer {
-  padding: 8px;
+  padding: 6px;
   background: var(--color-bg-2);
   border-radius: 8px;
   text-align: center;
@@ -1566,12 +1571,25 @@ onUnmounted(() => {
   }
 }
 
-@media screen and (max-height: 600px) {
-  .flashcard {
-    height: calc(100vh - 140px);
+@media screen and (max-height: 768px) {
+  .review-content {
+    padding: 0 40px;
+    margin: 4px 0;
   }
 
-  .review-header {
+  .card-content {
+    padding: 8px;
+  }
+
+  .rating-area {
+    padding: 6px;
+  }
+
+  .rating-buttons {
+    gap: 8px;
+  }
+
+  .rating-btn {
     padding: 6px 12px;
   }
 }
