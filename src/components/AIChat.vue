@@ -374,7 +374,7 @@
 
   <Drawer
     v-model:visible="showCardsDrawer"
-    :width="500"
+    :width="600"
     :mask="true"
     :closable="true"
     :footer="false"
@@ -496,6 +496,42 @@
                 <template #icon><t-icon name="check-circle" /></template>
                 智能检查
               </t-button>
+              <t-dropdown
+                trigger="click"
+                :min-column-width="120"
+                :options="[
+                  {
+                    content: '更新问题',
+                    value: 'question',
+                    onClick: () => updateCurrentCard(card, 'question'),
+                  },
+                  {
+                    content: '更新答案',
+                    value: 'answer',
+                    onClick: () => updateCurrentCard(card, 'answer'),
+                  },
+                  {
+                    content: '更新标签',
+                    value: 'tags',
+                    onClick: () => updateCurrentCard(card, 'tags'),
+                  },
+                  {
+                    content: '更新全部',
+                    value: 'all',
+                    onClick: () => updateCurrentCard(card, 'all'),
+                  },
+                ]"
+              >
+                <t-button theme="primary" variant="text" size="small">
+                  <template #icon><t-icon name="upload" /></template>
+                  更新到当前卡片
+                  <t-icon
+                    name="chevron-down"
+                    size="small"
+                    style="margin-left: 4px"
+                  />
+                </t-button>
+              </t-dropdown>
               <t-button
                 theme="primary"
                 variant="text"
@@ -623,6 +659,19 @@
     <template #title>确认清空</template>
     确定要清空所有已生成的卡片吗？此操作不可恢复。
   </a-modal>
+
+  <a-modal
+    v-model:visible="isUpdateConfirmVisible"
+    @ok="confirmUpdate"
+    @cancel="cancelUpdate"
+    :closable="true"
+    :mask-closable="false"
+    :ok-text="'确认'"
+    :cancel-text="'取消'"
+  >
+    <template #title>确认更新</template>
+    确定要用所选内容更新当前正在复习的卡片吗？此操作不可撤销。
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -710,6 +759,17 @@ const emit = defineEmits<{
   (e: "clear"): void;
   (e: "close"): void;
   (e: "session-create", session: ChatSession): void;
+  (
+    e: "update-current-card",
+    data: {
+      type: "question" | "answer" | "tags" | "all";
+      data: {
+        question: string;
+        answer: string;
+        tags: string[];
+      };
+    }
+  ): void;
 }>();
 
 const STORAGE_KEY = "ai_chat_model";
@@ -824,6 +884,10 @@ const isSessionsDrawerVisible = ref(false);
 const lastCheckedCardIndex = ref<number | null>(null);
 
 const isConfirmClearVisible = ref(false);
+
+const isUpdateConfirmVisible = ref(false);
+const updateType = ref<"question" | "answer" | "tags" | "all">("all");
+const updateCard = ref<Card | null>(null);
 
 const createNewCardSession = () => {
   console.log("Creating new card session");
@@ -1476,6 +1540,43 @@ const handleAnswerChange = (value: string) => {
     currentCards.value[0].answer = value;
   }
 };
+
+const updateCurrentCard = (
+  card: Card,
+  type: "question" | "answer" | "tags" | "all"
+) => {
+  updateCard.value = card;
+  updateType.value = type;
+  isUpdateConfirmVisible.value = true;
+};
+
+const confirmUpdate = async () => {
+  if (!updateCard.value) return;
+
+  try {
+    const emitData = {
+      type: updateType.value,
+      data: {
+        question: updateCard.value.question,
+        answer: updateCard.value.answer,
+        tags: updateCard.value.tags,
+      },
+    };
+
+    emit("update-current-card", emitData);
+
+    Message.success("更新成功");
+    isUpdateConfirmVisible.value = false;
+  } catch (error) {
+    console.error("Update card error:", error);
+    Message.error("更新失败");
+  }
+};
+
+const cancelUpdate = () => {
+  isUpdateConfirmVisible.value = false;
+  updateCard.value = null;
+};
 </script>
 
 <style scoped>
@@ -1746,6 +1847,9 @@ const handleAnswerChange = (value: string) => {
   padding: 16px;
   margin-bottom: 16px;
   transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 
   &:hover {
     transform: translateY(-2px);
@@ -1767,10 +1871,13 @@ const handleAnswerChange = (value: string) => {
 .card-answer {
   margin-bottom: 12px;
   line-height: 1.6;
+  width: 100%;
 
   strong {
     color: var(--color-text-3);
     margin-right: 8px;
+    display: block;
+    margin-bottom: 4px;
   }
 }
 
@@ -1780,6 +1887,7 @@ const handleAnswerChange = (value: string) => {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--color-neutral-3);
+  width: 100%;
 
   strong {
     margin-right: 8px;
@@ -1811,6 +1919,9 @@ const handleAnswerChange = (value: string) => {
 
 .card-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .card-actions {
@@ -1819,6 +1930,9 @@ const handleAnswerChange = (value: string) => {
   padding-top: 12px;
   margin-top: 12px;
   border-top: 1px solid var(--color-neutral-3);
+  width: 100%;
+  flex-wrap: wrap;
+  justify-content: space-between;
 }
 
 .card-item:hover .card-actions {
@@ -1827,6 +1941,7 @@ const handleAnswerChange = (value: string) => {
 
 .card-actions :deep(.t-button) {
   padding: 4px 8px;
+  margin-bottom: 4px;
 }
 
 .card-actions :deep(.t-button:hover) {
@@ -1906,6 +2021,7 @@ const handleAnswerChange = (value: string) => {
 .card-tags {
   margin-bottom: 12px;
   line-height: 1.6;
+  width: 100%;
 
   strong {
     color: var(--color-text-3);
@@ -1940,6 +2056,7 @@ const handleAnswerChange = (value: string) => {
   padding: 16px;
   margin-bottom: 16px;
   transition: all 0.3s ease;
+  overflow-x: auto;
 
   &:hover {
     transform: translateY(-2px);
@@ -1960,6 +2077,7 @@ const handleAnswerChange = (value: string) => {
   padding: 12px;
   margin-top: 8px;
   background: var(--color-bg-1);
+  overflow-x: auto;
 
   .edit-button {
     position: absolute;

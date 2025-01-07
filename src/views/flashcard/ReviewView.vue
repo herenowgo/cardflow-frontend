@@ -202,7 +202,12 @@
           @mouseenter="isMouseInAIChat = true"
           @mouseleave="isMouseInAIChat = false"
         >
-          <AIChat ref="aiChatRef" :embedded="true" @close="handleAIChatClose" />
+          <AIChat
+            ref="aiChatRef"
+            :embedded="true"
+            @close="handleAIChatClose"
+            @update-current-card="handleCardUpdate"
+          />
         </div>
 
         <!-- 评分区域 -->
@@ -1049,6 +1054,51 @@ const handleTagsSave = async () => {
 const handleTagsCancel = () => {
   isTagsModalVisible.value = false;
   isGeneratingTags.value = false;
+};
+
+const handleCardUpdate = async (updateData: {
+  type: "question" | "answer" | "tags" | "all";
+  data: {
+    question: string;
+    answer: string;
+    tags: string[];
+  };
+}) => {
+  if (!currentCard.value) return;
+
+  try {
+    const { type, data } = updateData;
+
+    // 根据更新类型更新不同的内容
+    if (type === "question" || type === "all") {
+      currentCard.value.question = data.question;
+      editForm.value.question = data.question;
+    }
+
+    if (type === "answer" || type === "all") {
+      currentCard.value.answer = data.answer;
+      editForm.value.answer = data.answer;
+    }
+
+    if (type === "tags" || type === "all") {
+      currentCard.value.tags = [...data.tags];
+      editForm.value.tags = [...data.tags];
+    }
+
+    // 保存更新到后端
+    await CardControllerService.updateCard({
+      id: currentCard.value.id,
+      question: currentCard.value.question,
+      answer: currentCard.value.answer,
+      tags: currentCard.value.tags,
+      group: currentCard.value.group,
+    });
+
+    Message.success("卡片已更新");
+  } catch (error) {
+    console.error("Update card error:", error);
+    Message.error("更新失败");
+  }
 };
 
 onMounted(async () => {
