@@ -220,7 +220,7 @@
           @mouseenter="isMouseInAIChat = true"
           @mouseleave="isMouseInAIChat = false"
         >
-          <AIChat ref="aiChatRef" @close="handleAIChatClose" />
+          <AIChat ref="aiChatRef" :embedded="true" @close="handleAIChatClose" />
         </div>
 
         <!-- 评分区域 -->
