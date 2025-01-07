@@ -1,24 +1,6 @@
 <template>
   <div class="flashcard-review fullscreen">
     <div class="review-container">
-      <!-- 顶部信息栏 -->
-      <div class="review-header">
-        <div class="progress">
-          <div class="progress-stats">
-            <a-space>
-              <span class="stat-item">待复习: {{ remainingCards }}</span>
-              <span class="stat-item">正确率: {{ correctRate }}%</span>
-            </a-space>
-          </div>
-          <a-progress
-            :percent="progressPercent"
-            :stroke-width="8"
-            :show-text="false"
-            class="progress-bar"
-          />
-        </div>
-      </div>
-
       <!-- 卡片区域 -->
       <div class="review-content" :class="{ 'no-cards': !currentCard }">
         <div class="card-container" :class="{ 'shift-left': isAIChatVisible }">
@@ -1140,8 +1122,8 @@ onUnmounted(() => {
   position: relative;
   min-height: 0;
   overflow: visible;
-  padding: 0 60px;
-  margin: 8px 0;
+  padding: 0 1px;
+  margin: 1px 0;
 }
 
 .card-container {
@@ -1173,10 +1155,10 @@ onUnmounted(() => {
 
 .ai-helper-panel {
   position: absolute;
-  right: 0px;
-  top: 1%;
-  width: 41%;
-  height: 80%;
+  right: -20px;
+  top: 0.8%;
+  width: 50%;
+  height: 87%;
   background: var(--color-bg-2);
   box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -1184,9 +1166,9 @@ onUnmounted(() => {
   z-index: 100;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  padding: 5px;
   border-radius: 16px;
-  margin: 8px 0;
+  margin: 2px 0;
   visibility: hidden;
   opacity: 0;
   transform: translateX(100%);
@@ -1277,6 +1259,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 95%;
+  left: -45px;
   transform: translate3d(0, 0, 0);
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
