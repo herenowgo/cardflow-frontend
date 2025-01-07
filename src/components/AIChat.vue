@@ -610,17 +610,19 @@
     </div>
   </t-dialog>
 
-  <t-dialog
+  <a-modal
     v-model:visible="isConfirmClearVisible"
-    header="确认清空"
-    :confirm-btn="{ content: '确认', theme: 'danger' }"
-    :cancel-btn="{ content: '取消' }"
-    @confirm="confirmClearAllCards"
+    @ok="confirmClearAllCards"
+    @cancel="isConfirmClearVisible = false"
+    :closable="true"
+    :mask-closable="false"
+    :ok-text="'确认'"
+    :cancel-text="'取消'"
+    :ok-button-props="{ status: 'danger' }"
   >
-    <template #body>
-      <p>确定要清空所有已生成的卡片吗？此操作不可恢复。</p>
-    </template>
-  </t-dialog>
+    <template #title>确认清空</template>
+    确定要清空所有已生成的卡片吗？此操作不可恢复。
+  </a-modal>
 </template>
 
 <script setup lang="ts">
