@@ -410,7 +410,12 @@ const cleanObsidianLinks = (text: string) => {
 };
 
 const showAIChat = async () => {
+  // 如果已经显示，则不需要重复显示
+  if (isAIChatVisible.value) return;
+
   isAIChatVisible.value = true;
+  // 等待DOM更新后再显示AI助手
+  await nextTick();
   aiChatRef.value?.show();
 
   // 如果当前卡片存在且还没有发送过给 AI
@@ -448,8 +453,13 @@ ${
 };
 
 const handleAIChatClose = () => {
+  // 如果已经关闭，则不需要重复关闭
+  if (!isAIChatVisible.value) return;
+
   isAIChatVisible.value = false;
-  // 等待动画完成后再隐藏 AI 助手窗口
+  isMouseInAIChat.value = false;
+
+  // 等待过渡动画完成后再隐藏
   setTimeout(() => {
     aiChatRef.value?.hide();
   }, 300);
@@ -781,20 +791,18 @@ const handleKeyPress = (e: KeyboardEvent) => {
   // 如果在编辑模式下，不处理任何快捷键
   if (isEditing.value) return;
 
-  // 如果 AI 助手正在显示，不处理任何快捷键
-  if (isAIChatVisible.value) return;
-
-  // 只有当鼠标在 AI 助手区域时才禁用快捷键
-  if (isMouseInAIChat.value) return;
+  // 如果 AI 助手正在显示，且鼠标在 AI 助手区域内，不处理任何快捷键
+  if (isAIChatVisible.value && isMouseInAIChat.value) return;
 
   // 按 f 键召唤 AI 助手
   if (e.key.toLowerCase() === "f") {
+    e.preventDefault(); // 先阻止默认行为
+
     if (isAIChatVisible.value) {
       handleAIChatClose();
     } else {
       showAIChat();
     }
-    e.preventDefault();
     return;
   }
 
