@@ -1565,6 +1565,16 @@ const confirmUpdate = async () => {
     };
 
     emit("update-current-card", emitData);
+    // 通知父组件抽屉状态变化
+    emit("cards-drawer-change", true);
+
+    // 从当前卡片列表中找到并删除这张卡片
+    const index = currentCards.value.findIndex(
+      (card) => card.id === updateCard.value?.id
+    );
+    if (index !== -1) {
+      currentCards.value.splice(index, 1);
+    }
 
     Message.success("更新成功");
     isUpdateConfirmVisible.value = false;

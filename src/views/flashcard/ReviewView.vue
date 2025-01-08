@@ -779,11 +779,9 @@ const isCardsDrawerVisible = ref(false);
 
 // 修改键盘事件处理函数
 const handleKeyPress = (e: KeyboardEvent) => {
-  // 如果抽屉打开，禁用所有快捷键
-  if (isCardsDrawerVisible.value) return;
-
-  // 如果在编辑模式下，不处理任何快捷键
-  if (isEditing.value) return;
+  // 如果抽屉打开或者正在编辑，禁用所有快捷键
+  if (isCardsDrawerVisible.value || isEditing.value || isEditModalVisible.value)
+    return;
 
   // 如果 AI 助手正在显示，且鼠标在 AI 助手区域内，不处理任何快捷键
   if (isAIChatVisible.value && isMouseInAIChat.value) return;
