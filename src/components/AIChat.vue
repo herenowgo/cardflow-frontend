@@ -54,7 +54,7 @@
                 theme="default"
                 variant="text"
                 shape="square"
-                @click="showCardsDrawer = true"
+                @click="handleShowCardsDrawer"
               >
                 <template #icon>
                   <t-icon name="card" />
@@ -237,7 +237,7 @@
               theme="default"
               variant="text"
               shape="square"
-              @click="showCardsDrawer = true"
+              @click="handleShowCardsDrawer"
             >
               <template #icon>
                 <t-icon name="card" />
@@ -770,6 +770,7 @@ const emit = defineEmits<{
       };
     }
   ): void;
+  (e: "cards-drawer-change", value: boolean): void;
 }>();
 
 const STORAGE_KEY = "ai_chat_model";
@@ -1577,6 +1578,17 @@ const cancelUpdate = () => {
   isUpdateConfirmVisible.value = false;
   updateCard.value = null;
 };
+
+const handleShowCardsDrawer = () => {
+  showCardsDrawer.value = true;
+  emit("cards-drawer-change", true);
+};
+
+watch(showCardsDrawer, (newValue) => {
+  if (!newValue) {
+    emit("cards-drawer-change", false);
+  }
+});
 </script>
 
 <style scoped>

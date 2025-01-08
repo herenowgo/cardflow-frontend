@@ -207,6 +207,7 @@
             :embedded="true"
             @close="handleAIChatClose"
             @update-current-card="handleCardUpdate"
+            @cards-drawer-change="handleCardsDrawerChange"
           />
         </div>
 
@@ -773,8 +774,14 @@ const restartReview = async () => {
 // 在 script setup 中添加新的状态
 const isMouseInAIChat = ref(false);
 
+// 添加新的状态
+const isCardsDrawerVisible = ref(false);
+
 // 修改键盘事件处理函数
 const handleKeyPress = (e: KeyboardEvent) => {
+  // 如果抽屉打开，禁用所有快捷键
+  if (isCardsDrawerVisible.value) return;
+
   // 如果在编辑模式下，不处理任何快捷键
   if (isEditing.value) return;
 
@@ -1099,6 +1106,11 @@ const handleCardUpdate = async (updateData: {
     console.error("Update card error:", error);
     Message.error("更新失败");
   }
+};
+
+// 添加抽屉状态变化处理函数
+const handleCardsDrawerChange = (visible: boolean) => {
+  isCardsDrawerVisible.value = visible;
 };
 
 onMounted(async () => {
