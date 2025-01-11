@@ -672,6 +672,40 @@
     <template #title>确认更新</template>
     确定要用所选内容更新当前正在复习的卡片吗？此操作不可撤销。
   </a-modal>
+  <!-- 在其他 modal 组件后添加 -->
+  <a-modal
+    v-model:visible="isTagsSelectModalVisible"
+    title="选择要保留的标签"
+    @ok="confirmTagsSelect"
+    @cancel="cancelTagsSelect"
+    :mask-closable="false"
+    :closable="true"
+    :ok-text="'确认'"
+    :cancel-text="'取消'"
+  >
+    <div class="tags-selection">
+      <div class="tags-section">
+        <div class="section-title">当前复习卡片的标签</div>
+        <a-space wrap>
+          <a-checkbox-group v-model="selectedExistingTags">
+            <template v-for="tag in existingTags" :key="tag">
+              <a-checkbox :value="tag">{{ tag }}</a-checkbox>
+            </template>
+          </a-checkbox-group>
+        </a-space>
+      </div>
+      <div class="tags-section" v-if="newTags.length > 0">
+        <div class="section-title">生成卡片的标签</div>
+        <a-space wrap>
+          <a-checkbox-group v-model="selectedNewTags">
+            <template v-for="tag in newTags" :key="tag">
+              <a-checkbox :value="tag">{{ tag }}</a-checkbox>
+            </template>
+          </a-checkbox-group>
+        </a-space>
+      </div>
+    </div>
+  </a-modal>
 </template>
 
 <script setup lang="ts">
@@ -1096,6 +1130,15 @@ const editingPrompt = ref<PromptItem>({
   content: "",
 });
 const isNewPrompt = ref(false);
+
+// 在其他 ref 声明后添加
+const isTagsSelectModalVisible = ref(false);
+const existingTags = ref<string[]>([]);
+const newTags = ref<string[]>([]);
+const selectedExistingTags = ref<string[]>([]);
+const selectedNewTags = ref<string[]>([]);
+const pendingUpdateCard = ref<Card | null>(null);
+const pendingUpdateType = ref<"tags" | "all" | null>(null);
 
 const systemPrompt = computed(() => {
   if (currentPromptId.value === SYSTEM_PRESET_PROMPT.id) {
@@ -1542,13 +1585,79 @@ const handleAnswerChange = (value: string) => {
   }
 };
 
-const updateCurrentCard = (
+const updateCurrentCard = async (
   card: Card,
   type: "question" | "answer" | "tags" | "all"
 ) => {
-  updateCard.value = card;
-  updateType.value = type;
-  isUpdateConfirmVisible.value = true;
+  if (type === "tags" || type === "all") {
+    pendingUpdateCard.value = card;
+    pendingUpdateType.value = type;
+
+    // 通过 emit 获取当前复习的卡片
+    const reviewCard = await new Promise((resolve) => {
+      emit("get-current-review-card", (card: Card) => {
+        resolve(card);
+      });
+    });
+
+    // 设置现有标签（当前复习的抽认卡的标签）
+    existingTags.value = (reviewCard as Card)?.tags || [];
+    selectedExistingTags.value = [...existingTags.value];
+
+    // 设置新标签（当前生成卡片的标签）
+    newTags.value = card.tags || [];
+    selectedNewTags.value = [...newTags.value];
+
+    // 打印调试信息
+    console.log("Current review card tags:", existingTags.value);
+    console.log("Generated card tags:", newTags.value);
+
+    isTagsSelectModalVisible.value = true;
+  } else {
+    updateCard.value = card;
+    updateType.value = type;
+    isUpdateConfirmVisible.value = true;
+  }
+};
+
+const confirmTagsSelect = async () => {
+  if (!pendingUpdateCard.value || !pendingUpdateType.value) return;
+
+  try {
+    const finalTags = [...selectedExistingTags.value, ...selectedNewTags.value];
+
+    const emitData = {
+      type: pendingUpdateType.value,
+      data: {
+        question: pendingUpdateCard.value.question,
+        answer: pendingUpdateCard.value.answer,
+        tags: finalTags,
+      },
+    };
+
+    emit("update-current-card", emitData);
+    emit("cards-drawer-change", true);
+
+    // 从当前卡片列表中找到并删除这张卡片
+    const index = currentCards.value.findIndex(
+      (card) => card.id === pendingUpdateCard.value?.id
+    );
+    if (index !== -1) {
+      currentCards.value.splice(index, 1);
+    }
+
+    Message.success("更新成功");
+    isTagsSelectModalVisible.value = false;
+  } catch (error) {
+    console.error("Update card error:", error);
+    Message.error("更新失败");
+  }
+};
+
+const cancelTagsSelect = () => {
+  isTagsSelectModalVisible.value = false;
+  pendingUpdateCard.value = null;
+  pendingUpdateType.value = null;
 };
 
 const confirmUpdate = async () => {
@@ -2213,5 +2322,25 @@ watch(showCardsDrawer, (newValue) => {
   background: var(--td-brand-color-light);
   border-color: var(--td-brand-color-light);
   color: var(--td-brand-color);
+}
+
+.tags-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tags-section {
+  .section-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--td-text-color-primary);
+    margin-bottom: 8px;
+  }
+}
+
+.tags-section :deep(.arco-checkbox) {
+  margin-right: 8px;
+  margin-bottom: 8px;
 }
 </style>

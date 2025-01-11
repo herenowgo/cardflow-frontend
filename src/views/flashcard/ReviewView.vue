@@ -226,6 +226,7 @@
             @close="handleAIChatClose"
             @update-current-card="handleCardUpdate"
             @cards-drawer-change="handleCardsDrawerChange"
+            @get-current-review-card="getCurrentReviewCard"
           />
         </div>
 
@@ -425,6 +426,17 @@ const cleanObsidianLinks = (text: string) => {
   // 匹配 Obsidian 链接的正则表达式
   const obsidianLinkRegex = /<a href="obsidian:\/\/[^>]+>.*?<\/a>/g;
   return text.replace(obsidianLinkRegex, "");
+};
+
+// 添加获取当前复习卡片的方法
+const getCurrentReviewCard = (callback: (card: Card) => void) => {
+  const card = {
+    id: currentCard.value?.id,
+    question: currentCard.value?.question,
+    answer: currentCard.value?.answer,
+    tags: currentCard.value?.tags || [],
+  };
+  callback(card);
 };
 
 const showAIChat = async () => {
