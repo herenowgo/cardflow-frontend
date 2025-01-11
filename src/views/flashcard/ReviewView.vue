@@ -68,6 +68,15 @@
                               <template #icon><icon-tag /></template>
                               自动标签
                             </a-button>
+                            <a-button
+                              type="text"
+                              status="danger"
+                              size="small"
+                              @click.stop="showDeleteConfirm"
+                            >
+                              <template #icon><icon-delete /></template>
+                              删除
+                            </a-button>
                           </template>
                           <template v-else>
                             <a-button
@@ -151,6 +160,15 @@
                             >
                               <template #icon><icon-tag /></template>
                               自动标签
+                            </a-button>
+                            <a-button
+                              type="text"
+                              status="danger"
+                              size="small"
+                              @click.stop="showDeleteConfirm"
+                            >
+                              <template #icon><icon-delete /></template>
+                              删除
                             </a-button>
                           </template>
                           <template v-else>
@@ -357,6 +375,17 @@
         </div>
       </div>
     </a-modal>
+
+    <!-- 添加删除确认对话框 -->
+    <a-modal
+      v-model:visible="deleteModalVisible"
+      @ok="handleDelete"
+      @cancel="cancelDelete"
+      simple
+    >
+      <template #title>确认删除</template>
+      <div>确定要删除这张卡片吗？此操作不可恢复。</div>
+    </a-modal>
   </div>
 </template>
 
@@ -378,6 +407,7 @@ import {
   IconRobot,
   IconEdit,
   IconTag,
+  IconDelete,
 } from "@arco-design/web-vue/es/icon";
 import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
@@ -1111,6 +1141,42 @@ const handleCardsDrawerChange = (visible: boolean) => {
   isCardsDrawerVisible.value = visible;
 };
 
+// 添加删除相关的状态
+const deleteModalVisible = ref(false);
+
+// 显示删除确认对话框
+const showDeleteConfirm = () => {
+  deleteModalVisible.value = true;
+};
+
+// 取消删除
+const cancelDelete = () => {
+  deleteModalVisible.value = false;
+};
+
+// 处理删除
+const handleDelete = async () => {
+  if (!currentCard.value) return;
+
+  try {
+    const res = await CardControllerService.deleteCard(currentCard.value.id);
+    if (res.code === 200) {
+      Message.success("删除成功");
+      // 从卡片列表中移除当前卡片
+      cards.value = cards.value.filter(
+        (card) => card.id !== currentCard.value?.id
+      );
+      // 更新当前卡片
+      currentCard.value = cards.value[0] || null;
+      // 关闭对话框
+      deleteModalVisible.value = false;
+    }
+  } catch (error) {
+    console.error("Delete card error:", error);
+    Message.error("删除失败");
+  }
+};
+
 onMounted(async () => {
   document.addEventListener("keydown", handleKeyPress);
   await loadDeckData();
@@ -1749,5 +1815,13 @@ onUnmounted(() => {
 
 :deep(.arco-space-wrap) {
   width: 100%;
+}
+
+/* 添加删除按钮的样式 */
+:deep(.arco-btn-status-danger) {
+  &:hover {
+    color: var(--color-danger);
+    background: var(--color-danger-light);
+  }
 }
 </style>
