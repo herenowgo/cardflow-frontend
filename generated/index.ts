@@ -94,4 +94,4 @@ export type { CardUpdateRequest } from "./models/CardUpdateRequest";
 
 export { CardControllerService } from "./services/CardControllerService";
 export { GroupControllerService } from "./services/GroupControllerService";
-export { UserFileControllerService } from "./services/UserFileControllerService";
+

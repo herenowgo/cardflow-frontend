@@ -223,7 +223,7 @@ export const routes: Array<RouteRecordRaw> = [
   {
     path: "/resource",
     name: "学习资源",
-    component: () => import("@/views/resource/ResourceManageView.vue"),
+    component: () => import("@/views/resource/ResourceManagerView.vue"),
   },
   {
     path: "/resource-preview",
