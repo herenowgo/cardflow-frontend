@@ -15,6 +15,7 @@
         >
           <a-radio value="pdf">PDF 阅读</a-radio>
           <a-radio value="web">网页浏览</a-radio>
+          <a-radio value="note">笔记</a-radio>
         </a-radio-group>
       </div>
       <div class="viewer-container">
@@ -25,6 +26,23 @@
         </div>
         <div v-show="currentView === 'web'" class="web-container">
           <web-viewer ref="webViewerRef" />
+        </div>
+        <div v-show="currentView === 'note'" class="note-container">
+          <div v-if="isEditingNote">
+            <div id="vditor" class="note-editor"></div>
+            <div class="note-actions">
+              <a-button type="primary" @click="saveNote">保存</a-button>
+              <a-button @click="isEditingNote = false">取消</a-button>
+            </div>
+          </div>
+          <div v-else class="note-view">
+            <div class="markdown-body" v-html="noteContent"></div>
+            <div class="note-actions">
+              <a-button type="primary" @click="isEditingNote = true"
+                >编辑</a-button
+              >
+            </div>
+          </div>
         </div>
       </div>
     </a-layout-sider>
@@ -61,12 +79,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, watch, shallowRef } from "vue";
 import { useRoute } from "vue-router";
 import { Message } from "@arco-design/web-vue";
 import PdfViewer from "./PdfViewer.vue";
 import WebViewer from "./WebViewer.vue";
 import AIChat from "@/components/AIChat.vue";
+import Vditor from "vditor";
+import "vditor/dist/index.css";
 import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
 
 const route = useRoute();
@@ -74,11 +94,91 @@ const pdfUrl = ref<string>("");
 const filePath = ref<string>("");
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const webViewerRef = ref<InstanceType<typeof WebViewer>>();
-const currentView = ref<"pdf" | "web">("pdf");
+const currentView = ref<"pdf" | "web" | "note">("pdf");
+const vditor = shallowRef<Vditor>();
+const noteContent = ref<string>("");
+const isEditingNote = ref<boolean>(false);
+const resourceId = ref<string>("");
+
+// 监听视图切换
+watch(currentView, (newView) => {
+  if (newView === "note") {
+    isEditingNote.value = true;
+    // 延迟初始化编辑器，确保容器已经渲染
+    setTimeout(() => {
+      if (!vditor.value) {
+        initVditor();
+      }
+      vditor.value?.setValue(noteContent.value);
+    }, 0);
+  }
+});
+
+// 初始化 Vditor
+const initVditor = () => {
+  vditor.value = new Vditor("vditor", {
+    height: "calc(100vh - 150px)",
+    mode: "ir",
+    theme: "classic",
+    toolbar: [
+      "emoji",
+      "headings",
+      "bold",
+      "italic",
+      "strike",
+      "link",
+      "|",
+      "list",
+      "ordered-list",
+      "check",
+      "outdent",
+      "indent",
+      "|",
+      "quote",
+      "line",
+      "code",
+      "inline-code",
+      "insert-before",
+      "insert-after",
+      "|",
+      "upload",
+      "table",
+      "|",
+      "undo",
+      "redo",
+      "|",
+      "fullscreen",
+      "preview",
+      {
+        name: "more",
+        toolbar: [
+          "both",
+          "code-theme",
+          "content-theme",
+          "export",
+          "outline",
+          "info",
+          "help",
+        ],
+      },
+    ],
+    placeholder: "在这里编辑笔记...",
+    cache: {
+      enable: false,
+    },
+    after: () => {
+      vditor.value?.setValue(noteContent.value);
+    },
+  });
+};
 
 onMounted(async () => {
   const id = route.query.id as string;
+  resourceId.value = id;
   if (id) {
+    // 独立加载笔记内容
+    await loadNoteContent(id);
+
     try {
       const response = await StudyResourceControllerService.previewFile(id);
       if (response.code === 200 && response.data?.url) {
@@ -100,6 +200,24 @@ onMounted(async () => {
   // 添加和移除事件监听器
   document.addEventListener("mouseup", handleTextSelection);
 });
+
+// 加载笔记内容
+const loadNoteContent = async (id: string) => {
+  try {
+    const resourceResponse =
+      await StudyResourceControllerService.getResourceDetail(id);
+    if (resourceResponse.code === 200 && resourceResponse.data) {
+      noteContent.value = resourceResponse.data.note || "";
+      // 如果当前是笔记视图，自动进入编辑模式
+      if (currentView.value === "note") {
+        isEditingNote.value = true;
+      }
+    }
+  } catch (error) {
+    Message.error("加载笔记内容失败");
+    console.error("Load note content error:", error);
+  }
+};
 
 // 侧边栏宽度状态
 const siderWidth = ref(window.innerWidth * 0.5); // 默认50%宽度
@@ -209,6 +327,27 @@ const handleDirectGenerate = async () => {
   }
 };
 
+// 保存笔记
+const saveNote = async () => {
+  try {
+    const content = vditor.value?.getValue() || "";
+    const response = await StudyResourceControllerService.updateResource({
+      id: resourceId.value,
+      note: content,
+    });
+    if (response.code === 200) {
+      Message.success("保存成功");
+      noteContent.value = content;
+      isEditingNote.value = false;
+    } else {
+      Message.error("保存失败");
+    }
+  } catch (error) {
+    Message.error("保存失败");
+    console.error("Save note error:", error);
+  }
+};
+
 // 清理事件监听
 onUnmounted(() => {
   document.removeEventListener("mousemove", handleResize);
@@ -216,6 +355,7 @@ onUnmounted(() => {
   document.removeEventListener("touchmove", handleResize);
   document.removeEventListener("touchend", stopResize);
   document.removeEventListener("mouseup", handleTextSelection);
+  vditor.value?.destroy();
 });
 </script>
 
@@ -414,5 +554,32 @@ onUnmounted(() => {
 
 .web-container {
   height: 100%;
+}
+
+.note-container {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.note-view {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-editor {
+  height: calc(100vh - 150px);
+  margin-bottom: 16px;
 }
 </style>
