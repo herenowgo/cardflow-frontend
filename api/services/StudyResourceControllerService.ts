@@ -29,31 +29,9 @@ export class StudyResourceControllerService {
     ): CancelablePromise<BaseResponseStudyResourceVO> {
         return __request(OpenAPI, {
             method: 'PUT',
-            url: '/resource/update',
+            url: '/resource',
             body: requestBody,
             mediaType: 'application/json',
-        });
-    }
-
-    /**
-     * 重命名文件/文件夹
-     * 重命名指定路径的文件或文件夹，新名称不能与同目录下的其他文件重名
-     * @param path 文件/文件夹路径
-     * @param newName 新名称
-     * @returns BaseResponseVoid OK
-     * @throws ApiError
-     */
-    public static rename(
-        path: string,
-        newName: string,
-    ): CancelablePromise<BaseResponseVoid> {
-        return __request(OpenAPI, {
-            method: 'PUT',
-            url: '/resource/rename',
-            query: {
-                'path': path,
-                'newName': newName,
-            },
         });
     }
 
@@ -72,25 +50,6 @@ export class StudyResourceControllerService {
             url: '/resource',
             body: requestBody,
             mediaType: 'application/json',
-        });
-    }
-
-    /**
-     * 删除文件/文件夹
-     * 删除指定路径的文件或文件夹，文件夹会递归删除其下所有内容
-     * @param path 文件/文件夹路径
-     * @returns BaseResponseVoid OK
-     * @throws ApiError
-     */
-    public static delete(
-        path: string,
-    ): CancelablePromise<BaseResponseVoid> {
-        return __request(OpenAPI, {
-            method: 'DELETE',
-            url: '/resource',
-            query: {
-                'path': path,
-            },
         });
     }
 
@@ -114,28 +73,6 @@ export class StudyResourceControllerService {
             url: '/resource/upload',
             formData: formData,
             mediaType: 'multipart/form-data',
-        });
-    }
-
-    /**
-     * 移动文件/文件夹
-     * 移动文件/文件夹到新的目录，目标路径必须存在且为文件夹
-     * @param sourcePath 源文件/文件夹路径
-     * @param targetPath 目标目录路径
-     * @returns BaseResponseVoid OK
-     * @throws ApiError
-     */
-    public static move(
-        sourcePath: string,
-        targetPath: string,
-    ): CancelablePromise<BaseResponseVoid> {
-        return __request(OpenAPI, {
-            method: 'POST',
-            url: '/resource/move',
-            query: {
-                'sourcePath': sourcePath,
-                'targetPath': targetPath,
-            },
         });
     }
 
@@ -173,6 +110,25 @@ export class StudyResourceControllerService {
     ): CancelablePromise<BaseResponseStudyResourceVO> {
         return __request(OpenAPI, {
             method: 'GET',
+            url: '/resource/{id}',
+            path: {
+                'id': id,
+            },
+        });
+    }
+
+    /**
+     * 删除文件/文件夹
+     * 删除指定ID的文件或文件夹，文件夹会递归删除其下所有内容
+     * @param id 资源ID
+     * @returns BaseResponseVoid OK
+     * @throws ApiError
+     */
+    public static delete(
+        id: string,
+    ): CancelablePromise<BaseResponseVoid> {
+        return __request(OpenAPI, {
+            method: 'DELETE',
             url: '/resource/{id}',
             path: {
                 'id': id,

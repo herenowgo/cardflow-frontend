@@ -15,6 +15,7 @@ import {
   IconEdit,
   IconBook,
   IconDragDotVertical,
+  IconFolderAdd,
 } from "@arco-design/web-vue/es/icon";
 
 interface CustomRequestOption {
@@ -27,7 +28,8 @@ const currentPath = ref("/");
 const files = ref<FileListVO[]>([]);
 const loading = ref(false);
 const createVisible = ref(false);
-const uploadModalVisible = ref(false);
+const createFolderVisible = ref(false);
+const folderName = ref("");
 const fileInput = ref<HTMLInputElement | null>(null);
 
 // 创建资源的表单数据
@@ -55,10 +57,16 @@ const fetchFiles = async (path = "/") => {
 };
 
 // 创建文件夹
-const createFolder = async (name: string) => {
+const createFolder = async () => {
+  if (!folderName.value.trim()) {
+    Message.error("请输入文件夹名称");
+    return;
+  }
   try {
-    await StudyResourceControllerService.createFolder(name, currentPath.value);
+    await StudyResourceControllerService.createFolder(folderName.value, "/");
     Message.success("创建文件夹成功");
+    createFolderVisible.value = false;
+    folderName.value = "";
     fetchFiles(currentPath.value);
   } catch (error) {
     Message.error("创建文件夹失败");
@@ -154,7 +162,7 @@ onMounted(() => {
       <div class="operation-bar">
         <div class="left-operations">
           <a-breadcrumb>
-            <a-breadcrumb-item> <icon-home />根目录 </a-breadcrumb-item>
+            <a-breadcrumb-item><icon-home />根目录</a-breadcrumb-item>
             <template v-if="currentPath !== '/'">
               <a-breadcrumb-item
                 v-for="(path, index) in currentPath.split('/').filter(Boolean)"
@@ -175,10 +183,16 @@ onMounted(() => {
           </a-button>
         </div>
         <div class="right-operations">
-          <a-button type="primary" @click="createVisible = true">
-            <template #icon><icon-plus /></template>
-            新建资源
-          </a-button>
+          <a-space>
+            <a-button type="outline" @click="createFolderVisible = true">
+              <template #icon><icon-folder-add /></template>
+              新建文件夹
+            </a-button>
+            <a-button type="primary" @click="createVisible = true">
+              <template #icon><icon-plus /></template>
+              新建资源
+            </a-button>
+          </a-space>
         </div>
       </div>
 
@@ -235,6 +249,26 @@ onMounted(() => {
         </div>
       </a-spin>
     </a-card>
+
+    <!-- 创建文件夹对话框 -->
+    <a-modal
+      v-model:visible="createFolderVisible"
+      title="新建文件夹"
+      @ok="createFolder"
+      @cancel="createFolderVisible = false"
+      :ok-button-props="{ type: 'primary' }"
+    >
+      <a-form :model="{ name: folderName }" layout="vertical">
+        <a-form-item field="name" label="文件夹名称" required>
+          <a-input
+            v-model="folderName"
+            placeholder="请输入文件夹名称"
+            allow-clear
+            @press-enter="createFolder"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
 
     <!-- 创建资源对话框 -->
     <a-modal
@@ -472,5 +506,10 @@ onMounted(() => {
   color: var(--color-text-2);
   font-size: 14px;
   margin-top: 8px;
+}
+
+.right-operations {
+  display: flex;
+  gap: 8px;
 }
 </style>

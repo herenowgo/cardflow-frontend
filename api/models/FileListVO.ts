@@ -32,11 +32,8 @@ export namespace FileListVO {
      */
     export enum resourceType {
         PDF = 'PDF',
-        // 文章
         ARTICLE = 'ARTICLE',
-        // 笔记
         NOTE = 'NOTE',
-        // 在线网页
         URL = 'URL',
     }
 

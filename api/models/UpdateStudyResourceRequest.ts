@@ -8,6 +8,7 @@
  */
 export type UpdateStudyResourceRequest = {
     id: string;
+    parentPath?: string;
     name?: string;
     description?: string;
     content?: string;
