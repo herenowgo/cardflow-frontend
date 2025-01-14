@@ -28,20 +28,9 @@
           <web-viewer ref="webViewerRef" />
         </div>
         <div v-show="currentView === 'note'" class="note-container">
-          <div v-if="isEditingNote">
-            <div id="vditor" class="note-editor"></div>
-            <div class="note-actions">
-              <a-button type="primary" @click="saveNote">保存</a-button>
-              <a-button @click="isEditingNote = false">取消</a-button>
-            </div>
-          </div>
-          <div v-else class="note-view">
-            <div class="markdown-body" v-html="noteContent"></div>
-            <div class="note-actions">
-              <a-button type="primary" @click="isEditingNote = true"
-                >编辑</a-button
-              >
-            </div>
+          <div id="vditor" class="note-editor"></div>
+          <div class="note-actions">
+            <a-button type="primary" @click="saveNote">保存</a-button>
           </div>
         </div>
       </div>
@@ -79,15 +68,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, shallowRef } from "vue";
-import { useRoute } from "vue-router";
-import { Message } from "@arco-design/web-vue";
-import PdfViewer from "./PdfViewer.vue";
-import WebViewer from "./WebViewer.vue";
 import AIChat from "@/components/AIChat.vue";
+import { Message } from "@arco-design/web-vue";
 import Vditor from "vditor";
 import "vditor/dist/index.css";
+import { onMounted, onUnmounted, ref, shallowRef, watch, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
+import PdfViewer from "./PdfViewer.vue";
+import WebViewer from "./WebViewer.vue";
 
 const route = useRoute();
 const pdfUrl = ref<string>("");
@@ -101,21 +90,24 @@ const isEditingNote = ref<boolean>(false);
 const resourceId = ref<string>("");
 
 // 监听视图切换
-watch(currentView, (newView) => {
+watch(currentView, async (newView) => {
   if (newView === "note") {
-    isEditingNote.value = true;
-    // 延迟初始化编辑器，确保容器已经渲染
-    setTimeout(() => {
-      if (!vditor.value) {
-        initVditor();
-      }
-      vditor.value?.setValue(noteContent.value);
-    }, 0);
+    // 如果已经有编辑器实例，先销毁
+    if (vditor.value) {
+      vditor.value.destroy();
+      vditor.value = undefined;
+    }
+    // 等待 DOM 更新
+    await nextTick();
+    initVditor();
   }
 });
 
 // 初始化 Vditor
 const initVditor = () => {
+  const element = document.getElementById("vditor");
+  if (!element) return;
+
   vditor.value = new Vditor("vditor", {
     height: "calc(100vh - 150px)",
     mode: "ir",
@@ -167,7 +159,9 @@ const initVditor = () => {
       enable: false,
     },
     after: () => {
-      vditor.value?.setValue(noteContent.value);
+      if (noteContent.value) {
+        vditor.value?.setValue(noteContent.value);
+      }
     },
   });
 };
@@ -207,10 +201,12 @@ const loadNoteContent = async (id: string) => {
     const resourceResponse =
       await StudyResourceControllerService.getResourceDetail(id);
     if (resourceResponse.code === 200 && resourceResponse.data) {
-      noteContent.value = resourceResponse.data.note || "";
-      // 如果当前是笔记视图，自动进入编辑模式
-      if (currentView.value === "note") {
-        isEditingNote.value = true;
+      const content = resourceResponse.data.note || "";
+      noteContent.value = content;
+      // 如果当前是笔记视图且编辑器已初始化，设置内容
+      if (currentView.value === "note" && vditor.value) {
+        await nextTick();
+        vditor.value.setValue(content);
       }
     }
   } catch (error) {
@@ -338,7 +334,6 @@ const saveNote = async () => {
     if (response.code === 200) {
       Message.success("保存成功");
       noteContent.value = content;
-      isEditingNote.value = false;
     } else {
       Message.error("保存失败");
     }
