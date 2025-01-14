@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { Message, Modal, Upload } from "@arco-design/web-vue";
+import { Message, Modal, Upload, Dropdown } from "@arco-design/web-vue";
 import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
 import type { FileListVO } from "../../../api/models/FileListVO";
 import { StudyResourceRequest } from "../../../api/models/StudyResourceRequest";
@@ -16,6 +16,9 @@ import {
   IconBook,
   IconDragDotVertical,
   IconFolderAdd,
+  IconMore,
+  IconDelete,
+  IconDragDot,
 } from "@arco-design/web-vue/es/icon";
 
 interface CustomRequestOption {
@@ -40,6 +43,25 @@ const resourceForm = ref<StudyResourceRequest>({
   content: "",
   resourceUrl: "",
 });
+
+// 重命名对话框状态
+const renameVisible = ref(false);
+const renameForm = ref({
+  newName: "",
+  id: "",
+});
+
+// 移动对话框状态
+const moveVisible = ref(false);
+const moveForm = ref({
+  id: "",
+  targetPath: "/",
+});
+const folders = ref<FileListVO[]>([]);
+
+// 添加上传状态
+const uploadLoading = ref(false);
+const selectedFile = ref<File | null>(null);
 
 // 获取文件列表
 const fetchFiles = async (path = "/") => {
@@ -76,12 +98,34 @@ const createFolder = async () => {
 // 创建资源
 const createResource = async () => {
   try {
-    await StudyResourceControllerService.createResource(resourceForm.value);
-    Message.success("创建资源成功");
+    if (resourceForm.value.resourceType === "PDF") {
+      if (!selectedFile.value) {
+        Message.error("请选择要上传的PDF文件");
+        return;
+      }
+      uploadLoading.value = true;
+      const loadingTip = Message.loading({
+        content: "正在上传PDF文件，请稍候...",
+        duration: 0,
+      });
+      await StudyResourceControllerService.uploadFile({
+        file: selectedFile.value,
+      });
+      loadingTip.close();
+      Message.success("上传PDF成功");
+    } else {
+      await StudyResourceControllerService.createResource(resourceForm.value);
+      Message.success("创建资源成功");
+    }
     createVisible.value = false;
     fetchFiles(currentPath.value);
   } catch (error) {
-    Message.error("创建资源失败");
+    Message.error(
+      resourceForm.value.resourceType === "PDF" ? "上传PDF失败" : "创建资源失败"
+    );
+  } finally {
+    uploadLoading.value = false;
+    selectedFile.value = null;
   }
 };
 
@@ -102,9 +146,8 @@ const handleFileUpload = (file: File) => {
 const handleFileSelect = (e: Event) => {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files[0]) {
-    const file = input.files[0];
-    resourceForm.value.name = file.name.replace(/\.pdf$/i, "");
-    handleFileUpload(file);
+    selectedFile.value = input.files[0];
+    resourceForm.value.name = input.files[0].name.replace(/\.pdf$/i, "");
   }
 };
 
@@ -148,6 +191,130 @@ const getResourceTypeText = (type: string | undefined) => {
 // 处理文件选择按钮点击
 const handleUploadClick = () => {
   fileInput.value?.click();
+};
+
+// 重命名资源
+const renameResource = async () => {
+  if (!renameForm.value.newName.trim()) {
+    Message.error("请输入新名称");
+    return;
+  }
+  try {
+    await StudyResourceControllerService.updateResource({
+      id: renameForm.value.id,
+      name: renameForm.value.newName,
+    });
+    Message.success("重命名成功");
+    renameVisible.value = false;
+    fetchFiles(currentPath.value);
+  } catch (error) {
+    Message.error("重命名失败");
+  }
+};
+
+// 删除资源
+const deleteResource = async (
+  id: string | number | Record<string, any> | undefined
+) => {
+  if (typeof id !== "string") {
+    Message.error("资源ID不存在或类型错误");
+    return;
+  }
+
+  Modal.warning({
+    title: "确认删除",
+    content: "确定要删除这个资源吗？此操作不可恢复。",
+    okText: "删除",
+    cancelText: "取消",
+    async onOk() {
+      try {
+        await StudyResourceControllerService.delete(id);
+        Message.success("删除成功");
+        fetchFiles(currentPath.value);
+      } catch (error) {
+        Message.error("删除失败");
+      }
+    },
+  });
+};
+
+// 打开重命名对话框
+const openRename = (item: FileListVO) => {
+  if (!item.id) {
+    Message.error("资源ID不存在");
+    return;
+  }
+  renameForm.value.newName = item.name || "";
+  renameForm.value.id = item.id;
+  renameVisible.value = true;
+};
+
+// 获取所有文件夹
+const fetchFolders = async () => {
+  try {
+    const response = await StudyResourceControllerService.listFiles("/");
+    if (response.data) {
+      folders.value = response.data.filter((item) => item.isFolder);
+    }
+  } catch (error) {
+    Message.error("获取文件夹列表失败");
+  }
+};
+
+// 移动资源
+const moveResource = async () => {
+  try {
+    await StudyResourceControllerService.updateResource({
+      id: moveForm.value.id,
+      parentPath: moveForm.value.targetPath,
+    });
+    Message.success("移动成功");
+    moveVisible.value = false;
+    fetchFiles(currentPath.value);
+  } catch (error) {
+    Message.error("移动失败");
+  }
+};
+
+// 打开移动对话框
+const openMove = (item: FileListVO) => {
+  if (!item.id) {
+    Message.error("资源ID不存在");
+    return;
+  }
+  moveForm.value.id = item.id;
+  moveForm.value.targetPath = "/";
+  moveVisible.value = true;
+  fetchFolders();
+};
+
+// 处理资源操作
+const handleOperation = (operation: unknown, item: FileListVO) => {
+  if (!item.id) {
+    Message.error("资源ID不存在");
+    return;
+  }
+
+  switch (operation) {
+    case "rename":
+      openRename(item);
+      break;
+    case "move":
+      if (!item.isFolder) {
+        openMove(item);
+      }
+      break;
+    case "delete":
+      deleteResource(item.id);
+      break;
+  }
+};
+
+// 对话框关闭时清理状态
+const handleCreateModalClose = () => {
+  selectedFile.value = null;
+  resourceForm.value.name = "";
+  uploadLoading.value = false;
 };
 
 onMounted(() => {
@@ -205,6 +372,20 @@ onMounted(() => {
             class="resource-item"
             @click="enterFolder(item)"
           >
+            <div class="resource-operations">
+              <a-dropdown @select="(key) => handleOperation(key, item)">
+                <a-button type="text" size="mini" @click.stop>
+                  <icon-more />
+                </a-button>
+                <template #content>
+                  <a-doption value="rename"> <icon-edit />重命名 </a-doption>
+                  <a-doption v-if="!item.isFolder" value="move">
+                    <icon-drag-dot />移动到
+                  </a-doption>
+                  <a-doption value="delete"> <icon-delete />删除 </a-doption>
+                </template>
+              </a-dropdown>
+            </div>
             <div
               class="resource-icon"
               :class="[
@@ -276,8 +457,21 @@ onMounted(() => {
       title="创建资源"
       @ok="createResource"
       @cancel="createVisible = false"
-      :ok-button-props="{ type: 'primary' }"
+      @close="handleCreateModalClose"
+      :ok-button-props="{
+        type: 'primary',
+        loading: uploadLoading,
+        disabled: resourceForm.resourceType === 'PDF' && !selectedFile,
+      }"
+      :mask-closable="!uploadLoading"
+      :closable="!uploadLoading"
+      :cancel-button-props="{ disabled: uploadLoading }"
     >
+      <div v-if="uploadLoading" class="upload-loading-tip">
+        <a-spin dot />
+        <span>正在上传文件，请勿关闭窗口...</span>
+      </div>
+
       <a-form :model="resourceForm" layout="vertical">
         <a-form-item field="resourceType" label="资源类型">
           <a-radio-group v-model="resourceForm.resourceType" type="button">
@@ -289,7 +483,7 @@ onMounted(() => {
         </a-form-item>
 
         <template v-if="resourceForm.resourceType === 'PDF'">
-          <a-form-item field="file" label="上传PDF文件" required>
+          <a-form-item field="file" label="选择PDF文件" required>
             <div class="upload-option">
               <input
                 type="file"
@@ -298,12 +492,22 @@ onMounted(() => {
                 @change="handleFileSelect"
                 ref="fileInput"
               />
-              <a-button type="primary" long @click="handleUploadClick">
-                <template #icon><icon-upload /></template>
-                选择PDF文件上传
+              <a-button
+                :type="selectedFile ? 'outline' : 'primary'"
+                long
+                @click="handleUploadClick"
+              >
+                <template #icon>
+                  <icon-upload v-if="!selectedFile" />
+                  <icon-file v-else />
+                </template>
+                {{ selectedFile ? selectedFile.name : "选择PDF文件" }}
               </a-button>
-              <div v-if="resourceForm.name" class="selected-file">
-                已选择：{{ resourceForm.name }}.pdf
+              <div v-if="selectedFile" class="selected-file">
+                <a-button type="text" size="mini" @click="selectedFile = null">
+                  <template #icon><icon-delete /></template>
+                  重新选择
+                </a-button>
               </div>
             </div>
           </a-form-item>
@@ -341,6 +545,52 @@ onMounted(() => {
             </a-input>
           </a-form-item>
         </template>
+      </a-form>
+    </a-modal>
+
+    <!-- 重命名对话框 -->
+    <a-modal
+      v-model:visible="renameVisible"
+      title="重命名"
+      @ok="renameResource"
+      @cancel="renameVisible = false"
+      :ok-button-props="{ type: 'primary' }"
+    >
+      <a-form :model="renameForm" layout="vertical">
+        <a-form-item field="newName" label="新名称" required>
+          <a-input
+            v-model="renameForm.newName"
+            placeholder="请输入新名称"
+            allow-clear
+            @press-enter="renameResource"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 添加移动对话框 -->
+    <a-modal
+      v-model:visible="moveVisible"
+      title="移动到文件夹"
+      @ok="moveResource"
+      @cancel="moveVisible = false"
+      :ok-button-props="{ type: 'primary' }"
+    >
+      <a-form :model="moveForm" layout="vertical">
+        <a-form-item field="targetPath" label="选择目标文件夹">
+          <a-radio-group v-model="moveForm.targetPath" direction="vertical">
+            <a-radio value="/">
+              <icon-home style="margin-right: 4px" />根目录
+            </a-radio>
+            <a-radio
+              v-for="folder in folders"
+              :key="folder.name"
+              :value="'/' + folder.name"
+            >
+              <icon-folder style="margin-right: 4px" />{{ folder.name }}
+            </a-radio>
+          </a-radio-group>
+        </a-form-item>
       </a-form>
     </a-modal>
   </div>
@@ -503,13 +753,58 @@ onMounted(() => {
 }
 
 .selected-file {
-  color: var(--color-text-2);
-  font-size: 14px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-top: 8px;
 }
 
 .right-operations {
   display: flex;
   gap: 8px;
+}
+
+.resource-operations {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.resource-item:hover .resource-operations {
+  opacity: 1;
+}
+
+:deep(.arco-radio) {
+  padding: 8px;
+  width: 100%;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+:deep(.arco-radio:hover) {
+  background-color: var(--color-fill-2);
+}
+
+:deep(.arco-radio-checked) {
+  background-color: var(--color-primary-light-1);
+  color: var(--color-primary-6);
+}
+
+.upload-loading-tip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 </style>
