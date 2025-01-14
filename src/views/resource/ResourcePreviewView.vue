@@ -67,7 +67,7 @@ import { Message } from "@arco-design/web-vue";
 import PdfViewer from "./PdfViewer.vue";
 import WebViewer from "./WebViewer.vue";
 import AIChat from "@/components/AIChat.vue";
-import { UserFileControllerService } from "../../../generated";
+import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
 
 const route = useRoute();
 const pdfUrl = ref<string>("");
@@ -77,35 +77,18 @@ const webViewerRef = ref<InstanceType<typeof WebViewer>>();
 const currentView = ref<"pdf" | "web">("pdf");
 
 onMounted(async () => {
-  const urlFromQuery = route.query.url as string;
-  const pathFromQuery = route.query.path as string;
-  const webUrl = route.query.webUrl as string;
-
-  if (webUrl) {
-    currentView.value = "web";
-    if (webViewerRef.value) {
-      webViewerRef.value.loadUrl(webUrl);
-    }
-  } else if (urlFromQuery) {
-    currentView.value = "pdf";
-    pdfUrl.value = urlFromQuery;
-    filePath.value = pathFromQuery || "";
-  } else {
-    const path = route.query.path as string;
-    if (path) {
-      currentView.value = "pdf";
-      try {
-        filePath.value = path;
-        const res = await UserFileControllerService.previewFile(path);
-        if (res.code === 200 && res.data?.url) {
-          pdfUrl.value = res.data.url;
-        } else {
-          Message.error("获取预览链接失败");
-        }
-      } catch (error) {
-        Message.error("加载PDF失败");
-        console.error("Load PDF error:", error);
+  const id = route.query.id as string;
+  if (id) {
+    try {
+      const response = await StudyResourceControllerService.previewFile(id);
+      if (response.code === 200 && response.data?.url) {
+        pdfUrl.value = response.data.url;
+      } else {
+        Message.error("获取预览链接失败");
       }
+    } catch (error) {
+      Message.error("加载PDF失败");
+      console.error("Load PDF error:", error);
     }
   }
 

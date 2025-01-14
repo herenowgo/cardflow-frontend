@@ -20,6 +20,7 @@ import {
   IconDelete,
   IconDragDot,
 } from "@arco-design/web-vue/es/icon";
+import { useRouter } from "vue-router";
 
 interface CustomRequestOption {
   file: File;
@@ -62,6 +63,8 @@ const folders = ref<FileListVO[]>([]);
 // 添加上传状态
 const uploadLoading = ref(false);
 const selectedFile = ref<File | null>(null);
+
+const router = useRouter();
 
 // 获取文件列表
 const fetchFiles = async (path = "/") => {
@@ -151,14 +154,23 @@ const handleFileSelect = (e: Event) => {
   }
 };
 
-// 进入文件夹
-const enterFolder = (file: FileListVO) => {
+// 进入文件夹或预览PDF
+const enterFolder = async (file: FileListVO) => {
   if (file.isFolder) {
     currentPath.value =
       currentPath.value === "/"
         ? `/${file.name}`
         : `${currentPath.value}/${file.name}`;
     fetchFiles(currentPath.value);
+  } else if (file.resourceType === "PDF" && file.id) {
+    try {
+      router.push({
+        name: "resource-preview",
+        query: { id: file.id },
+      });
+    } catch (error) {
+      Message.error("打开PDF失败");
+    }
   }
 };
 

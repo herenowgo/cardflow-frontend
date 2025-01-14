@@ -99,6 +99,29 @@ export class StudyResourceControllerService {
     }
 
     /**
+     * 上传资源封面
+     * 上传资源封面图片，返回永久访问URL，支持jpg、png、jpeg格式
+     * @param formData
+     * @returns BaseResponseString OK
+     * @throws ApiError
+     */
+    public static uploadCover(
+        formData?: {
+            /**
+             * 封面图片文件
+             */
+            file: Blob;
+        },
+    ): CancelablePromise<BaseResponseString> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/resource/cover',
+            formData: formData,
+            mediaType: 'multipart/form-data',
+        });
+    }
+
+    /**
      * 获取资源详情
      * 根据资源ID获取资源的详细信息
      * @param id 资源ID
@@ -137,25 +160,6 @@ export class StudyResourceControllerService {
     }
 
     /**
-     * 获取文件访问URL
-     * 获取文件的临时访问URL，默认有效期30分钟
-     * @param path 文件路径
-     * @returns BaseResponseString OK
-     * @throws ApiError
-     */
-    public static getFileUrl(
-        path: string,
-    ): CancelablePromise<BaseResponseString> {
-        return __request(OpenAPI, {
-            method: 'GET',
-            url: '/resource/url',
-            query: {
-                'path': path,
-            },
-        });
-    }
-
-    /**
      * 获取存储空间统计
      * 获取当前用户的存储空间使用情况，包括已用空间和总空间
      * @returns BaseResponseMapStringLong OK
@@ -171,18 +175,18 @@ export class StudyResourceControllerService {
     /**
      * 预览文件
      * 获取文件的预览信息，支持文本、图片、PDF等格式，返回对应的预览URL或内容
-     * @param path 文件路径
+     * @param id 资源ID
      * @returns BaseResponseFilePreviewDTO OK
      * @throws ApiError
      */
     public static previewFile(
-        path: string,
+        id: string,
     ): CancelablePromise<BaseResponseFilePreviewDTO> {
         return __request(OpenAPI, {
             method: 'GET',
-            url: '/resource/preview',
-            query: {
-                'path': path,
+            url: '/resource/preview/{id}',
+            path: {
+                'id': id,
             },
         });
     }
