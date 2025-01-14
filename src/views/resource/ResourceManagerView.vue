@@ -154,7 +154,7 @@ const handleFileSelect = (e: Event) => {
   }
 };
 
-// 进入文件夹或预览PDF
+// 进入文件夹或预览资源
 const enterFolder = async (file: FileListVO) => {
   if (file.isFolder) {
     currentPath.value =
@@ -162,14 +162,14 @@ const enterFolder = async (file: FileListVO) => {
         ? `/${file.name}`
         : `${currentPath.value}/${file.name}`;
     fetchFiles(currentPath.value);
-  } else if (file.resourceType === "PDF" && file.id) {
+  } else if (file.id) {
     try {
       router.push({
         name: "resource-preview",
         query: { id: file.id },
       });
     } catch (error) {
-      Message.error("打开PDF失败");
+      Message.error("打开资源失败");
     }
   }
 };
@@ -212,13 +212,17 @@ const renameResource = async () => {
     return;
   }
   try {
-    await StudyResourceControllerService.updateResource({
+    const response = await StudyResourceControllerService.updateResource({
       id: renameForm.value.id,
       name: renameForm.value.newName,
     });
-    Message.success("重命名成功");
-    renameVisible.value = false;
-    fetchFiles(currentPath.value);
+    if (response.code === 200) {
+      Message.success("重命名成功");
+      renameVisible.value = false;
+      fetchFiles(currentPath.value);
+    } else {
+      Message.error("重命名失败");
+    }
   } catch (error) {
     Message.error("重命名失败");
   }
@@ -276,13 +280,17 @@ const fetchFolders = async () => {
 // 移动资源
 const moveResource = async () => {
   try {
-    await StudyResourceControllerService.updateResource({
+    const response = await StudyResourceControllerService.updateResource({
       id: moveForm.value.id,
       parentPath: moveForm.value.targetPath,
     });
-    Message.success("移动成功");
-    moveVisible.value = false;
-    fetchFiles(currentPath.value);
+    if (response.code === 200) {
+      Message.success("移动成功");
+      moveVisible.value = false;
+      fetchFiles(currentPath.value);
+    } else {
+      Message.error("移动失败");
+    }
   } catch (error) {
     Message.error("移动失败");
   }

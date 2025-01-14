@@ -13,9 +13,26 @@
           size="small"
           :style="{ marginBottom: '8px' }"
         >
-          <a-radio value="pdf">PDF 阅读</a-radio>
-          <a-radio value="web">网页浏览</a-radio>
-          <a-radio value="note">笔记</a-radio>
+          <template v-if="resourceType === 'NOTE'">
+            <a-radio value="note">笔记</a-radio>
+          </template>
+          <template v-else-if="resourceType === 'PDF'">
+            <a-radio value="pdf">PDF 阅读</a-radio>
+            <a-radio value="note">笔记</a-radio>
+          </template>
+          <template v-else-if="resourceType === 'URL'">
+            <a-radio value="web">网页浏览</a-radio>
+            <a-radio value="note">笔记</a-radio>
+          </template>
+          <template v-else-if="resourceType === 'ARTICLE'">
+            <a-radio value="article">文章</a-radio>
+            <a-radio value="note">笔记</a-radio>
+          </template>
+          <template v-else>
+            <a-radio value="pdf">PDF 阅读</a-radio>
+            <a-radio value="web">网页浏览</a-radio>
+            <a-radio value="note">笔记</a-radio>
+          </template>
         </a-radio-group>
       </div>
       <div class="viewer-container">
@@ -27,10 +44,20 @@
         <div v-show="currentView === 'web'" class="web-container">
           <web-viewer ref="webViewerRef" />
         </div>
-        <div v-show="currentView === 'note'" class="note-container">
+        <div
+          v-show="currentView === 'note' || currentView === 'article'"
+          class="note-container"
+        >
           <div id="vditor" class="note-editor"></div>
           <div class="note-actions">
-            <a-button type="primary" @click="saveNote">保存</a-button>
+            <a-button
+              type="primary"
+              @click="
+                currentView === 'article' ? handleSaveArticle : handleSave
+              "
+            >
+              保存
+            </a-button>
           </div>
         </div>
       </div>
@@ -77,21 +104,45 @@ import { useRoute } from "vue-router";
 import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
 import PdfViewer from "./PdfViewer.vue";
 import WebViewer from "./WebViewer.vue";
+import { StudyResourceVO } from "../../../api/models/StudyResourceVO";
 
 const route = useRoute();
 const pdfUrl = ref<string>("");
 const filePath = ref<string>("");
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const webViewerRef = ref<InstanceType<typeof WebViewer>>();
-const currentView = ref<"pdf" | "web" | "note">("pdf");
+const currentView = ref<"pdf" | "web" | "note" | "article">("pdf");
 const vditor = shallowRef<Vditor>();
 const noteContent = ref<string>("");
-const isEditingNote = ref<boolean>(false);
+const articleContent = ref<string>("");
 const resourceId = ref<string>("");
+const resourceType = ref<StudyResourceVO.resourceType>();
+
+// 防抖函数
+const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
+  let timer: number | null = null;
+  const debouncedFn = (...args: Parameters<T>) => {
+    if (timer) clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      fn(...args);
+      timer = null;
+    }, delay);
+  };
+
+  // 添加立即执行方法
+  debouncedFn.flush = () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  return debouncedFn;
+};
 
 // 监听视图切换
 watch(currentView, async (newView) => {
-  if (newView === "note") {
+  if (newView === "note" || newView === "article") {
     // 如果已经有编辑器实例，先销毁
     if (vditor.value) {
       vditor.value.destroy();
@@ -99,12 +150,51 @@ watch(currentView, async (newView) => {
     }
     // 等待 DOM 更新
     await nextTick();
-    initVditor();
+    // 重新加载内容
+    await loadNoteContent(resourceId.value);
   }
 });
 
+// 自动保存笔记
+const autoSaveNote = debounce(async (content: string) => {
+  if (!content || content === noteContent.value) return;
+
+  try {
+    const response = await StudyResourceControllerService.updateResource({
+      id: resourceId.value,
+      note: content,
+    });
+    if (response.code === 200) {
+      noteContent.value = content;
+      // 移除成功提示，避免频繁打扰
+      // Message.success("自动保存成功");
+    }
+  } catch (error) {
+    Message.error("自动保存失败");
+    console.error("Auto save note error:", error);
+  }
+}, 2000);
+
+// 自动保存文章
+const autoSaveArticle = debounce(async (content: string) => {
+  if (!content || content === articleContent.value) return;
+
+  try {
+    const response = await StudyResourceControllerService.updateResource({
+      id: resourceId.value,
+      content: content,
+    });
+    if (response.code == 200) {
+      articleContent.value = content;
+    }
+  } catch (error) {
+    Message.error("自动保存失败");
+    console.error("Auto save article error:", error);
+  }
+}, 2000);
+
 // 初始化 Vditor
-const initVditor = () => {
+const initVditor = (isArticle = false) => {
   const element = document.getElementById("vditor");
   if (!element) return;
 
@@ -154,13 +244,37 @@ const initVditor = () => {
         ],
       },
     ],
-    placeholder: "在这里编辑笔记...",
+    placeholder: isArticle ? "在这里编辑文章..." : "在这里编辑笔记...",
     cache: {
       enable: false,
     },
     after: () => {
-      if (noteContent.value) {
+      if (isArticle && articleContent.value) {
+        vditor.value?.setValue(articleContent.value);
+      } else if (!isArticle && noteContent.value) {
         vditor.value?.setValue(noteContent.value);
+      }
+    },
+    input: (value: string) => {
+      // 内容变化时触发自动保存
+      if (isArticle) {
+        autoSaveArticle(value);
+      } else {
+        autoSaveNote(value);
+      }
+    },
+    blur: () => {
+      // 失去焦点时立即保存当前内容
+      if (vditor.value) {
+        const content = vditor.value.getValue();
+        // 取消延迟的自动保存
+        if (isArticle) {
+          autoSaveArticle.flush();
+          saveArticle(content);
+        } else {
+          autoSaveNote.flush();
+          saveNote(content);
+        }
       }
     },
   });
@@ -170,19 +284,22 @@ onMounted(async () => {
   const id = route.query.id as string;
   resourceId.value = id;
   if (id) {
-    // 独立加载笔记内容
+    // 独立加载笔记内容和资源信息
     await loadNoteContent(id);
 
-    try {
-      const response = await StudyResourceControllerService.previewFile(id);
-      if (response.code === 200 && response.data?.url) {
-        pdfUrl.value = response.data.url;
-      } else {
-        Message.error("获取预览链接失败");
+    // 只有当资源类型是 PDF 时才加载预览 URL
+    if (resourceType.value === StudyResourceVO.resourceType.PDF) {
+      try {
+        const response = await StudyResourceControllerService.previewFile(id);
+        if (response.code === 200 && response.data?.url) {
+          pdfUrl.value = response.data.url;
+        } else {
+          Message.error("获取预览链接失败");
+        }
+      } catch (error) {
+        Message.error("加载PDF失败");
+        console.error("Load PDF error:", error);
       }
-    } catch (error) {
-      Message.error("加载PDF失败");
-      console.error("Load PDF error:", error);
     }
   }
 
@@ -202,16 +319,44 @@ const loadNoteContent = async (id: string) => {
       await StudyResourceControllerService.getResourceDetail(id);
     if (resourceResponse.code === 200 && resourceResponse.data) {
       const content = resourceResponse.data.note || "";
+      const articleText = resourceResponse.data.content || "";
       noteContent.value = content;
-      // 如果当前是笔记视图且编辑器已初始化，设置内容
-      if (currentView.value === "note" && vditor.value) {
+      articleContent.value = articleText;
+      resourceType.value = resourceResponse.data.resourceType;
+
+      // 只在初始加载时设置视图
+      if (!currentView.value || currentView.value === "pdf") {
+        if (resourceType.value === StudyResourceVO.resourceType.NOTE) {
+          currentView.value = "note";
+        } else if (resourceType.value === StudyResourceVO.resourceType.URL) {
+          currentView.value = "web";
+        } else if (
+          resourceType.value === StudyResourceVO.resourceType.ARTICLE
+        ) {
+          currentView.value = "article";
+        }
+      }
+
+      // 如果当前是笔记或文章视图，初始化编辑器
+      if (
+        (currentView.value === "note" || currentView.value === "article") &&
+        !vditor.value
+      ) {
         await nextTick();
-        vditor.value.setValue(content);
+        initVditor(currentView.value === "article");
+      }
+      // 如果编辑器已存在，直接设置内容
+      else if (vditor.value) {
+        vditor.value.setValue(
+          currentView.value === "article"
+            ? articleContent.value
+            : noteContent.value
+        );
       }
     }
   } catch (error) {
-    Message.error("加载笔记内容失败");
-    console.error("Load note content error:", error);
+    Message.error("加载内容失败");
+    console.error("Load content error:", error);
   }
 };
 
@@ -324,16 +469,16 @@ const handleDirectGenerate = async () => {
 };
 
 // 保存笔记
-const saveNote = async () => {
+const saveNote = async (content?: string) => {
   try {
-    const content = vditor.value?.getValue() || "";
+    const currentContent = content ?? (vditor.value?.getValue() || "");
     const response = await StudyResourceControllerService.updateResource({
       id: resourceId.value,
-      note: content,
+      note: currentContent,
     });
     if (response.code === 200) {
       Message.success("保存成功");
-      noteContent.value = content;
+      noteContent.value = currentContent;
     } else {
       Message.error("保存失败");
     }
@@ -341,6 +486,36 @@ const saveNote = async () => {
     Message.error("保存失败");
     console.error("Save note error:", error);
   }
+};
+
+// 保存文章
+const saveArticle = async (content?: string) => {
+  try {
+    const currentContent = content ?? (vditor.value?.getValue() || "");
+    const response = await StudyResourceControllerService.updateResource({
+      id: resourceId.value,
+      content: currentContent,
+    });
+    if (response.code === 200) {
+      Message.success("保存成功");
+      articleContent.value = currentContent;
+    } else {
+      Message.error("保存失败");
+    }
+  } catch (error) {
+    Message.error("保存失败");
+    console.error("Save article error:", error);
+  }
+};
+
+// 手动保存按钮点击事件
+const handleSave = () => {
+  saveNote();
+};
+
+// 手动保存文章按钮点击事件
+const handleSaveArticle = () => {
+  saveArticle();
 };
 
 // 清理事件监听

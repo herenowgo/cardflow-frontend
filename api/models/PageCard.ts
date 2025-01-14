@@ -8,8 +8,8 @@ import type { PageableObject } from './PageableObject';
 import type { SortObject } from './SortObject';
 
 export type PageCard = {
-    totalPages?: number;
     totalElements?: number;
+    totalPages?: number;
     pageable?: PageableObject;
     sort?: SortObject;
     size?: number;

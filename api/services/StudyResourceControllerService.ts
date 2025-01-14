@@ -21,12 +21,12 @@ export class StudyResourceControllerService {
      * 更新学习资源
      * 更新学习资源的基本信息
      * @param requestBody
-     * @returns BaseResponseStudyResourceVO OK
+     * @returns BaseResponseVoid OK
      * @throws ApiError
      */
     public static updateResource(
         requestBody: UpdateStudyResourceRequest,
-    ): CancelablePromise<BaseResponseStudyResourceVO> {
+    ): CancelablePromise<BaseResponseVoid> {
         return __request(OpenAPI, {
             method: 'PUT',
             url: '/resource',
