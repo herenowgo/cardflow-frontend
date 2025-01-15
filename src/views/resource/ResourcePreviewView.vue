@@ -329,6 +329,11 @@ const loadNoteContent = async (id: string) => {
       articleContent.value = articleText;
       resourceType.value = resourceResponse.data.resourceType;
 
+      // 先清空 AI 助手的默认标签
+      if (aiChatRef.value) {
+        aiChatRef.value.setDefaultTags([]);
+      }
+
       // 如果是URL类型资源，设置网页地址
       if (
         resourceType.value === StudyResourceVO.resourceType.URL &&
@@ -368,13 +373,6 @@ const loadNoteContent = async (id: string) => {
       }
 
       // 如果存在结构化标签,则设置到 AI 助手
-      if (resourceResponse.data.structuredTag && aiChatRef.value) {
-        const tags = resourceResponse.data.structuredTag
-          .split(",")
-          .filter(Boolean);
-        aiChatRef.value.setDefaultTags(tags);
-      }
-
       if (resourceResponse.data.structuredTags && aiChatRef.value) {
         // 同时更新本地状态和 AI 组件的状态
         defaultTags.value = resourceResponse.data.structuredTags;

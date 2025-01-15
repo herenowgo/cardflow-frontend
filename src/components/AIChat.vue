@@ -901,7 +901,6 @@ const handleDefaultTagsChange = (value: any[], ev: Event) => {
   saveDefaultTags(defaultTags.value);
   // 触发标签变化事件
   emit("tags-change", defaultTags.value);
-  Message.success("默认标签已保存");
 };
 
 interface TagData {
