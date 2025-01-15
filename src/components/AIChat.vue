@@ -1541,8 +1541,11 @@ const generateCardsFromText = async (text: string) => {
 
 // 添加设置默认标签的方法
 const setDefaultTags = (tags: string[]) => {
-  defaultTags.value = tags;
-  handleDefaultTagsChange(tags);
+  // 只有当标签数组不为空时才更新
+  if (tags && tags.length > 0) {
+    defaultTags.value = tags;
+    handleDefaultTagsChange(tags);
+  }
 };
 
 // 对外暴露方法

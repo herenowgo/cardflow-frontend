@@ -373,7 +373,11 @@ const loadNoteContent = async (id: string) => {
       }
 
       // 如果存在结构化标签,则设置到 AI 助手
-      if (resourceResponse.data.structuredTags && aiChatRef.value) {
+      if (
+        resourceResponse.data.structuredTags &&
+        resourceResponse.data.structuredTags.length > 0 &&
+        aiChatRef.value
+      ) {
         // 同时更新本地状态和 AI 组件的状态
         defaultTags.value = resourceResponse.data.structuredTags;
         aiChatRef.value.setDefaultTags(resourceResponse.data.structuredTags);
