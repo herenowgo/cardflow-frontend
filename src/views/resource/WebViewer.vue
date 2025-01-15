@@ -1,28 +1,5 @@
 <template>
   <div class="web-viewer-container">
-    <div class="web-controls">
-      <div class="control-group">
-        <a-input-search
-          v-model="currentUrl"
-          placeholder="请输入网页地址..."
-          search-button
-          @search="loadUrl"
-        >
-          <template #button-icon>
-            <icon-enter />
-          </template>
-        </a-input-search>
-        <a-button-group>
-          <a-tooltip content="刷新">
-            <a-button @click="refreshPage">
-              <template #icon>
-                <icon-refresh />
-              </template>
-            </a-button>
-          </a-tooltip>
-        </a-button-group>
-      </div>
-    </div>
     <div class="web-content">
       <iframe
         v-if="displayUrl"
@@ -33,7 +10,7 @@
       ></iframe>
       <div v-else class="empty-state">
         <icon-internet />
-        <span>请输入要浏览的网页地址</span>
+        <span>暂无网页地址</span>
       </div>
     </div>
   </div>
@@ -42,19 +19,13 @@
 <script setup lang="ts">
 import { ref, defineExpose } from "vue";
 import { Message } from "@arco-design/web-vue";
-import {
-  IconEnter,
-  IconRefresh,
-  IconInternet,
-} from "@arco-design/web-vue/es/icon";
+import { IconInternet } from "@arco-design/web-vue/es/icon";
 
-const currentUrl = ref("");
 const displayUrl = ref("");
 const webFrame = ref<HTMLIFrameElement | null>(null);
 
 const loadUrl = (url: string) => {
   if (!url) {
-    Message.warning("请输入网页地址");
     return;
   }
 
@@ -68,19 +39,12 @@ const loadUrl = (url: string) => {
     new URL(processedUrl);
     displayUrl.value = processedUrl;
   } catch (e) {
-    Message.error("请输入有效的网页地址");
-  }
-};
-
-const refreshPage = () => {
-  if (webFrame.value) {
-    webFrame.value.src = displayUrl.value;
+    Message.error("无效的网页地址");
   }
 };
 
 defineExpose({
   loadUrl,
-  refreshPage,
 });
 </script>
 
@@ -90,27 +54,6 @@ defineExpose({
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-2);
-}
-
-.web-controls {
-  padding: 12px 16px;
-  background: var(--color-bg-2);
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.control-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-}
-
-.control-group :deep(.arco-input-search) {
-  flex: 1;
 }
 
 .web-content {

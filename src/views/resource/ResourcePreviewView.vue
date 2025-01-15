@@ -324,6 +324,14 @@ const loadNoteContent = async (id: string) => {
       articleContent.value = articleText;
       resourceType.value = resourceResponse.data.resourceType;
 
+      // 如果是URL类型资源，设置网页地址
+      if (
+        resourceType.value === StudyResourceVO.resourceType.URL &&
+        webViewerRef.value
+      ) {
+        webViewerRef.value.loadUrl(resourceResponse.data.resourceUrl || "");
+      }
+
       // 只在初始加载时设置视图
       if (!currentView.value || currentView.value === "pdf") {
         if (resourceType.value === StudyResourceVO.resourceType.NOTE) {
