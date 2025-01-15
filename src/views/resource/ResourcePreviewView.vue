@@ -71,7 +71,11 @@
     ></div>
 
     <a-layout-content class="bg-gray-100 chat-container">
-      <AIChat ref="aiChatRef" :embedded="true" />
+      <AIChat
+        ref="aiChatRef"
+        :embedded="true"
+        @tags-change="saveStructuredTags"
+      />
     </a-layout-content>
 
     <!-- 浮动按钮组 -->
@@ -109,7 +113,7 @@ import { StudyResourceVO } from "../../../api/models/StudyResourceVO";
 const route = useRoute();
 const pdfUrl = ref<string>("");
 const filePath = ref<string>("");
-const aiChatRef = ref<InstanceType<typeof AIChat>>();
+const aiChatRef = ref<InstanceType<typeof AIChat> | null>(null);
 const webViewerRef = ref<InstanceType<typeof WebViewer>>();
 const currentView = ref<"pdf" | "web" | "note" | "article">("pdf");
 const vditor = shallowRef<Vditor>();
@@ -117,6 +121,7 @@ const noteContent = ref<string>("");
 const articleContent = ref<string>("");
 const resourceId = ref<string>("");
 const resourceType = ref<StudyResourceVO.resourceType>();
+const defaultTags = ref<string[]>([]);
 
 // 防抖函数
 const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
@@ -361,6 +366,20 @@ const loadNoteContent = async (id: string) => {
             : noteContent.value
         );
       }
+
+      // 如果存在结构化标签,则设置到 AI 助手
+      if (resourceResponse.data.structuredTag && aiChatRef.value) {
+        const tags = resourceResponse.data.structuredTag
+          .split(",")
+          .filter(Boolean);
+        aiChatRef.value.setDefaultTags(tags);
+      }
+
+      if (resourceResponse.data.structuredTags && aiChatRef.value) {
+        // 同时更新本地状态和 AI 组件的状态
+        defaultTags.value = resourceResponse.data.structuredTags;
+        aiChatRef.value.setDefaultTags(resourceResponse.data.structuredTags);
+      }
     }
   } catch (error) {
     Message.error("加载内容失败");
@@ -483,6 +502,7 @@ const saveNote = async (content?: string) => {
     const response = await StudyResourceControllerService.updateResource({
       id: resourceId.value,
       note: currentContent,
+      structuredTags: defaultTags.value,
     });
     if (response.code === 200) {
       Message.success("保存成功");
@@ -503,6 +523,7 @@ const saveArticle = async (content?: string) => {
     const response = await StudyResourceControllerService.updateResource({
       id: resourceId.value,
       content: currentContent,
+      structuredTags: defaultTags.value,
     });
     if (response.code === 200) {
       Message.success("保存成功");
@@ -524,6 +545,25 @@ const handleSave = () => {
 // 手动保存文章按钮点击事件
 const handleSaveArticle = () => {
   saveArticle();
+};
+
+// 添加保存标签的方法
+const saveStructuredTags = async (tags: string[]) => {
+  try {
+    const response = await StudyResourceControllerService.updateResource({
+      id: resourceId.value,
+      structuredTags: tags,
+    });
+    if (response.code === 200) {
+      defaultTags.value = tags;
+      // 不显示成功消息,避免频繁打扰
+    } else {
+      Message.error("保存标签失败");
+    }
+  } catch (error) {
+    Message.error("保存标签失败");
+    console.error("Save tags error:", error);
+  }
 };
 
 // 清理事件监听

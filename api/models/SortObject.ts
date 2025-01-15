@@ -5,7 +5,7 @@
 
 export type SortObject = {
     sorted?: boolean;
-    empty?: boolean;
     unsorted?: boolean;
+    empty?: boolean;
 };
 

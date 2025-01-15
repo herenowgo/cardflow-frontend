@@ -15,6 +15,10 @@ export type StudyResourceVO = {
     content?: string;
     note?: string;
     resourceUrl?: string;
+    /**
+     * 结构化标签
+     */
+    structuredTags?: Array<string>;
 };
 
 export namespace StudyResourceVO {

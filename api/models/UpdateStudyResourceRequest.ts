@@ -15,5 +15,9 @@ export type UpdateStudyResourceRequest = {
     note?: string;
     coverUrl?: string;
     resourceUrl?: string;
+    /**
+     * 结构化标签
+     */
+    structuredTags?: Array<string>;
 };
 

@@ -720,6 +720,7 @@ import {
   computed,
   h,
   onUnmounted,
+  PropType,
 } from "vue";
 import { eventStreamService } from "@/services/EventStreamService";
 import { ChatControllerService } from "../../generated/services/ChatControllerService";
@@ -773,6 +774,7 @@ interface Props {
   draggable?: boolean;
   showClear?: boolean;
   embedded?: boolean;
+  initialDefaultTags?: string[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -785,6 +787,7 @@ const props = withDefaults(defineProps<Props>(), {
   draggable: true,
   showClear: true,
   embedded: false,
+  initialDefaultTags: () => [],
 });
 
 const emit = defineEmits<{
@@ -805,6 +808,7 @@ const emit = defineEmits<{
     }
   ): void;
   (e: "cards-drawer-change", value: boolean): void;
+  (e: "tags-change", tags: string[]): void;
 }>();
 
 const STORAGE_KEY = "ai_chat_model";
@@ -895,6 +899,8 @@ const handleDefaultTagsChange = (value: any[], ev: Event) => {
     return String(tag);
   });
   saveDefaultTags(defaultTags.value);
+  // 触发标签变化事件
+  emit("tags-change", defaultTags.value);
   Message.success("默认标签已保存");
 };
 
@@ -1534,6 +1540,13 @@ const generateCardsFromText = async (text: string) => {
   }
 };
 
+// 添加设置默认标签的方法
+const setDefaultTags = (tags: string[]) => {
+  defaultTags.value = tags;
+  handleDefaultTagsChange(tags);
+};
+
+// 对外暴露方法
 defineExpose({
   show: () => {
     visible.value = true;
@@ -1548,6 +1561,7 @@ defineExpose({
   },
   generateCardsFromText,
   getCurrentModel: () => currentModel.value,
+  setDefaultTags,
 });
 
 watch(visible, (newVal) => {
