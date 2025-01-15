@@ -551,6 +551,18 @@ const handleSaveArticle = () => {
 
 // 添加保存标签的方法
 const saveStructuredTags = async (tags: string[]) => {
+  // 比较新旧标签是否相同
+  const currentTags = defaultTags.value || [];
+  const isEqual =
+    tags.length === currentTags.length &&
+    tags.every((tag) => currentTags.includes(tag)) &&
+    currentTags.every((tag) => tags.includes(tag));
+
+  // 如果标签相同，不进行更新
+  if (isEqual) {
+    return;
+  }
+
   try {
     const response = await StudyResourceControllerService.updateResource({
       id: resourceId.value,
@@ -558,7 +570,6 @@ const saveStructuredTags = async (tags: string[]) => {
     });
     if (response.code === 200) {
       defaultTags.value = tags;
-      // 不显示成功消息,避免频繁打扰
     } else {
       Message.error("保存标签失败");
     }
