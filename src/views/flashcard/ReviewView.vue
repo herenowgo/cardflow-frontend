@@ -875,6 +875,8 @@ const loadDeckData = async () => {
     });
 
     if (res.code === 200 && res.data) {
+      // 使用 Fisher-Yates 算法打乱卡片顺序
+      shuffleArray(res.data);
       cards.value = res.data.map((card: any) => ({
         id: card.id, // 直接使用后端返回的 string 类型 id
         userId: card.userId,
@@ -896,6 +898,15 @@ const loadDeckData = async () => {
     Message.error("加载失败，请重试");
   }
 };
+
+// 使用 Fisher-Yates 算法打乱卡片顺序
+function shuffleArray(array: any[]) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
 
 // 修改保存评分的函数
 const saveRating = async (cardId: string, rating: number) => {
