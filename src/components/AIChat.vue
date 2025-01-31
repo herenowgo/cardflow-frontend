@@ -101,6 +101,7 @@
                 :datetime="item.datetime"
                 :content="item.content"
                 :text-loading="index === 0 && loading"
+                variant="base"
               >
                 <template
                   #actions
@@ -282,6 +283,7 @@
               :datetime="item.datetime"
               :content="item.content"
               :text-loading="index === 0 && loading"
+              variant="base"
             >
               <template
                 #actions
@@ -787,6 +789,7 @@ const props = withDefaults(defineProps<Props>(), {
   draggable: true,
   showClear: true,
   embedded: false,
+  variant: "base",
   initialDefaultTags: () => [],
 });
 
