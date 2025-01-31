@@ -110,7 +110,7 @@
                     !(index === 0 && (loading || isStreamLoad))
                   "
                 >
-                  <t-space>
+                  <t-space size="small" break-line>
                     <t-dropdown
                       trigger="click"
                       :min-column-width="100"
@@ -127,18 +127,12 @@
                         },
                       ]"
                     >
-                      <t-button theme="default" variant="text" size="small">
+                      <t-button variant="text" size="small">
                         <template #icon><t-icon name="file-copy" /></template>
                         复制
-                        <t-icon
-                          name="chevron-down"
-                          size="small"
-                          style="margin-left: 4px"
-                        />
                       </t-button>
                     </t-dropdown>
                     <t-button
-                      theme="default"
                       variant="text"
                       size="small"
                       :loading="cardsGeneratingMap.get(index)"
@@ -156,19 +150,13 @@
                         onClick: () => regenerateWithModel(opt.value),
                       }))"
                     >
-                      <t-button theme="default" variant="text" size="small">
+                      <t-button variant="text" size="small">
                         <template #icon><t-icon name="refresh" /></template>
                         重新生成
-                        <t-icon
-                          name="chevron-down"
-                          size="small"
-                          style="margin-left: 4px"
-                        />
                       </t-button>
                     </t-dropdown>
                     <t-button
                       v-if="item.history?.length"
-                      theme="default"
                       variant="text"
                       size="small"
                       @click="switchHistory(item)"
@@ -292,7 +280,7 @@
                   !(index === 0 && (loading || isStreamLoad))
                 "
               >
-                <t-space>
+                <t-space size="small" break-line>
                   <t-dropdown
                     trigger="click"
                     :min-column-width="100"
@@ -309,18 +297,12 @@
                       },
                     ]"
                   >
-                    <t-button theme="default" variant="text" size="small">
+                    <t-button variant="text" size="small">
                       <template #icon><t-icon name="file-copy" /></template>
                       复制
-                      <t-icon
-                        name="chevron-down"
-                        size="small"
-                        style="margin-left: 4px"
-                      />
                     </t-button>
                   </t-dropdown>
                   <t-button
-                    theme="default"
                     variant="text"
                     size="small"
                     :loading="cardsGeneratingMap.get(index)"
@@ -338,19 +320,13 @@
                       onClick: () => regenerateWithModel(opt.value),
                     }))"
                   >
-                    <t-button theme="default" variant="text" size="small">
+                    <t-button variant="text" size="small">
                       <template #icon><t-icon name="refresh" /></template>
                       重新生成
-                      <t-icon
-                        name="chevron-down"
-                        size="small"
-                        style="margin-left: 4px"
-                      />
                     </t-button>
                   </t-dropdown>
                   <t-button
                     v-if="item.history?.length"
-                    theme="default"
                     variant="text"
                     size="small"
                     @click="switchHistory(item)"
@@ -2361,5 +2337,29 @@ watch(showCardsDrawer, (newValue) => {
 .tags-section :deep(.arco-checkbox) {
   margin-right: 8px;
   margin-bottom: 8px;
+}
+
+:deep(.t-button.t-button--text) {
+  padding: 4px 8px;
+  min-width: auto;
+}
+
+:deep(.t-button.t-button--text:hover) {
+  background-color: var(--td-bg-color-container-hover);
+}
+
+:deep(.t-space) {
+  padding: 4px 0;
+}
+
+:deep(.t-divider.t-divider--vertical) {
+  margin: 0 4px;
+  height: 16px;
+}
+
+:deep(.t-button.t-button--text.t-button--shape-square) {
+  width: 32px;
+  height: 32px;
+  padding: 0;
 }
 </style>
