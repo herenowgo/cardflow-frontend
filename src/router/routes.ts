@@ -1,9 +1,9 @@
 import { RouteRecordRaw } from "vue-router";
+import ACCESS_ENUM from "@/access/accessEnum";
 import UserLayout from "@/layouts/UserLayout.vue";
 import UserLoginView from "@/views/user/UserLoginView.vue";
 import UserRegisterView from "@/views/user/UserRegisterView.vue";
 import NoAuthView from "@/views/NoAuthView.vue";
-import ACCESS_ENUM from "@/access/accessEnum";
 import AddQuestionView from "@/views/question/AddQuestionView.vue";
 import ManageQuestionView from "@/views/question/ManageQuestionView.vue";
 import QuestionsView from "@/views/question/QuestionsView.vue";
@@ -25,23 +25,22 @@ export const routes: Array<RouteRecordRaw> = [
   {
     path: "/user",
     name: "用户",
-    component: UserLayout,
+    component: () => import("@/layouts/UserLayout.vue"),
     children: [
       {
         path: "/user/login",
         name: "用户登录",
-        component: UserLoginView,
+        component: () => import("@/views/user/UserLoginView.vue"),
       },
-
       {
         path: "/user/smsLogin",
         name: "用户短信登录",
-        component: UserSmsLoginView,
+        component: () => import("@/views/user/UserSmsLoginView.vue"),
       },
       {
         path: "/user/register",
         name: "用户注册",
-        component: UserRegisterView,
+        component: () => import("@/views/user/UserRegisterView.vue"),
       },
     ],
     meta: {
@@ -51,7 +50,7 @@ export const routes: Array<RouteRecordRaw> = [
   {
     path: "/info/user",
     name: "用户信息",
-    component: UserInfoView,
+    component: () => import("@/views/user/UserInfoView.vue"),
     meta: {
       // access: ACCESS_ENUM.USER,
       hideInMenu: true,
@@ -61,12 +60,12 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/questions",
     alias: "/",
     name: "题库",
-    component: QuestionsView,
+    component: () => import("@/views/question/QuestionsView.vue"),
   },
   {
     path: "/topQuestions",
     name: "Top50",
-    component: TopQuestionsView,
+    component: () => import("@/views/question/TopQuestionsView.vue"),
   },
   // {
   //   path: "/question_submit",
@@ -76,7 +75,7 @@ export const routes: Array<RouteRecordRaw> = [
   {
     path: "/view/question/:id",
     name: "在线做题",
-    component: ViewQuestionView,
+    component: () => import("@/views/question/ViewQuestionView.vue"),
     props: true,
     meta: {
       // access: ACCESS_ENUM.USER,

@@ -9,7 +9,7 @@
         sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
       ></iframe>
       <div v-else class="empty-state">
-        <icon-internet />
+        <icon-link />
         <span>暂无网页地址</span>
       </div>
     </div>
@@ -19,7 +19,7 @@
 <script setup lang="ts">
 import { ref, defineExpose } from "vue";
 import { Message } from "@arco-design/web-vue";
-import { IconInternet } from "@arco-design/web-vue/es/icon";
+import { IconLink } from "@arco-design/web-vue/es/icon";
 
 const displayUrl = ref("");
 const webFrame = ref<HTMLIFrameElement | null>(null);

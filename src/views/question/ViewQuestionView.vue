@@ -575,7 +575,7 @@
                                     <a-textarea
                                       v-model="debugTestCase"
                                       :auto-size="{ minRows: 2, maxRows: 6 }"
-                                      placeholder="在这里输入测试用例，点击上方调试��钮运行"
+                                      placeholder="在这里输入测试用例，点击上方调试按钮运行"
                                       allow-clear
                                       class="debug-input"
                                     >
@@ -613,7 +613,7 @@
                                   <a-descriptions-item label="执行用时">
                                     {{ debugResult.time?.[0] }} ms
                                   </a-descriptions-item>
-                                  <a-descriptions-item label="内存消���">
+                                  <a-descriptions-item label="内存消耗">
                                     {{ debugResult.memory?.[0] ?? 0 }} KB
                                   </a-descriptions-item>
                                 </a-descriptions>
@@ -690,7 +690,16 @@
 </template>
 
 <script setup lang="ts">
-import CodeEditor from "@/components/CodeEditor.vue";
+import {
+  defineAsyncComponent,
+  ref,
+  onMounted,
+  watch,
+  defineProps,
+  onBeforeUnmount,
+  provide,
+  withDefaults,
+} from "vue";
 import MdViewer from "@/components/MdViewer.vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
@@ -702,15 +711,6 @@ import {
   IconLeft,
 } from "@arco-design/web-vue/es/icon";
 import message from "@arco-design/web-vue/es/message";
-import {
-  defineProps,
-  onBeforeUnmount,
-  onMounted,
-  provide,
-  ref,
-  watch,
-  withDefaults,
-} from "vue";
 import { useRoute } from "vue-router";
 import {
   AiControllerService,
@@ -933,7 +933,7 @@ const changeCode = (value: string) => {
 
 const handleLanguageChange = (value: string) => {
   form.value.language = value;
-  // 保存语言选择框���值到本地存储
+  // 保存语言选择框的值到本地存储
   localStorage.setItem(`language_${questionId}`, value);
 };
 
@@ -1293,6 +1293,11 @@ const handleAiSuggestionError = (error: any, index: number) => {
   console.error(error);
   aiLoading.value[index] = false;
 };
+
+// 异步加载CodeEditor组件
+const CodeEditor = defineAsyncComponent(
+  () => import("@/components/CodeEditor.vue")
+);
 </script>
 
 <style>

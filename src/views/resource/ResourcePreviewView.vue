@@ -6,60 +6,25 @@
       :class="{ resizing: isResizing }"
       :style="{ width: `${siderWidth}px` }"
     >
-      <div class="viewer-controls">
-        <a-radio-group
-          v-model="currentView"
-          type="button"
-          size="small"
-          :style="{ marginBottom: '8px' }"
-        >
-          <template v-if="resourceType === 'NOTE'">
-            <a-radio value="note">笔记</a-radio>
-          </template>
-          <template v-else-if="resourceType === 'PDF'">
-            <a-radio value="pdf">PDF 阅读</a-radio>
-            <a-radio value="note">笔记</a-radio>
-          </template>
-          <template v-else-if="resourceType === 'URL'">
-            <a-radio value="web">网页浏览</a-radio>
-            <a-radio value="note">笔记</a-radio>
-          </template>
-          <template v-else-if="resourceType === 'ARTICLE'">
-            <a-radio value="article">文章</a-radio>
-            <a-radio value="note">笔记</a-radio>
-          </template>
-          <template v-else>
-            <a-radio value="pdf">PDF 阅读</a-radio>
-            <a-radio value="web">网页浏览</a-radio>
-            <a-radio value="note">笔记</a-radio>
-          </template>
-        </a-radio-group>
-      </div>
       <div class="viewer-container">
-        <div v-show="currentView === 'pdf'" class="pdf-container">
-          <div class="pdf-content">
-            <pdf-viewer :source="pdfUrl" :path="filePath" />
+        <template v-if="resourceType === 'NOTE'">
+          <div class="note-container">
+            <div id="vditor-main" class="note-editor"></div>
+            <div class="note-actions">
+              <a-button type="primary" @click="handleSave">保存</a-button>
+            </div>
           </div>
-        </div>
-        <div v-show="currentView === 'web'" class="web-container">
-          <web-viewer ref="webViewerRef" />
-        </div>
-        <div
-          v-show="currentView === 'note' || currentView === 'article'"
-          class="note-container"
-        >
-          <div id="vditor" class="note-editor"></div>
-          <div class="note-actions">
-            <a-button
-              type="primary"
-              @click="
-                currentView === 'article' ? handleSaveArticle : handleSave
-              "
-            >
-              保存
-            </a-button>
+        </template>
+        <template v-else>
+          <div v-show="resourceType === 'PDF'" class="pdf-container">
+            <div class="pdf-content">
+              <pdf-viewer :source="pdfUrl" :path="filePath" />
+            </div>
           </div>
-        </div>
+          <div v-show="resourceType === 'URL'" class="web-container">
+            <web-viewer ref="webViewerRef" />
+          </div>
+        </template>
       </div>
     </a-layout-sider>
 
@@ -70,15 +35,43 @@
       @touchstart="startResize"
     ></div>
 
-    <a-layout-content class="bg-gray-100 chat-container">
-      <AIChat
-        ref="aiChatRef"
-        :embedded="true"
-        @tags-change="saveStructuredTags"
-      />
+    <a-layout-content class="bg-gray-100 right-content">
+      <template v-if="resourceType !== 'NOTE'">
+        <div class="right-controls">
+          <div class="controls-wrapper">
+            <a-radio-group v-model="rightView" type="button" size="mini">
+              <a-radio value="chat">AI 助手</a-radio>
+              <a-radio value="note">笔记</a-radio>
+            </a-radio-group>
+          </div>
+        </div>
+
+        <div v-show="rightView === 'chat'" class="chat-container">
+          <AIChat
+            ref="aiChatRef"
+            :embedded="true"
+            @tags-change="saveStructuredTags"
+          />
+        </div>
+
+        <div v-show="rightView === 'note'" class="note-container">
+          <div id="vditor" class="note-editor"></div>
+          <div class="note-actions">
+            <a-button type="primary" @click="handleSave">保存</a-button>
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div class="chat-container">
+          <AIChat
+            ref="aiChatRef"
+            :embedded="true"
+            @tags-change="saveStructuredTags"
+          />
+        </div>
+      </template>
     </a-layout-content>
 
-    <!-- 浮动按钮组 -->
     <div
       v-show="showFloatButton"
       class="float-buttons"
@@ -115,13 +108,13 @@ const pdfUrl = ref<string>("");
 const filePath = ref<string>("");
 const aiChatRef = ref<InstanceType<typeof AIChat> | null>(null);
 const webViewerRef = ref<InstanceType<typeof WebViewer>>();
-const currentView = ref<"pdf" | "web" | "note" | "article">("pdf");
 const vditor = shallowRef<Vditor>();
 const noteContent = ref<string>("");
 const articleContent = ref<string>("");
 const resourceId = ref<string>("");
 const resourceType = ref<StudyResourceVO.resourceType>();
 const defaultTags = ref<string[]>([]);
+const rightView = ref<"chat" | "note">("chat");
 
 // 防抖函数
 const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
@@ -144,21 +137,6 @@ const debounce = <T extends (...args: any[]) => any>(fn: T, delay: number) => {
 
   return debouncedFn;
 };
-
-// 监听视图切换
-watch(currentView, async (newView) => {
-  if (newView === "note" || newView === "article") {
-    // 如果已经有编辑器实例，先销毁
-    if (vditor.value) {
-      vditor.value.destroy();
-      vditor.value = undefined;
-    }
-    // 等待 DOM 更新
-    await nextTick();
-    // 重新加载内容
-    await loadNoteContent(resourceId.value);
-  }
-});
 
 // 自动保存笔记
 const autoSaveNote = debounce(async (content: string) => {
@@ -199,11 +177,12 @@ const autoSaveArticle = debounce(async (content: string) => {
 }, 2000);
 
 // 初始化 Vditor
-const initVditor = (isArticle = false) => {
-  const element = document.getElementById("vditor");
+const initVditor = (isMain = false) => {
+  const elementId = isMain ? "vditor-main" : "vditor";
+  const element = document.getElementById(elementId);
   if (!element) return;
 
-  vditor.value = new Vditor("vditor", {
+  const instance = new Vditor(elementId, {
     height: "calc(100vh - 150px)",
     mode: "ir",
     theme: "classic",
@@ -249,48 +228,46 @@ const initVditor = (isArticle = false) => {
         ],
       },
     ],
-    placeholder: isArticle ? "在这里编辑文章..." : "在这里编辑笔记...",
+    placeholder: isMain ? "在这里编辑文章..." : "在这里编辑笔记...",
     cache: {
       enable: false,
     },
     after: () => {
-      if (isArticle && articleContent.value) {
-        vditor.value?.setValue(articleContent.value);
-      } else if (!isArticle && noteContent.value) {
-        vditor.value?.setValue(noteContent.value);
+      if (noteContent.value) {
+        instance.setValue(noteContent.value);
       }
     },
     input: (value: string) => {
-      // 内容变化时触发自动保存
-      if (isArticle) {
-        autoSaveArticle(value);
-      } else {
-        autoSaveNote(value);
-      }
+      autoSaveNote(value);
     },
     blur: () => {
-      // 失去焦点时立即保存当前内容
-      if (vditor.value) {
-        const content = vditor.value.getValue();
-        // 取消延迟的自动保存
-        if (isArticle) {
-          autoSaveArticle.flush();
-          saveArticle(content);
-        } else {
-          autoSaveNote.flush();
-          saveNote(content);
-        }
+      if (instance) {
+        const content = instance.getValue();
+        autoSaveNote.flush();
+        saveNote(content);
       }
     },
   });
+
+  if (isMain) {
+    vditor.value = instance;
+  }
 };
 
+// 修改 onMounted 钩子
 onMounted(async () => {
   const id = route.query.id as string;
   resourceId.value = id;
   if (id) {
-    // 独立加载笔记内容和资源信息
     await loadNoteContent(id);
+
+    // 根据资源类型初始化不同的编辑器
+    await nextTick();
+    if (resourceType.value === StudyResourceVO.resourceType.NOTE) {
+      initVditor(true); // 初始化主编辑器
+    } else {
+      initVditor(false); // 初始化右侧编辑器
+    }
 
     // 只有当资源类型是 PDF 时才加载预览 URL
     if (resourceType.value === StudyResourceVO.resourceType.PDF) {
@@ -317,7 +294,7 @@ onMounted(async () => {
   document.addEventListener("mouseup", handleTextSelection);
 });
 
-// 加载笔记内容
+// 修改 loadNoteContent 方法
 const loadNoteContent = async (id: string) => {
   try {
     const resourceResponse =
@@ -337,38 +314,30 @@ const loadNoteContent = async (id: string) => {
       // 如果是URL类型资源，设置网页地址
       if (
         resourceType.value === StudyResourceVO.resourceType.URL &&
-        webViewerRef.value
+        webViewerRef.value &&
+        resourceResponse.data.resourceUrl
       ) {
-        webViewerRef.value.loadUrl(resourceResponse.data.resourceUrl || "");
+        await nextTick(); // 等待 DOM 更新
+        webViewerRef.value.loadUrl(resourceResponse.data.resourceUrl);
       }
 
       // 只在初始加载时设置视图
-      if (!currentView.value || currentView.value === "pdf") {
+      if (!rightView.value || rightView.value === "note") {
         if (resourceType.value === StudyResourceVO.resourceType.NOTE) {
-          currentView.value = "note";
+          rightView.value = "note";
         } else if (resourceType.value === StudyResourceVO.resourceType.URL) {
-          currentView.value = "web";
+          rightView.value = "web";
         } else if (
           resourceType.value === StudyResourceVO.resourceType.ARTICLE
         ) {
-          currentView.value = "article";
+          rightView.value = "note";
         }
       }
 
-      // 如果当前是笔记或文章视图，初始化编辑器
-      if (
-        (currentView.value === "note" || currentView.value === "article") &&
-        !vditor.value
-      ) {
-        await nextTick();
-        initVditor(currentView.value === "article");
-      }
       // 如果编辑器已存在，直接设置内容
-      else if (vditor.value) {
+      if (vditor.value) {
         vditor.value.setValue(
-          currentView.value === "article"
-            ? articleContent.value
-            : noteContent.value
+          rightView.value === "note" ? noteContent.value : articleContent.value
         );
       }
 
@@ -544,11 +513,6 @@ const handleSave = () => {
   saveNote();
 };
 
-// 手动保存文章按钮点击事件
-const handleSaveArticle = () => {
-  saveArticle();
-};
-
 // 添加保存标签的方法
 const saveStructuredTags = async (tags: string[]) => {
   // 比较新旧标签是否相同
@@ -579,14 +543,19 @@ const saveStructuredTags = async (tags: string[]) => {
   }
 };
 
-// 清理事件监听
+// 修改 onUnmounted 钩子
 onUnmounted(() => {
   document.removeEventListener("mousemove", handleResize);
   document.removeEventListener("mouseup", stopResize);
   document.removeEventListener("touchmove", handleResize);
   document.removeEventListener("touchend", stopResize);
   document.removeEventListener("mouseup", handleTextSelection);
-  vditor.value?.destroy();
+
+  // 确保编辑器实例被正确销毁
+  if (vditor.value) {
+    vditor.value.destroy();
+    vditor.value = undefined;
+  }
 });
 </script>
 
@@ -619,11 +588,47 @@ onUnmounted(() => {
   flex: 1;
 }
 
-.chat-container {
+.right-content {
+  display: flex;
+  flex-direction: column;
   height: 100vh;
+}
+
+.right-controls {
+  padding: 4px 0;
+  background-color: white;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.controls-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.chat-container,
+.note-container {
+  flex: 1;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  height: calc(
+    100vh - 37px
+  ); /* 37px = 控制栏高度(29px) + 边框(1px) + 内边距(8px) */
+}
+
+.note-editor {
+  flex: 1;
+  overflow: auto;
+  height: calc(100vh - 90px); /* 调整高度以适应新的布局 */
+}
+
+.note-actions {
+  padding: 4px 8px;
+  background-color: white;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
 }
 
 .resizer {
@@ -770,16 +775,9 @@ onUnmounted(() => {
   }
 }
 
-.viewer-controls {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--color-border);
-  display: flex;
-  justify-content: center;
-}
-
 .viewer-container {
   flex: 1;
-  height: calc(100% - 52px);
+  height: 100%;
   overflow: hidden;
 }
 
