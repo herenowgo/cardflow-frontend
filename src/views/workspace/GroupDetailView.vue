@@ -230,24 +230,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
-import {
-  IconPlus,
-  IconFolder,
-  IconEdit,
-  IconDelete,
-  IconSync,
-  IconFile,
-  IconMessage,
-  IconLeft,
-} from "@arco-design/web-vue/es/icon";
+import { AnkiService } from "@/services/AnkiService";
+import { AnkiSyncService } from "@/services/AnkiSyncService"; // 添加导入
 import { Message } from "@arco-design/web-vue";
-import { CardControllerService } from "../../../generated/services/CardControllerService";
+import {
+  IconDelete,
+  IconEdit,
+  IconFile,
+  IconLeft,
+  IconMessage,
+  IconPlus,
+  IconSync,
+} from "@arco-design/web-vue/es/icon";
+import { onMounted, ref } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import type { CardAddRequest } from "../../../generated/models/CardAddRequest";
 import type { CardUpdateRequest } from "../../../generated/models/CardUpdateRequest";
-import { AnkiService } from "@/services/AnkiService";
-import type { AnkiInfo } from "../../../generated";
+import { CardControllerService } from "../../../generated/services/CardControllerService";
 
 const router = useRouter();
 const route = useRoute();
@@ -449,251 +448,25 @@ const cancelDelete = () => {
 // todo 同步后，需要直接刷新卡片列表
 const syncWithAnki = async () => {
   try {
-    // 1. 获取同步状态
-    const res = await CardControllerService.syncWithAnki(deckName);
-    if (res.code !== 200 || !res.data) {
-      throw new Error("Failed to get sync status");
-    }
-
-    // 2. 处理新卡片同步
-    // 2.1 处理系统中的新卡片
-    if (res.data.ankiNoteAddRequests?.length > 0) {
-      // 确保目标牌组存在
-      const deckExists = await AnkiService.createDeckIfNotExists(deckName);
-      if (!deckExists) {
-        throw new Error(`Failed to create or verify deck: ${deckName}`);
+    const success = await AnkiSyncService.syncWithAnki(
+      decodeURIComponent(group),
+      (conflicts, currentIndex) => {
+        // 处理冲突的回调函数
+        conflictCards.value = conflicts;
+        currentConflictIndex.value = currentIndex;
+        conflictModalVisible.value = true;
       }
-
-      // 将新卡片添加到 Anki
-      const notes = res.data.ankiNoteAddRequests.map((request) => ({
-        question: request.question || "",
-        answer: request.answer || "",
-        tags: request.tags || [],
-      }));
-
-      // 添加笔记到 Anki
-      const noteIds = await AnkiService.addNotes(deckName, notes);
-      if (!noteIds || noteIds.length !== notes.length) {
-        throw new Error("Failed to add some notes to Anki");
-      }
-
-      // 获取新添加笔记的卡片信息
-      const noteInfos = await AnkiService.getNotesInfo(noteIds);
-      const cardInfos = await AnkiService.getCardsInfo(noteIds);
-      if (!cardInfos || cardInfos.length === 0) {
-        throw new Error("Failed to get card info for new notes");
-      }
-
-      // 批量更新系统卡片的 Anki 信息
-      const updates = res.data.ankiNoteAddRequests.map((request, index) => {
-        const noteInfo = noteInfos[index];
-        if (!noteInfo) {
-          throw new Error(`No note info found for note ${noteIds[index]}`);
-        }
-        // 将新卡片的 cardId 添加到 res.data.cardIds 中
-        res.data?.cardIds?.push(cardInfos[index].cardId);
-        return {
-          id: request.id,
-          ankiInfo: {
-            cardId: noteInfo.cards[0],
-            noteId: noteInfo.noteId,
-            modelName: "Basic",
-            syncTime: noteInfo.mod,
-          },
-        };
-      });
-
-      // 批量更新系统卡片
-      await Promise.all(
-        updates.map((update) => CardControllerService.updateCard(update))
-      );
-    }
-
-    // 2.2 处理anki中的新卡片
-    const deckCardIds = await AnkiService.getDeckCardIds(group);
-    // 如果deckCardIds中有res.data.cardIds中没有的，那就是anki中的新卡片，保存到一个新的数组中
-    const ankiNewCards = deckCardIds.filter(
-      (cardId) => !res.data.cardIds.includes(cardId)
     );
-    if (ankiNewCards.length > 0) {
-      const ankiNewCardsInfo = await AnkiService.getCardsInfo(ankiNewCards);
-      await ankiNewCardsInfo.map(async (card, index) => {
-        const noteInfos = await AnkiService.getNotesInfo([card.cardId]);
-        const noteInfo = noteInfos[0];
 
-        if (!noteInfo) {
-          throw new Error(`No note info found for note ${card.note}`);
-        }
-
-        console.log("Card:" + JSON.stringify(card));
-
-        CardControllerService.createCard({
-          ankiInfo: {
-            cardId: card.cardId,
-            noteId: card.note,
-            modelName: card.modelName,
-            syncTime: noteInfo.mod,
-          },
-          question: card.fields.Front?.value,
-          answer: card.fields.Back?.value,
-          tags: noteInfo.tags,
-          group: group,
-        });
-      });
+    if (success) {
       await loadCards();
     }
-    // 3. 处理已同步卡片的更新
-    if (res.data.ankiSyncedCards?.length > 0) {
-      // 获取 Anki 中的卡片和笔记信息
-      const cardsInfo = await AnkiService.getCardsInfo(res.data.cardIds);
-      const notesInfo = await AnkiService.getNotesInfo(
-        cardsInfo.map((card) => card.note).filter(Boolean)
-      );
-
-      // 处理冲突和更新
-      const { conflicts, updates } = await processCardsSync(
-        res.data.ankiSyncedCards,
-        cardsInfo,
-        notesInfo
-      );
-
-      if (conflicts.length > 0) {
-        conflictCards.value = conflicts;
-        currentConflictIndex.value = 0;
-        conflictModalVisible.value = true;
-        return;
-      }
-
-      // 批量处理所有更新
-      if (updates.length > 0) {
-        await Promise.all(
-          updates.map((update) => CardControllerService.updateCard(update))
-        );
-      }
-    }
-
-    Message.success("同步成功");
-    await loadCards();
   } catch (error) {
     console.error("Sync failed:", error);
     Message.error("同步失败");
   } finally {
     await loadCards();
   }
-};
-
-// 修改处理同步的辅助函数
-const processCardsSync = async (
-  syncedCards: AnkiSyncedCard[],
-  cardsInfo: any[],
-  notesInfo: any[]
-) => {
-  const conflicts: ConflictCard[] = [];
-  const updates: CardUpdateRequest[] = [];
-
-  for (const syncCard of syncedCards) {
-    // 使用 cardId 查找 Anki 中的卡片信息
-    const cardInfo = cardsInfo.find((info) => info.cardId === syncCard.cardId);
-
-    if (!cardInfo) {
-      console.error(`Card info not found for card ${syncCard.cardId}`);
-      continue;
-    }
-
-    // 使用卡片关联的 note ID 查找笔记信息
-    const noteInfo = notesInfo.find((note) => note.noteId === cardInfo.note);
-
-    if (!noteInfo) {
-      console.error(`Note info not found for note ${cardInfo.note}`);
-      continue;
-    }
-
-    // 检查系统是否有更新（修改时间大于上次同步时间）
-    const systemHasUpdate = syncCard.modifiedTime > syncCard.syncTime;
-    // 检查 Anki 是否有更新（修改时间大于上次同步时间）
-    const ankiHasUpdate = noteInfo.mod > syncCard.syncTime;
-
-    if (systemHasUpdate && ankiHasUpdate) {
-      // todo 优化为批量处理
-      const systemCard = await CardControllerService.getCardById(syncCard.id);
-      console.log("systemCard:" + JSON.stringify(systemCard.data));
-      if (systemCard.code !== 200 || !systemCard.data) {
-        throw new Error("Failed to get system card");
-      }
-      // 双方都有更新，产生冲突
-      conflicts.push({
-        systemCard: {
-          id: systemCard.data?.id,
-          modifiedTime: systemCard.data?.modifiedTime,
-          question: systemCard.data?.question,
-          answer: systemCard.data?.answer,
-          tags: systemCard.data?.tags || [],
-        },
-        ankiCard: {
-          question: noteInfo.fields.Front.value,
-          answer: noteInfo.fields.Back.value,
-          tags: noteInfo.tags,
-          mod: noteInfo.mod,
-        },
-        cardId: syncCard.cardId.toString(),
-        noteId: cardInfo.note,
-      });
-    } else if (systemHasUpdate) {
-      // 只有系统有更新，需要更新到 Anki
-      try {
-        // todo 优化为批量处理
-        // 先获取系统中的最新卡片信息
-        const systemCard = await CardControllerService.getCardById(syncCard.id);
-        if (systemCard.code !== 200 || !systemCard.data) {
-          throw new Error("Failed to get system card");
-        }
-
-        // 更新到 Anki
-        console.log("111更新note了:" + JSON.stringify(systemCard.data));
-        const result = await AnkiService.updateNote({
-          id: cardInfo.note, // 使用 note ID 而不是 card ID
-          fields: {
-            Front: systemCard.data.question,
-            Back: systemCard.data.answer,
-          },
-          tags: systemCard.data.tags || [],
-        });
-
-        const mod = await AnkiService.getNotesModTime([cardInfo.note]);
-
-        if (mod !== null && result) {
-          // 确保 mod 是有效值
-          updates.push({
-            id: syncCard.id,
-            ankiInfo: {
-              syncTime: Number(mod), // 确保转换为数值
-            },
-          });
-          // CardControllerService.updateCard({
-          //   id: syncCard.id,
-          //   ankiInfo: {
-          //     syncTime: Number(mod), // 确保转换为数值
-          //   },
-          // });
-        }
-      } catch (error) {
-        console.error("Error updating Anki:", error);
-      }
-    } else if (ankiHasUpdate) {
-      // 只有 Anki 有更新，需要更新到系统
-      updates.push({
-        id: syncCard.id,
-        question: noteInfo.fields.Front.value,
-        answer: noteInfo.fields.Back.value,
-        tags: noteInfo.tags || [],
-        ankiInfo: {
-          syncTime: noteInfo.mod,
-        },
-      });
-    }
-  }
-
-  return { conflicts, updates };
 };
 
 // 内预览截断
@@ -735,22 +508,19 @@ const resolveConflict = async (version: "system" | "anki") => {
         throw new Error("Failed to update Anki note");
       }
 
-      // 把anki中这个note的mod更新到系统中的card
       const mod = await AnkiService.getNotesModTime([currentConflict.noteId]);
       if (mod !== null) {
-        // 确保 mod 是有效值
         await CardControllerService.updateCard({
           id: currentConflict.systemCard?.id,
           ankiInfo: {
-            syncTime: Number(mod), // 确保转换为数值
+            syncTime: Number(mod),
           },
         });
       }
     } else {
       // 使用 Anki 版本更新到系统
-
-      const updateRequest: CardUpdateRequest = {
-        id: currentConflict.systemCard.id, // 使用系统中的卡片 ID
+      const updateRequest = {
+        id: currentConflict.systemCard.id,
         question: currentConflict.ankiCard.question,
         answer: currentConflict.ankiCard.answer,
         tags: currentConflict.ankiCard.tags,
@@ -812,7 +582,8 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* 重要：允许内容滚动 */
+  min-height: 0;
+  /* 重要：允许内容滚动 */
 }
 
 .cards-grid {
@@ -821,7 +592,8 @@ onMounted(() => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 16px;
   padding: 16px;
-  overflow-y: auto; /* 允许卡片内滚动 */
+  overflow-y: auto;
+  /* 允许卡片内滚动 */
 }
 
 .card-item {
