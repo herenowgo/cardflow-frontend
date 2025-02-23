@@ -247,6 +247,7 @@ import { useRoute, useRouter } from "vue-router";
 import type { CardAddRequest } from "../../../generated/models/CardAddRequest";
 import type { CardUpdateRequest } from "../../../generated/models/CardUpdateRequest";
 import { CardControllerService } from "../../../generated/services/CardControllerService";
+import { FsrsService } from "@/services/FsrsService";
 
 const router = useRouter();
 const route = useRoute();
@@ -311,6 +312,8 @@ const currentConflictIndex = ref(0);
 
 // 添加缺失的变量定义
 const deckName = decodeURIComponent(group);
+
+var fsrsService: FsrsService = new FsrsService();
 
 // 加载卡片列表
 const loadCards = async () => {
@@ -383,12 +386,14 @@ const handleCardSubmit = async () => {
         group: decodeURIComponent(group),
         tags: cardForm.value.tags,
       };
-      const res = await CardControllerService.createCard(addParams);
-      if (res.code === 200) {
-        Message.success("创建成功");
-        cardModalVisible.value = false;
-        loadCards();
-      }
+      await FsrsService.batchCreateCards([cardForm.value]);
+
+      // const res = await CardControllerService.createCard(addParams);
+      // if (res.code === 200) {
+      Message.success("创建成功");
+      cardModalVisible.value = false;
+      loadCards();
+      // }
     }
   } catch (error) {
     Message.error(isEditingCard.value ? "更新失败" : "创建失败");

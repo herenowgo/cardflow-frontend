@@ -132,6 +132,9 @@ export class AnkiSyncService {
         throw new Error("Failed to get sync status");
       }
 
+      // res.data.ankiSyncedCards
+      // AnkiService.setDueDate();
+
       // 2. 处理新卡片同步
       await this.syncNewCards(res.data, deckName);
 

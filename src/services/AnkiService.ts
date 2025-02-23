@@ -412,4 +412,27 @@ export class AnkiService {
       return [];
     }
   }
+
+  // 设置卡片到期日期
+  public static async setDueDate(params: {
+    cards: number[];
+    days: string | number;
+  }): Promise<boolean> {
+    try {
+      const response = await this.invoke<boolean>("setDueDate", {
+        cards: params.cards,
+        days: params.days,
+      });
+
+      if (response.error) {
+        console.error("Failed to set due date:", response.error);
+        return false;
+      }
+
+      return response.result;
+    } catch (error) {
+      console.error("Failed to set due date:", error);
+      return false;
+    }
+  }
 }
