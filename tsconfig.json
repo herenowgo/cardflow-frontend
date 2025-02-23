@@ -21,6 +21,9 @@
       ],
       "@api/*": [
         "api/*"
+      ],
+      "@backendApi/*": [
+        "backendApi/*"
       ]
     },
     "lib": [
@@ -36,7 +39,7 @@
     "src/**/*.vue",
     "tests/**/*.ts",
     "tests/**/*.tsx",
-    "api/**/*.ts"
+    "api/**/*.ts",
   ],
   "exclude": [
     "node_modules"

@@ -4,8 +4,9 @@
 /* eslint-disable */
 
 export type AnkiSyncedCard = {
-  id: string;
-  cardId: number;
-  syncTime: number;
-  modifiedTime: number;
+    id?: string;
+    cardId?: number;
+    syncTime?: number;
+    modifiedTime?: number;
 };
+

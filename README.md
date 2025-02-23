@@ -39,3 +39,5 @@ yarn lint
 
 ### Customize configuration
 See [Configuration Reference](https://cli.vuejs.org/config/).
+
+npx openapi-typescript-codegen --input http://localhost:8166/v3/api-docs --output backendApi --client axios

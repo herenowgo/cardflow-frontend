@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiSyncedCard = {
-  id: string;
-  cardId: number;
-  syncTime: number;
-  modifiedTime: number;
+export type EdgeDTO = {
+    source?: number;
+    target?: number;
+    weight?: number;
+    name?: string;
 };
+

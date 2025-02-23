@@ -6,8 +6,8 @@
 import type { AnkiSyncResponse } from './AnkiSyncResponse';
 
 export type BaseResponseAnkiSyncResponse = {
-    code: number;
-    message: string;
-    data: AnkiSyncResponse;
+    code?: number;
+    message?: string;
+    data?: AnkiSyncResponse;
 };
 

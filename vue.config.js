@@ -14,6 +14,10 @@ module.exports = defineConfig({
     );
     config.resolve.alias.set("@", path.resolve(__dirname, "src"));
     config.resolve.alias.set("@api", path.resolve(__dirname, "api"));
+    config.resolve.alias.set(
+      "@backendApi",
+      path.resolve(__dirname, "backendApi")
+    ); // 添加这行
 
     if (process.env.NODE_ENV === "production") {
       // 生产环境优化

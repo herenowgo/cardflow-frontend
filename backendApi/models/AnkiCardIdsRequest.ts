@@ -3,9 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiSyncedCard = {
-  id: string;
-  cardId: number;
-  syncTime: number;
-  modifiedTime: number;
+/**
+ * Anki卡片ID列表
+ */
+export type AnkiCardIdsRequest = {
+    cardIds: Array<number>;
 };
+

@@ -4,7 +4,7 @@
 /* eslint-disable */
 
 export type AnkiNoteAddRequest = {
-    id: string;
+    id?: string;
     question?: string;
     answer?: string;
     deckName?: string;

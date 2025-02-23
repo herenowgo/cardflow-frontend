@@ -3,9 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiSyncedCard = {
-  id: string;
-  cardId: number;
-  syncTime: number;
-  modifiedTime: number;
+export type BaseResponseListString = {
+    code?: number;
+    message?: string;
+    data?: Array<string>;
 };
+

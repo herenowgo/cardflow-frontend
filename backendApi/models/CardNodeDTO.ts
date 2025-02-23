@@ -3,12 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiNoteAddRequest = {
-    id: string;
-    question?: string;
-    answer?: string;
-    deckName?: string;
-    modelName?: string;
+export type CardNodeDTO = {
+    userId?: number;
+    cardId?: string;
     tags?: Array<string>;
 };
 

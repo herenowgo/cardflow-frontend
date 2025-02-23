@@ -3,12 +3,10 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiNoteAddRequest = {
-    id: string;
-    question?: string;
-    answer?: string;
-    deckName?: string;
+export type AnkiInfo = {
+    noteId?: number;
+    cardId?: number;
     modelName?: string;
-    tags?: Array<string>;
+    syncTime?: number;
 };
 

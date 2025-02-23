@@ -231,7 +231,7 @@
 
 <script setup lang="ts">
 import { AnkiService } from "@/services/AnkiService";
-import { AnkiSyncService } from "@/services/AnkiSyncService"; // 添加导入
+import { AnkiSyncService, ConflictCard } from "@/services/AnkiSyncService"; // 添加导入
 import { Message } from "@arco-design/web-vue";
 import {
   IconDelete,
@@ -259,19 +259,6 @@ interface Card {
   answer: string;
   group?: string;
   tags?: string[];
-}
-
-// 添加冲突卡片的接口定义
-interface ConflictCard {
-  systemCard: Card & { modifiedTime: number };
-  ankiCard: {
-    question: string;
-    answer: string;
-    tags: string[];
-    mod: number;
-  };
-  cardId: string;
-  noteId: string;
 }
 
 // 修改 AnkiSyncedCard 接口定义
@@ -448,7 +435,7 @@ const cancelDelete = () => {
 // todo 同步后，需要直接刷新卡片列表
 const syncWithAnki = async () => {
   try {
-    const success = await AnkiSyncService.syncWithAnki(
+    const success = await AnkiSyncService.syncWithAnkiOnSpecifiedDeck(
       decodeURIComponent(group),
       (conflicts, currentIndex) => {
         // 处理冲突的回调函数

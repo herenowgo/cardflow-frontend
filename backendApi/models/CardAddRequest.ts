@@ -3,12 +3,15 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiNoteAddRequest = {
-    id: string;
+import type { AnkiInfo } from './AnkiInfo';
+import type { FSRSCard } from './FSRSCard';
+
+export type CardAddRequest = {
+    ankiInfo?: AnkiInfo;
     question?: string;
     answer?: string;
-    deckName?: string;
-    modelName?: string;
     tags?: Array<string>;
+    group?: string;
+    fsrsCard?: FSRSCard;
 };
 

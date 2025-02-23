@@ -3,9 +3,7 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type AnkiSyncedCard = {
-  id: string;
-  cardId: number;
-  syncTime: number;
-  modifiedTime: number;
+export type CardIdsRequest = {
+    cardIds: Array<string>;
 };
+
