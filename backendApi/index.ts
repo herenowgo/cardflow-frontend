@@ -20,6 +20,7 @@ export type { BaseResponseListCardDTO } from './models/BaseResponseListCardDTO';
 export type { BaseResponseListReviewLogDTO } from './models/BaseResponseListReviewLogDTO';
 export type { BaseResponseListString } from './models/BaseResponseListString';
 export type { BaseResponsePageResultCardDTO } from './models/BaseResponsePageResultCardDTO';
+export type { BaseResponseSetString } from './models/BaseResponseSetString';
 export type { BaseResponseString } from './models/BaseResponseString';
 export type { BaseResponseVoid } from './models/BaseResponseVoid';
 export type { CardAddRequest } from './models/CardAddRequest';

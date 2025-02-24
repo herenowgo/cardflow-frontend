@@ -3,8 +3,9 @@
 /* tslint:disable */
 /* eslint-disable */
 
-export type CardNodeDTO = {
-    cardId?: string;
-    tags?: Array<string>;
+export type BaseResponseSetString = {
+    code?: number;
+    message?: string;
+    data?: Array<string>;
 };
 

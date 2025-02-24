@@ -2,6 +2,7 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+import type { BaseResponseSetString } from '../models/BaseResponseSetString';
 import type { BaseResponseString } from '../models/BaseResponseString';
 import type { ChatRequest } from '../models/ChatRequest';
 
@@ -42,6 +43,19 @@ export class AiControllerService {
             url: '/api/ai/cards',
             body: requestBody,
             mediaType: 'application/json',
+        });
+    }
+
+    /**
+     * 获取可用AI模型列表
+     * 获取系统当前支持的所有AI模型列表
+     * @returns BaseResponseSetString OK
+     * @throws ApiError
+     */
+    public static getAvailableModels(): CancelablePromise<BaseResponseSetString> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/ai/models',
         });
     }
 
