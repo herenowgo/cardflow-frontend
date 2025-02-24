@@ -687,31 +687,29 @@
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  onMounted,
-  defineProps,
-  defineEmits,
-  watch,
-  defineExpose,
-  withDefaults,
-  computed,
-  h,
-  onUnmounted,
-  PropType,
-} from "vue";
 import { eventStreamService } from "@/services/EventStreamService";
-import { ChatControllerService } from "../../generated/services/ChatControllerService";
-import { AIChatRequest } from "../../generated/models/AIChatRequest";
-import type { ChatMessage, ChatProps, ChatEvents } from "@/types/chat";
-import { Message, Drawer } from "@arco-design/web-vue";
-import { IconClose } from "@arco-design/web-vue/es/icon";
-import SessionManager from "./SessionManager.vue";
-import MdViewer from "./MdViewer.vue";
-import MdEditor from "./MdEditor.vue";
-import { CardControllerService } from "../../generated/services/CardControllerService";
-import { CardAddRequest } from "../../generated/models/CardAddRequest";
+import type { ChatMessage } from "@/types/chat";
+import { Drawer, Message } from "@arco-design/web-vue";
 import { marked } from "marked";
+import {
+  computed,
+  defineEmits,
+  defineExpose,
+  defineProps,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  withDefaults,
+} from "vue";
+import { AIChatRequest } from "../../generated/models/AIChatRequest";
+import { CardAddRequest } from "../../generated/models/CardAddRequest";
+import { CardControllerService } from "../../generated/services/CardControllerService";
+import { ChatControllerService } from "../../generated/services/ChatControllerService";
+import { AiControllerService } from "@backendApi/index";
+import MdEditor from "./MdEditor.vue";
+import MdViewer from "./MdViewer.vue";
+import SessionManager from "./SessionManager.vue";
 
 interface HistoryResponse {
   content: string;
@@ -981,7 +979,7 @@ onUnmounted(() => {
 const handleSend = async (inputValue: string) => {
   if (isStreamLoad.value || !inputValue) return;
 
-  console.log("Sending message with sessionId:", currentSessionId.value);
+  // console.log("Sending message with sessionId:", currentSessionId.value);
   const userMessage: ChatMessage = {
     avatar: props.userAvatar,
     name: props.userName,
@@ -1005,11 +1003,18 @@ const handleSend = async (inputValue: string) => {
     isStreamLoad.value = true;
     const lastItem = chatList.value[0];
 
-    const res = await ChatControllerService.chat({
-      model: currentModel.value,
-      content: inputValue,
-      sessionId: currentSessionId.value,
-      prompt: systemPrompt.value || undefined,
+    // const res = await ChatControllerService.chat({
+    //   model: currentModel.value,
+    //   content: inputValue,
+    //   sessionId: currentSessionId.value,
+    //   prompt: systemPrompt.value || undefined,
+    // });
+
+    const res = await AiControllerService.chat({
+      model: "glm-4-flash",
+      userPrompt: inputValue,
+      conversationId: currentSessionId.value,
+      systemPrompt: systemPrompt.value || undefined,
     });
 
     if (res.code == 200 && res.data) {
@@ -1216,9 +1221,10 @@ const generateCards = async (item: ChatMessage, index: number) => {
 
     const combinedContent = `问题：${userQuestion.content}\n\n回答：${item.content}`;
 
-    const res = await ChatControllerService.getCards({
-      model: currentModel.value,
-      content: combinedContent,
+    const res = await AiControllerService.getCards({
+      // model: currentModel.value,
+      model: "glm-4-flash",
+      userPrompt: combinedContent,
     });
 
     console.log("API response:", res);

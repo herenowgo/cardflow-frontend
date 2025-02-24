@@ -17,7 +17,7 @@ export type AIChatRequest = {
 export namespace AIChatRequest {
 
     export enum model {
-        BASIC = 'BASIC',
+        BASIC = 'glm-4-flash',
         A1 = 'A1',
         A2 = 'A2',
         PLUS = 'PLUS',
