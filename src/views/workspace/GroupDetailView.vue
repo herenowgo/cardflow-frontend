@@ -386,14 +386,13 @@ const handleCardSubmit = async () => {
         group: decodeURIComponent(group),
         tags: cardForm.value.tags,
       };
-      await FsrsService.batchCreateCards([cardForm.value]);
+      const res = await FsrsService.batchCreateCards([cardForm.value]);
 
-      // const res = await CardControllerService.createCard(addParams);
-      // if (res.code === 200) {
-      Message.success("创建成功");
-      cardModalVisible.value = false;
-      loadCards();
-      // }
+      if (res == true) {
+        Message.success("创建成功");
+        cardModalVisible.value = false;
+        loadCards();
+      }
     }
   } catch (error) {
     Message.error(isEditingCard.value ? "更新失败" : "创建失败");

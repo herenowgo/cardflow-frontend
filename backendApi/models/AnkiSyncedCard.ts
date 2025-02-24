@@ -8,5 +8,6 @@ export type AnkiSyncedCard = {
     cardId?: number;
     syncTime?: number;
     modifiedTime?: number;
+    due?: string;
 };
 

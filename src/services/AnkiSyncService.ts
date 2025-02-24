@@ -7,8 +7,11 @@ import {
   CardDTO,
 } from "../../backendApi";
 import { AnkiService, CardInfo, NoteFields, NoteInfo } from "./AnkiService";
+import { FsrsService } from "./FsrsService";
 
 export class AnkiSyncService {
+  static fsrsService = new FsrsService();
+
   // 处理冲突和更新
   private static async processCardsSync(
     syncedCards: AnkiSyncedCard[],
@@ -132,8 +135,41 @@ export class AnkiSyncService {
         throw new Error("Failed to get sync status");
       }
 
-      // res.data.ankiSyncedCards
-      // AnkiService.setDueDate();
+      // 系统中已同步的卡片同步到anki（设置到期日）
+      // 根据到期时间分组卡片并更新到Anki
+      if (res.data.ankiSyncedCards) {
+        const cardsByDueDate = new Map<number, number[]>();
+
+        for (const card of res.data.ankiSyncedCards) {
+          if (card.due !== undefined && card.cardId) {
+            // 计算出距离现在还有几天到期
+            const dueDate = new Date(card.due);
+            const today = new Date();
+            // 只比较日期部分
+            dueDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+            let daysUntilDue = Math.floor(
+              (dueDate.getTime() - today.getTime()) / (1000 * 3600 * 24)
+            );
+            if (daysUntilDue < 0) daysUntilDue = 0;
+            // 如果Map中没有这个到期时间，创建一个新数组
+            if (!cardsByDueDate.has(daysUntilDue)) {
+              cardsByDueDate.set(daysUntilDue, []);
+            }
+            // 将卡片ID添加到对应的到期时间组
+            cardsByDueDate.get(daysUntilDue)?.push(card.cardId);
+          }
+        }
+
+        // 为每组卡片设置到期时间
+        for (const [dueInDays, cardIds] of cardsByDueDate) {
+          // await AnkiService.setDueDate({ cards: cardIds, days: dueInDays });
+          await AnkiService.setDueDate({
+            cards: [...cardIds],
+            days: dueInDays.toString(),
+          });
+        }
+      }
 
       // 2. 处理新卡片同步
       await this.syncNewCards(res.data, deckName);
@@ -220,30 +256,47 @@ export class AnkiSyncService {
       const noteIds = ankiCardsInfo.map((card) => card.note);
       const noteInfos = await AnkiService.getNotesInfo(noteIds);
 
-      const updateRequests = ankiCardsInfo.map((card, index) => {
-        const noteInfo = noteInfos.find((note) => note.noteId === card.note);
-        if (!noteInfo) {
-          throw new Error(`No note info found for note ${card.note}`);
-        }
+      const updateRequests = await Promise.all(
+        ankiCardsInfo.map(async (card, index) => {
+          const noteInfo = noteInfos.find((note) => note.noteId === card.note);
+          if (!noteInfo) {
+            throw new Error(`No note info found for note ${card.note}`);
+          }
 
-        const baseRequest = {
-          ankiInfo: {
-            cardId: card.cardId,
-            noteId: card.note,
-            modelName: card.modelName,
-            syncTime: noteInfo.mod,
-          },
-          question: card.fields.Front?.value,
-          answer: card.fields.Back?.value,
-          tags: noteInfo.tags,
-          group: card.deckName,
-        };
+          const fsrsCard = await this.fsrsService.rescheduleCard(card.cardId);
+          const formatDate = (date: Date) => {
+            return date.toISOString().slice(0, 19).replace("T", " ");
+          };
 
-        const systemCardId = syncRequests[index].systemCardId;
-        return systemCardId
-          ? { ...baseRequest, id: systemCardId }
-          : baseRequest;
-      });
+          const fsrsCardWithStringDue = {
+            ...fsrsCard,
+            due: formatDate(fsrsCard.due),
+            state: fsrsCard.state.toString(),
+            last_review: fsrsCard.last_review
+              ? formatDate(fsrsCard.last_review)
+              : undefined,
+          };
+
+          const baseRequest = {
+            ankiInfo: {
+              cardId: card.cardId,
+              noteId: card.note,
+              modelName: card.modelName,
+              syncTime: noteInfo.mod,
+            },
+            question: card.fields.Front?.value,
+            answer: card.fields.Back?.value,
+            tags: noteInfo.tags,
+            group: card.deckName,
+            fsrsCard: fsrsCardWithStringDue,
+          };
+
+          const systemCardId = syncRequests[index].systemCardId;
+          return systemCardId
+            ? { ...baseRequest, id: systemCardId }
+            : baseRequest;
+        })
+      );
 
       await CardControllerService.updateCards(updateRequests);
       return true;
@@ -351,6 +404,39 @@ export class AnkiSyncService {
     // 更新系统卡片
     await CardControllerService.updateCards(updates);
     return updates.map((update) => update.ankiInfo.cardId);
+  }
+
+  // 将系统中当天的要复习的卡片与Anki的复习记录比对，如果Anki中已经复习过了，就自动把系统中的卡片也复习了
+  public static async syncReviewCards(cardDTOs: CardDTO[]) {
+    try {
+      // 提取出所有的Anki的cardId
+      const ankiCardIds = cardDTOs
+        .map((card) => card.ankiInfo?.cardId)
+        .filter((cardId) => cardId !== undefined) as number[];
+
+      const cardReviewsMap = await AnkiService.getReviewsOfCards(ankiCardIds);
+
+      // 遍历cardDTOs,每次遍历从cardReviewsMap中找到对应cardDTO的AnkiInfo的cardId的复习记录们
+      for (const cardDTO of cardDTOs) {
+        const ankiCardId = cardDTO.ankiInfo?.cardId;
+        if (ankiCardId === undefined) continue;
+
+        const reviews = cardReviewsMap[ankiCardId].filter(
+          (review) => review.type != 4
+        );
+        if (!reviews || reviews.length == 0) continue;
+        const lastReview = reviews[reviews.length - 1];
+        const lastReviewDayTimestamp = new Date(
+          cardDTO.fsrsCard?.last_review ?? "1740374581093"
+        ).setHours(0, 0, 0, 0);
+
+        if (lastReview.id > lastReviewDayTimestamp) {
+          this.fsrsService.reviewCard(cardDTO, lastReview.ease);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to sync review cards:", error);
+    }
   }
 }
 

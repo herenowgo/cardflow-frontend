@@ -8,6 +8,7 @@ import {
   FSRS,
   FSRSParameters,
   Grade,
+  Card,
 } from "ts-fsrs";
 
 import {
@@ -15,11 +16,13 @@ import {
   CardUpdateRequest,
   CardDTO,
 } from "@backendApi/index";
+import { AnkiService } from "./AnkiService";
 
 export class FsrsService {
   private fsrsInstance: FSRS;
 
   constructor(params?: Partial<FSRSParameters>) {
+    // TODO 从后端获取用户的FSRS参数
     if (params) {
       const customParams = generatorParameters(params);
       this.fsrsInstance = fsrs(customParams);
@@ -37,7 +40,9 @@ export class FsrsService {
    * @param cards
    * @returns
    */
-  static async batchCreateCards(cards: Array<CardUpdateRequest>) {
+  static async batchCreateCards(
+    cards: Array<CardUpdateRequest>
+  ): Promise<boolean> {
     try {
       // 为每张卡片创建 FSRS 参数
       const cardsWithFsrs = cards.map(({ id, ...cardWithoutId }) => {
@@ -57,7 +62,7 @@ export class FsrsService {
 
       // 调用 CardControllerService 的 updateCards 方法批量更新
       const result = await CardControllerService.updateCards(cardsWithFsrs);
-      return result;
+      return result.data ?? false;
     } catch (error) {
       console.error("批量创建卡片失败:", error);
       throw error;
@@ -115,6 +120,35 @@ export class FsrsService {
       return result;
     } catch (error) {
       console.error("Review card failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 根据Anki中新卡片的cardId，读取到卡片的所有复习记录，然后根据复习记录使用fsrs的reschedule计算出卡片的FSRS状态，并返回这个卡片
+   */
+  public async rescheduleCard(cardId: number): Promise<Card> {
+    try {
+      // 获取卡片的所有复习记录
+      const reviewLogs = await AnkiService.getReviewsOfCards([cardId]);
+      const card = createEmptyCard(cardId);
+
+      // 转换复习记录为FSRSHistory格式
+      const fsrsHistory = Object.values(reviewLogs)
+        .flat()
+        .filter((log) => log.type != 4)
+        .map((log) => ({
+          rating: Number(log.ease) as Grade,
+          review: new Date(log.id),
+        }));
+
+      // 使用reschedule计算新的卡片状态
+      const result = this.fsrsInstance.reschedule(card, fsrsHistory);
+
+      // 返回最新的卡片状态
+      return result.reschedule_item?.card || card;
+    } catch (error) {
+      console.error("Reschedule card failed:", error);
       throw error;
     }
   }

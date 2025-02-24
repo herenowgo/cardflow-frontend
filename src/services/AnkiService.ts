@@ -380,6 +380,62 @@ export class AnkiService {
   }
 
   // 获取卡片复习记录
+  /**
+Requests all card reviews for each card ID. Returns a dictionary mapping each card ID to a list of dictionaries of the format:
+请求每个卡 ID 的所有卡牌评论。返回一个字典，将每个卡 ID 映射到一个列表，列表中的元素为格式为的字典：
+
+{
+    "id": reviewTime,
+    "usn": usn,
+    "ease": buttonPressed,
+    "ivl": newInterval,
+    "lastIvl": previousInterval,
+    "factor": newFactor,
+    "time": reviewDuration,
+    "type": reviewType,
+}
+The reason why these key values are used instead of the more descriptive counterparts is because these are the exact key values used in Anki's database.
+这些关键值之所以使用而不是更描述性的对应值，是因为这些是 Anki 数据库中使用的确切关键值。
+
+Sample request:  示例请求：
+{
+    "action": "getReviewsOfCards",
+    "version": 6,
+    "params": {
+        "cards": [
+            "1653613948202"
+        ]
+    }
+}
+Sample result:  示例结果：
+{
+    "result": {
+        "1653613948202": [
+            {
+                "id": 1653772912146,
+                "usn": 1750,
+                "ease": 1,
+                "ivl": -20,
+                "lastIvl": -20,
+                "factor": 0,
+                "time": 38192,
+                "type": 0
+            },
+            {
+                "id": 1653772965429,
+                "usn": 1750,
+                "ease": 3,
+                "ivl": -45,
+                "lastIvl": -20,
+                "factor": 0,
+                "time": 15337,
+                "type": 0
+            }
+        ]
+    },
+    "error": null
+}
+   */
   public static async getReviewsOfCards(
     cardIds: number[]
   ): Promise<{ [key: number]: ReviewLog[] }> {
