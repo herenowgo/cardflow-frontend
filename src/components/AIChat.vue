@@ -68,6 +68,7 @@
                   :options="modelOptions"
                   size="small"
                   class="model-selector"
+                  :loading="modelOptions.length === 0 && !modelLoadError"
                   :popup-props="{
                     overlayClassName: 'model-selector-popup',
                     overlayInnerStyle: { padding: '4px' },
@@ -240,6 +241,7 @@
                 :options="modelOptions"
                 size="small"
                 class="model-selector"
+                :loading="modelOptions.length === 0 && !modelLoadError"
                 :popup-props="{
                   overlayClassName: 'model-selector-popup',
                   overlayInnerStyle: { padding: '4px' },
@@ -1011,7 +1013,7 @@ const handleSend = async (inputValue: string) => {
     // });
 
     const res = await AiControllerService.chat({
-      model: "glm-4-flash",
+      model: currentModel.value,
       userPrompt: inputValue,
       conversationId: currentSessionId.value,
       systemPrompt: systemPrompt.value || undefined,
@@ -1056,14 +1058,51 @@ const handleClose = () => {
   emit("close");
 };
 
-const modelOptions: ModelOption[] = [
-  { value: AIChatRequest.model.BASIC, label: "基础模型" },
-  { value: AIChatRequest.model.A1, label: "A1 模型" },
-  { value: AIChatRequest.model.A2, label: "A2 模型" },
-  { value: AIChatRequest.model.PLUS, label: "Plus 模型" },
-  { value: AIChatRequest.model.GEMINI_1_5_PRO_EXP, label: "Gemini 1.5 Pro" },
-  { value: AIChatRequest.model.GEMINI_2_0_FLASH_EXP, label: "Gemini 2.0" },
-];
+const modelOptions = ref<ModelOption[]>([]);
+const modelLoadError = ref(false);
+
+const loadAvailableModels = async () => {
+  try {
+    const response = await AiControllerService.getAvailableModels();
+    if (response.code === 200 && response.data) {
+      modelOptions.value = Array.from(response.data).map((modelName) => ({
+        value: modelName as AIChatRequest.model,
+        label: getModelDisplayName(modelName),
+      }));
+    } else {
+      modelLoadError.value = true;
+      Message.error("获取可用模型列表失败");
+    }
+  } catch (error) {
+    console.error("Load models error:", error);
+    modelLoadError.value = true;
+    Message.error("获取可用模型列表失败");
+  }
+};
+
+const getModelDisplayName = (modelName: string): string => {
+  const displayNames: Record<string, string> = {
+    "glm-4-flash": "GLM-4 Flash",
+    "glm-4-pro": "GLM-4 Pro",
+  };
+  return displayNames[modelName] || modelName;
+};
+
+onMounted(async () => {
+  await loadAvailableModels();
+  if (modelLoadError.value) {
+    modelOptions.value = [
+      {
+        value: AIChatRequest.model.BASIC,
+        label: "基础模型",
+      },
+    ];
+  }
+  currentCards.value = loadSavedCards();
+  defaultTags.value = loadSavedTags();
+
+  document.addEventListener("keydown", handleKeyDown);
+});
 
 watch(currentModel, (newModel) => {
   saveModelSelection(newModel);
@@ -1222,8 +1261,7 @@ const generateCards = async (item: ChatMessage, index: number) => {
     const combinedContent = `问题：${userQuestion.content}\n\n回答：${item.content}`;
 
     const res = await AiControllerService.getCards({
-      // model: currentModel.value,
-      model: "glm-4-flash",
+      model: currentModel.value,
       userPrompt: combinedContent,
     });
 
