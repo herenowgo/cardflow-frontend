@@ -264,4 +264,17 @@ export class CardControllerService {
         });
     }
 
+    /**
+     * 获取已到期的卡片
+     * 获取当前用户所有已到期需要复习的卡片
+     * @returns BaseResponseListCardDTO OK
+     * @throws ApiError
+     */
+    public static getExpiredCards(): CancelablePromise<BaseResponseListCardDTO> {
+        return __request(OpenAPI, {
+            method: 'GET',
+            url: '/api/cards/expired',
+        });
+    }
+
 }

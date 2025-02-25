@@ -412,9 +412,11 @@ import {
 } from "@arco-design/web-vue/es/icon";
 import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
-import { CardControllerService } from "../../../generated/services/CardControllerService";
+// import { CardControllerService } from "../../../generated/services/CardControllerService";
+
 import { ChatControllerService } from "../../../generated/services/ChatControllerService";
 import AIChat from "@/components/AIChat.vue";
+import { CardControllerService } from "@backendApi/index";
 
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const isAIChatVisible = ref(false);
@@ -870,9 +872,10 @@ const loadDeckData = async () => {
     );
 
     // 从数据库获取卡片详细信息
-    const res = await CardControllerService.getCardsByAnkiCardIds({
-      cardIds: dueCardIds,
-    });
+    // const res = await CardControllerService.getCardsByAnkiCardIds({
+    //   cardIds: dueCardIds,
+    // });
+    const res = await CardControllerService.getExpiredCards();
 
     if (res.code === 200 && res.data) {
       // 使用 Fisher-Yates 算法打乱卡片顺序
@@ -943,7 +946,7 @@ const showEditModal = () => {
 const handleEditSave = async () => {
   if (!currentCard.value) return;
   try {
-    const res = await CardControllerService.updateCard({
+    const res = await CardControllerService.updateCard1({
       id: currentCard.value.id,
       question: editForm.value.question,
       answer: editForm.value.answer,
@@ -1091,7 +1094,7 @@ const handleTagsSave = async () => {
     const finalTags = [...selectedExistingTags.value, ...selectedNewTags.value];
 
     // 更新卡片标签
-    await CardControllerService.updateCard({
+    await CardControllerService.updateCard1({
       id: currentCard.value.id,
       tags: finalTags,
     });
@@ -1144,7 +1147,7 @@ const handleCardUpdate = async (updateData: {
     }
 
     // 保存更新到后端
-    await CardControllerService.updateCard({
+    await CardControllerService.updateCard1({
       id: currentCard.value.id,
       question: currentCard.value.question,
       answer: currentCard.value.answer,
@@ -1182,7 +1185,7 @@ const handleDelete = async () => {
   if (!currentCard.value) return;
 
   try {
-    const res = await CardControllerService.deleteCard(currentCard.value.id);
+    const res = await CardControllerService.deleteCard1(currentCard.value.id);
     if (res.code === 200) {
       Message.success("删除成功");
       // 从卡片列表中移除当前卡片
