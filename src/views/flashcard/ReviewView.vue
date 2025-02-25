@@ -640,52 +640,7 @@ const currentDeck = ref<Deck>({
   cardCount: 50,
 });
 
-const cards = ref<CardDTO[]>([
-  {
-    id: "1",
-    question: "# Vue的响应式原理是什么？",
-    answer: `Vue3的响应式原理基于Proxy实现：
-
-## 主要特点
-1. 性能更好
-2. 支持更多数据类型
-3. 可以监听动态添加的属性
-
-## 实现原理
-\`\`\`js
-const proxy = new Proxy(target, {
-  get(target, key) {
-    track(target, key)
-    return target[key]
-  },
-  set(target, key, value) {
-    target[key] = value
-    trigger(target, key)
-    return true
-  }
-})
-\`\`\``,
-    tags: ["Vue3", "响应式"],
-    group: "vue",
-  },
-  {
-    id: "2",
-    question: "# Vue组件的生命周期有哪些？",
-    answer: `Vue3组件的主要生命周期钩子：
-
-- \`setup()\`
-- \`onBeforeMount()\`
-- \`onMounted()\`
-- \`onBeforeUpdate()\`
-- \`onUpdated()\`
-- \`onBeforeUnmount()\`
-- \`onUnmounted()\`
-
-> 注意：setup() 是组合式 API 的入口点`,
-    tags: ["Vue3", "生命周期"],
-    group: "vue",
-  },
-]);
+const cards = ref<CardDTO[]>([]);
 
 const currentIndex = ref(0);
 const isFlipped = ref(false);
@@ -741,30 +696,6 @@ const rateCard = async (rating: number) => {
     const ttt = currentCard.value;
     console.log("currentCard.value", ttt);
     await fsrsService.reviewCard(currentCard.value, rating);
-
-    //   // 同步到 Anki
-    //   if (currentCard.value.ankiInfo?.cardId) {
-    //     // 第一次尝试
-    //     let success = await AnkiService.answerCard({
-    //       card: currentCard.value.ankiInfo.cardId,
-    //       ease: rating, // 1-4 对应 again, hard, good, easy
-    //     });
-
-    //     // 如果第一次失败，静默重试一次
-    //     if (!success) {
-    //       console.log("Anki同步失败，正在重试...");
-    //       success = await AnkiService.answerCard({
-    //         card: currentCard.value.ankiInfo.cardId,
-    //         ease: rating,
-    //       });
-
-    //       // 如果重试后仍然失败，提示用户
-    //       if (!success) {
-    //         Message.error("同步到 Anki 失败");
-    //         return;
-    //       }
-    //     }
-    //   }
 
     // 立即更新统计状态
     if (rating >= 3) correctAnswers.value++;
@@ -847,38 +778,28 @@ const handleKeyPress = (e: KeyboardEvent) => {
 // 修改加载数据方法
 const loadDeckData = async () => {
   try {
-    //   // 从Anki获取所有到期的卡片
-    //   const deckNames = await AnkiService.getDeckNames();
-    //   const firstLevelDeckNames = deckNames.filter(
-    //     (name) => !name.includes("::")
-    //   );
-    //   const dueCardIds = await AnkiService.getDueCardsInDecks(
-    //     firstLevelDeckNames
-    //   );
-
-    // 从数据库获取卡片详细信息
-    // const res = await CardControllerService.getCardsByAnkiCardIds({
-    //   cardIds: dueCardIds,
-    // });
     const res = await CardControllerService.getExpiredCards();
 
     if (res.code === 200 && res.data) {
+      if (res.data.length === 0) {
+        // 显示友好提示：暂无需要复习的卡片
+        Message.success("恭喜！暂时没有需要复习的卡片了");
+
+        // 提供一张示例卡片，以便用户看到界面效果
+        cards.value = [
+          {
+            id: "sample",
+            question:
+              "# 恭喜！您已完成所有卡片的复习\n这是一张示例卡片\n\n卡片的背面介绍了复习功能的使用\n\n鼠标点击卡片或敲击空格即可使卡片翻转",
+            answer:
+              '# 使用提示\n\n## 1. 评分系统\n根据您的掌握情况，点击下方的按钮进行评分。系统会根据您的评分和卡片的信息使用<a href="https://github.com/open-spaced-repetition" target="_blank" rel="noopener">FSRS算法</a>计算出下一次复习时间和相关参数并保存起来。（这是一张示例卡无法真正保存）\n\n## 2. AI助手\n按**F键**或点击右方的蓝色机器人图标来召唤AI助手，他会自动帮你检查卡片内容的正确性和全面性。\n\n复习的过程中有任何疑问，您都可以和他进行交流，他能帮您答疑解惑。\n\n并且可以根据交流的内容，一键提取关键知识点自动生成适合学习复习的卡片。\n\n## 3. 编辑卡片\n将鼠标悬停在卡片上，点击右上角的编辑按钮就可以快速修改卡片的内容。\n*这是一张示例卡，所以修改、删除功能无法真正执行*',
+            tags: ["我是标签", "知识点标签"],
+          },
+        ];
+        return;
+      }
       // 使用 Fisher-Yates 算法打乱卡片顺序
       cards.value = shuffleArray(res.data);
-      // shuffleArray(res.data);
-      // cards.value = res.data.map((card: any) => ({
-      //   id: card.id, // 直接使用后端返回的 string 类型 id
-      //   userId: card.userId,
-      //   ankiInfo: card.ankiInfo,
-      //   question: card.question || "",
-      //   answer: card.answer || "",
-      //   tags: card.tags || [],
-      //   group: card.group,
-      //   modifiedTime: card.modifiedTime,
-      //   isDeleted: card.isDeleted,
-      //   deleteTime: card.deleteTime,
-      //   createTime: card.createTime,
-      // }));
     } else {
       Message.error("加载卡片失败");
     }
@@ -896,15 +817,6 @@ function shuffleArray(array: any[]) {
   }
   return array;
 }
-
-// 修改保存评分的函数
-const saveRating = async (cardId: string, rating: number) => {
-  // TODO: 替换为实际的API调用
-  // await CardControllerService.updateCardRating(cardId, rating);
-
-  // 模拟保存延迟
-  await new Promise((resolve) => setTimeout(resolve, 300));
-};
 
 // 在 script setup 中添加
 const isEditModalVisible = ref(false);
