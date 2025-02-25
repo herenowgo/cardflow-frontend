@@ -1279,7 +1279,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   will-change: transform, width;
   display: flex;
   flex-direction: column;
@@ -1299,7 +1299,7 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
   z-index: 10;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 
 .ai-helper-panel {
@@ -1310,7 +1310,7 @@ onUnmounted(() => {
   height: 87%;
   background: var(--color-bg-2);
   box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   will-change: transform, opacity, visibility;
   z-index: 100;
   display: flex;
@@ -1410,7 +1410,7 @@ onUnmounted(() => {
   height: 95%;
   left: -45px;
   transform: translate3d(0, 0, 0);
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.31s cubic-bezier(0.4, 0, 0.2, 1);
   transform-style: preserve-3d;
   will-change: transform;
 }
@@ -1493,7 +1493,7 @@ onUnmounted(() => {
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  transition: all 0.3s;
+  transition: all 0.2s;
 }
 
 .content-text :deep(.bytemd:hover),
@@ -1527,7 +1527,7 @@ onUnmounted(() => {
 
 /* 修改卡片的过渡效果 */
 .card-container {
-  transition: width 0.3s ease;
+  transition: width 0.2s ease;
 }
 
 .card-container.shift-left {
@@ -1536,7 +1536,7 @@ onUnmounted(() => {
 
 /* 添加 AI 助手面板的过渡效果 */
 .ai-helper-panel {
-  transition: transform 0.3s ease, visibility 0.3s ease, opacity 0.3s ease;
+  transition: transform 0.2s ease, visibility 0.2s ease, opacity 0.2s ease;
 }
 
 .card-actions {
@@ -1545,7 +1545,7 @@ onUnmounted(() => {
   right: 12px;
   z-index: 10;
   opacity: 0;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
   pointer-events: auto;
 }
 
@@ -1591,7 +1591,7 @@ onUnmounted(() => {
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  transition: all 0.3s;
+  transition: all 0.2s;
   min-height: 32px;
 }
 
@@ -1610,7 +1610,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   opacity: 0.8;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
   font-size: 14px;
 }
 
@@ -1639,7 +1639,7 @@ onUnmounted(() => {
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(100%);
   opacity: 0;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
 }
 
 .rating-area.show {
@@ -1663,7 +1663,7 @@ onUnmounted(() => {
 
 .rating-btn {
   font-size: 14px;
-  transition: all 0.3s;
+  transition: all 0.2s;
   padding: 8px 16px;
   border-radius: 24px;
 }
