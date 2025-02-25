@@ -517,7 +517,7 @@ ${
     // 等待 AI 助手组件完全显示后再发送消息
     setTimeout(() => {
       aiChatRef.value?.sendMessage(message);
-    }, 300);
+    }, 100);
   }
 };
 
@@ -749,7 +749,7 @@ const rateCard = async (rating: number) => {
       // 清除显示的卡片，使用新的当前卡片
       displayCard.value = null;
       ratingSubmitted.value = false;
-    }, 300); // 300ms 是翻转动画的持续时间
+    }, 100); // 300ms 是翻转动画的持续时间
 
     Message.success("评分已保存");
   } catch (error) {
