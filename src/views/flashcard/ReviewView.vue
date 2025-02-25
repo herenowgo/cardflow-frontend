@@ -288,6 +288,28 @@
 
       <!-- 底部工具栏 -->
       <div class="review-footer">
+        <!-- 进度区域 -->
+        <div class="review-progress">
+          <div class="progress-stats">
+            <div class="progress-stat-item">
+              <span class="stat-label">已完成</span>
+              <span class="stat-value"
+                >{{ completedCards }} / {{ totalCards }}</span
+              >
+            </div>
+            <div class="progress-stat-item">
+              <span class="stat-label">正确率</span>
+              <span class="stat-value">{{ correctRate }}%</span>
+            </div>
+          </div>
+          <a-progress
+            :percent="progressPercent"
+            :show-text="false"
+            :stroke-width="8"
+            :animation="true"
+          />
+        </div>
+
         <a-space>
           <a-button>
             <template #icon>
@@ -783,7 +805,7 @@ const loadDeckData = async () => {
     if (res.code === 200 && res.data) {
       if (res.data.length === 0) {
         // 显示友好提示：暂无需要复习的卡片
-        Message.success("恭喜！暂时没有需要复习的卡片了");
+        Message.success("恭喜！您已完成所有卡片的复习");
 
         // 提供一张示例卡片，以便用户看到界面效果
         cards.value = [
