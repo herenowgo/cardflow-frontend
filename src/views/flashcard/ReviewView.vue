@@ -311,23 +311,28 @@
         </div>
 
         <a-space>
-          <a-button>
+          <!-- <a-button>
             <template #icon>
               <icon-keyboard />
             </template>
             快捷键
-          </a-button>
-          <a-button>
+          </a-button> -->
+          <!-- <a-button>
             <template #icon>
               <icon-bar-chart />
             </template>
             统计
-          </a-button>
-          <a-button type="primary" :loading="syncLoading">
+          </a-button><a-button>
+            <template #icon>
+              <icon-bar-chart />
+            </template>
+            统计
+          </a-button> -->
+          <a-button type="primary" :loading="syncLoading" @click="syncWithAnki">
             <template #icon>
               <icon-sync />
             </template>
-            同步到Anki
+            同步Anki的复习记录
           </a-button>
         </a-space>
       </div>
@@ -441,11 +446,19 @@ import AIChat from "@/components/AIChat.vue";
 import { CardControllerService, CardDTO } from "@backendApi/index";
 import { FsrsService } from "@/services/FsrsService";
 import { Grade } from "ts-fsrs";
+import { AnkiSyncService } from "@/services/AnkiSyncService";
 
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const isAIChatVisible = ref(false);
 
 const cardSentToAI = ref(new Set<string>());
+
+const syncWithAnki = async () => {
+  const reviewedCardIds = await AnkiSyncService.syncReviewCards(cards.value);
+  cards.value = cards.value.filter(
+    (card) => card.id && reviewedCardIds.includes(card.id) === false
+  );
+};
 
 // 添加清理 Obsidian 链接的函数
 const cleanObsidianLinks = (text: string) => {

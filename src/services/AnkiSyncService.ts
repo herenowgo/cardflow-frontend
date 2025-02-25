@@ -407,7 +407,11 @@ export class AnkiSyncService {
   }
 
   // 将系统中当天的要复习的卡片与Anki的复习记录比对，如果Anki中已经复习过了，就自动把系统中的卡片也复习了
-  public static async syncReviewCards(cardDTOs: CardDTO[]) {
+  public static async syncReviewCards(cardDTOs: CardDTO[]): Promise<string[]> {
+    if (cardDTOs.length == 0) {
+      Message.error("没有卡片需要同步");
+    }
+    const reviewedCardIds = [];
     try {
       // 提取出所有的Anki的cardId
       const ankiCardIds = cardDTOs
@@ -415,7 +419,12 @@ export class AnkiSyncService {
         .filter((cardId) => cardId !== undefined) as number[];
 
       const cardReviewsMap = await AnkiService.getReviewsOfCards(ankiCardIds);
-
+      if (!cardReviewsMap || Object.keys(cardReviewsMap).length == 0) {
+        Message.error(
+          "Anki未连接,请检查Anki是否打开，以及AnkiConnect插件是否安装与正确配置"
+        );
+        return [];
+      }
       // 遍历cardDTOs,每次遍历从cardReviewsMap中找到对应cardDTO的AnkiInfo的cardId的复习记录们
       for (const cardDTO of cardDTOs) {
         const ankiCardId = cardDTO.ankiInfo?.cardId;
@@ -427,16 +436,18 @@ export class AnkiSyncService {
         if (!reviews || reviews.length == 0) continue;
         const lastReview = reviews[reviews.length - 1];
         const lastReviewDayTimestamp = new Date(
-          cardDTO.fsrsCard?.last_review ?? "1740374581093"
+          cardDTO.fsrsCard?.due ?? "1740374581093"
         ).setHours(0, 0, 0, 0);
 
         if (lastReview.id > lastReviewDayTimestamp) {
           this.fsrsService.reviewCard(cardDTO, lastReview.ease);
+          reviewedCardIds.push(cardDTO.id);
         }
       }
     } catch (error) {
       console.error("Failed to sync review cards:", error);
     }
+    return reviewedCardIds.filter((id): id is string => id !== undefined);
   }
 }
 
