@@ -244,7 +244,7 @@
               <template #icon>
                 <icon-close />
               </template>
-              完全不会 (<span class="shortcut">1</span>)
+              重来 (<span class="shortcut">1</span>)
             </a-button>
             <a-button
               class="rating-btn"
@@ -256,7 +256,7 @@
               <template #icon>
                 <icon-minus />
               </template>
-              有点困难 (<span class="shortcut">2</span>)
+              困难 (<span class="shortcut">2</span>)
             </a-button>
             <a-button
               class="rating-btn"
@@ -268,7 +268,7 @@
               <template #icon>
                 <icon-check />
               </template>
-              记得住 (<span class="shortcut">3</span>)
+              良好 (<span class="shortcut">3</span>)
             </a-button>
             <a-button
               class="rating-btn"
@@ -280,7 +280,7 @@
               <template #icon>
                 <icon-star />
               </template>
-              很简单 (<span class="shortcut">4</span>)
+              简单 (<span class="shortcut">4</span>)
             </a-button>
           </div>
         </div>
@@ -416,7 +416,9 @@ import { AIChatRequest } from "../../../generated/models/AIChatRequest";
 
 import { ChatControllerService } from "../../../generated/services/ChatControllerService";
 import AIChat from "@/components/AIChat.vue";
-import { CardControllerService } from "@backendApi/index";
+import { CardControllerService, CardDTO } from "@backendApi/index";
+import { FsrsService } from "@/services/FsrsService";
+import { Grade } from "ts-fsrs";
 
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const isAIChatVisible = ref(false);
@@ -431,7 +433,7 @@ const cleanObsidianLinks = (text: string) => {
 };
 
 // 添加获取当前复习卡片的方法
-const getCurrentReviewCard = (callback: (card: Card) => void) => {
+const getCurrentReviewCard = (callback: (card: CardDTO) => void) => {
   const card = {
     id: currentCard.value?.id,
     question: currentCard.value?.question,
@@ -503,28 +505,6 @@ interface MockResponse {
     close: () => void;
   };
 }
-
-interface Card {
-  id: string;
-  userId?: number;
-  ankiInfo?: {
-    noteId: number;
-    cardId: number;
-    modelName: string;
-    syncTime: number;
-  };
-  question: string;
-  answer: string;
-  tags?: string[];
-  group?: string;
-  modifiedTime?: number;
-  isDeleted?: boolean;
-  deleteTime?: number | null;
-  createTime?: number;
-}
-
-// 修改变量定义
-const fetchCancel = ref<MockResponse | null>(null);
 
 const loading = ref(false);
 const isStreamLoad = ref(false);
@@ -660,7 +640,7 @@ const currentDeck = ref<Deck>({
   cardCount: 50,
 });
 
-const cards = ref<Card[]>([
+const cards = ref<CardDTO[]>([
   {
     id: "1",
     question: "# Vue的响应式原理是什么？",
@@ -714,7 +694,7 @@ const correctAnswers = ref(0);
 const syncLoading = ref(false);
 
 // 添加一个新的状态来跟踪当前显示的卡片内容
-const displayCard = ref<Card | null>(null);
+const displayCard = ref<CardDTO | null>(null);
 
 // 修改计算属性
 const currentCard = computed(
@@ -728,6 +708,8 @@ const correctRate = computed(() =>
     ? Math.round((correctAnswers.value / completedCards.value) * 100)
     : 0
 );
+
+const fsrsService = new FsrsService();
 
 // 控制评分按钮显示的计算属性
 const showRatingButtons = computed(
@@ -755,31 +737,34 @@ const rateCard = async (rating: number) => {
   aiChatRef.value?.clear();
   // 重置已发送卡片的记录，这样切换到新卡片时可以重新发送
   cardSentToAI.value.clear();
-
   try {
-    // 同步到 Anki
-    if (currentCard.value.ankiInfo?.cardId) {
-      // 第一次尝试
-      let success = await AnkiService.answerCard({
-        card: currentCard.value.ankiInfo.cardId,
-        ease: rating, // 1-4 对应 again, hard, good, easy
-      });
+    const ttt = currentCard.value;
+    console.log("currentCard.value", ttt);
+    await fsrsService.reviewCard(currentCard.value, rating);
 
-      // 如果第一次失败，静默重试一次
-      if (!success) {
-        console.log("Anki同步失败，正在重试...");
-        success = await AnkiService.answerCard({
-          card: currentCard.value.ankiInfo.cardId,
-          ease: rating,
-        });
+    //   // 同步到 Anki
+    //   if (currentCard.value.ankiInfo?.cardId) {
+    //     // 第一次尝试
+    //     let success = await AnkiService.answerCard({
+    //       card: currentCard.value.ankiInfo.cardId,
+    //       ease: rating, // 1-4 对应 again, hard, good, easy
+    //     });
 
-        // 如果重试后仍然失败，提示用户
-        if (!success) {
-          Message.error("同步到 Anki 失败");
-          return;
-        }
-      }
-    }
+    //     // 如果第一次失败，静默重试一次
+    //     if (!success) {
+    //       console.log("Anki同步失败，正在重试...");
+    //       success = await AnkiService.answerCard({
+    //         card: currentCard.value.ankiInfo.cardId,
+    //         ease: rating,
+    //       });
+
+    //       // 如果重试后仍然失败，提示用户
+    //       if (!success) {
+    //         Message.error("同步到 Anki 失败");
+    //         return;
+    //       }
+    //     }
+    //   }
 
     // 立即更新统计状态
     if (rating >= 3) correctAnswers.value++;
@@ -862,14 +847,14 @@ const handleKeyPress = (e: KeyboardEvent) => {
 // 修改加载数据方法
 const loadDeckData = async () => {
   try {
-    // 从Anki获取所有到期的卡片
-    const deckNames = await AnkiService.getDeckNames();
-    const firstLevelDeckNames = deckNames.filter(
-      (name) => !name.includes("::")
-    );
-    const dueCardIds = await AnkiService.getDueCardsInDecks(
-      firstLevelDeckNames
-    );
+    //   // 从Anki获取所有到期的卡片
+    //   const deckNames = await AnkiService.getDeckNames();
+    //   const firstLevelDeckNames = deckNames.filter(
+    //     (name) => !name.includes("::")
+    //   );
+    //   const dueCardIds = await AnkiService.getDueCardsInDecks(
+    //     firstLevelDeckNames
+    //   );
 
     // 从数据库获取卡片详细信息
     // const res = await CardControllerService.getCardsByAnkiCardIds({
@@ -879,20 +864,21 @@ const loadDeckData = async () => {
 
     if (res.code === 200 && res.data) {
       // 使用 Fisher-Yates 算法打乱卡片顺序
-      shuffleArray(res.data);
-      cards.value = res.data.map((card: any) => ({
-        id: card.id, // 直接使用后端返回的 string 类型 id
-        userId: card.userId,
-        ankiInfo: card.ankiInfo,
-        question: card.question || "",
-        answer: card.answer || "",
-        tags: card.tags || [],
-        group: card.group,
-        modifiedTime: card.modifiedTime,
-        isDeleted: card.isDeleted,
-        deleteTime: card.deleteTime,
-        createTime: card.createTime,
-      }));
+      cards.value = shuffleArray(res.data);
+      // shuffleArray(res.data);
+      // cards.value = res.data.map((card: any) => ({
+      //   id: card.id, // 直接使用后端返回的 string 类型 id
+      //   userId: card.userId,
+      //   ankiInfo: card.ankiInfo,
+      //   question: card.question || "",
+      //   answer: card.answer || "",
+      //   tags: card.tags || [],
+      //   group: card.group,
+      //   modifiedTime: card.modifiedTime,
+      //   isDeleted: card.isDeleted,
+      //   deleteTime: card.deleteTime,
+      //   createTime: card.createTime,
+      // }));
     } else {
       Message.error("加载卡片失败");
     }
@@ -1185,15 +1171,16 @@ const handleDelete = async () => {
   if (!currentCard.value) return;
 
   try {
+    if (!currentCard.value.id) throw new Error("当前卡片不存在ID");
     const res = await CardControllerService.deleteCard1(currentCard.value.id);
     if (res.code === 200) {
       Message.success("删除成功");
       // 从卡片列表中移除当前卡片
       cards.value = cards.value.filter(
-        (card) => card.id !== currentCard.value?.id
+        (card) => card.id != currentCard.value?.id
       );
       // 更新当前卡片
-      currentCard.value = cards.value[0] || null;
+      // currentCard.value = cards.value[0] || null;
       // 关闭对话框
       deleteModalVisible.value = false;
     }
@@ -1282,7 +1269,7 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  transition: all 0.2s ease;
+  transition: all 0.29s ease;
   will-change: transform, width;
   display: flex;
   flex-direction: column;
@@ -1302,7 +1289,7 @@ onUnmounted(() => {
   top: 50%;
   transform: translateY(-50%);
   z-index: 10;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.29s ease;
 }
 
 .ai-helper-panel {
@@ -1313,7 +1300,7 @@ onUnmounted(() => {
   height: 87%;
   background: var(--color-bg-2);
   box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
-  transition: all 0.2s ease;
+  transition: all 0.29s ease;
   will-change: transform, opacity, visibility;
   z-index: 100;
   display: flex;
@@ -1404,7 +1391,7 @@ onUnmounted(() => {
   position: relative;
   transform: translate3d(0, 0, 0);
   transform-style: preserve-3d;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+  transition: transform 0.29s cubic-bezier(0.29, 0, 0.29, 1);
 }
 
 .flashcard-inner {
@@ -1413,7 +1400,7 @@ onUnmounted(() => {
   height: 95%;
   left: -45px;
   transform: translate3d(0, 0, 0);
-  transition: transform 0.31s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.29s cubic-bezier(0.4, 0, 0.29, 1);
   transform-style: preserve-3d;
   will-change: transform;
 }
@@ -1496,7 +1483,7 @@ onUnmounted(() => {
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all 0.29s;
 }
 
 .content-text :deep(.bytemd:hover),
@@ -1530,7 +1517,7 @@ onUnmounted(() => {
 
 /* 修改卡片的过渡效果 */
 .card-container {
-  transition: width 0.2s ease;
+  transition: width 0.29s ease;
 }
 
 .card-container.shift-left {
@@ -1539,7 +1526,7 @@ onUnmounted(() => {
 
 /* 添加 AI 助手面板的过渡效果 */
 .ai-helper-panel {
-  transition: transform 0.2s ease, visibility 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.29s ease, visibility 0.29s ease, opacity 0.29s ease;
 }
 
 .card-actions {
@@ -1548,7 +1535,7 @@ onUnmounted(() => {
   right: 12px;
   z-index: 10;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.29s;
   pointer-events: auto;
 }
 
@@ -1582,7 +1569,7 @@ onUnmounted(() => {
   position: relative;
   transform: translate3d(0, 0, 0);
   transform-style: preserve-3d;
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+  transition: transform 0.29s cubic-bezier(0.29, 0, 0.29, 1);
 }
 
 .flashcard.is-editing {
@@ -1594,7 +1581,7 @@ onUnmounted(() => {
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  transition: all 0.2s;
+  transition: all 0.29s;
   min-height: 32px;
 }
 
@@ -1613,7 +1600,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 8px;
   opacity: 0.8;
-  transition: opacity 0.2s;
+  transition: opacity 0.29s;
   font-size: 14px;
 }
 
@@ -1642,7 +1629,7 @@ onUnmounted(() => {
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
   transform: translateY(100%);
   opacity: 0;
-  transition: all 0.2s ease;
+  transition: all 0.29s ease;
 }
 
 .rating-area.show {
@@ -1666,7 +1653,7 @@ onUnmounted(() => {
 
 .rating-btn {
   font-size: 14px;
-  transition: all 0.2s;
+  transition: all 0.29s;
   padding: 8px 16px;
   border-radius: 24px;
 }

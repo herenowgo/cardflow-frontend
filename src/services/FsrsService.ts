@@ -22,6 +22,13 @@ export class FsrsService {
   private fsrsInstance: FSRS;
 
   constructor(params?: Partial<FSRSParameters>) {
+    // const param :FSRSParameters = {
+    //    request_retention: number;
+    // maximum_interval: number;
+    // w: number[];
+    // enable_fuzz: boolean;
+    // enable_short_term: boolean;
+    // }
     // TODO 从后端获取用户的FSRS参数
     if (params) {
       const customParams = generatorParameters(params);
@@ -70,58 +77,58 @@ export class FsrsService {
   }
 
   async reviewCard(card: CardDTO, rating: Grade) {
-    try {
-      // Convert CardDTO's fsrsCard to ts-fsrs Card format
-      const fsrsCard = {
-        due: new Date(card.fsrsCard?.due ?? 0),
-        last_review: card.fsrsCard?.last_review
-          ? new Date(card.fsrsCard.last_review)
+    // try {
+    // Convert CardDTO's fsrsCard to ts-fsrs Card format
+    const fsrsCard = {
+      due: new Date(card.fsrsCard?.due ?? 0),
+      last_review: card.fsrsCard?.last_review
+        ? new Date(card.fsrsCard.last_review)
+        : undefined,
+      state: Number(card.fsrsCard?.state),
+      stability: card.fsrsCard?.stability ?? 0,
+      difficulty: card.fsrsCard?.difficulty ?? 0,
+      elapsed_days: card.fsrsCard?.elapsed_days ?? 0,
+      scheduled_days: card.fsrsCard?.scheduled_days ?? 0,
+      reps: card.fsrsCard?.reps ?? 0,
+      lapses: card.fsrsCard?.lapses ?? 0,
+    };
+
+    // Get next state using ts-fsrs
+    const result = this.fsrsInstance.next(fsrsCard, new Date(), rating);
+
+    // Save review log
+    await CardControllerService.saveReviewLogs([
+      {
+        ...result.log,
+        cardId: card.id,
+        review: formatDate(result.log.review),
+        due: formatDate(result.log.due),
+        rating: String(result.log.rating),
+        state: String(result.log.state),
+      },
+    ]);
+
+    // Update card's FSRS state
+    const updateRequest: CardUpdateRequest = {
+      id: card.id,
+      fsrsCard: {
+        ...result.card,
+        due: formatDate(result.card.due),
+        state: String(result.card.state),
+        last_review: result.card.last_review
+          ? formatDate(result.card.last_review)
           : undefined,
-        state: Number(card.fsrsCard?.state),
-        stability: card.fsrsCard?.stability ?? 0,
-        difficulty: card.fsrsCard?.difficulty ?? 0,
-        elapsed_days: card.fsrsCard?.elapsed_days ?? 0,
-        scheduled_days: card.fsrsCard?.scheduled_days ?? 0,
-        reps: card.fsrsCard?.reps ?? 0,
-        lapses: card.fsrsCard?.lapses ?? 0,
-      };
+      },
+    };
 
-      // Get next state using ts-fsrs
-      const result = this.fsrsInstance.next(fsrsCard, new Date(), rating);
+    // Save updated card
+    await CardControllerService.updateCard1(updateRequest);
 
-      // Save review log
-      await CardControllerService.saveReviewLogs([
-        {
-          ...result.log,
-          cardId: card.id,
-          review: formatDate(result.log.review),
-          due: formatDate(result.log.due),
-          rating: String(result.log.rating),
-          state: String(result.log.state),
-        },
-      ]);
-
-      // Update card's FSRS state
-      const updateRequest: CardUpdateRequest = {
-        id: card.id,
-        fsrsCard: {
-          ...result.card,
-          due: formatDate(result.card.due),
-          state: String(result.card.state),
-          last_review: result.card.last_review
-            ? formatDate(result.card.last_review)
-            : undefined,
-        },
-      };
-
-      // Save updated card
-      await CardControllerService.updateCard1(updateRequest);
-
-      return result;
-    } catch (error) {
-      console.error("Review card failed:", error);
-      throw error;
-    }
+    return result;
+    // } catch (error) {
+    //   console.error("Review card failed:", error);
+    //   throw error;
+    // }
   }
 
   /**
