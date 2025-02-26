@@ -667,14 +667,6 @@ interface Deck {
   cardCount: number;
 }
 
-// 状态
-const currentDeck = ref<Deck>({
-  id: 1,
-  name: "Vue基础知识",
-  description: "Vue3核心概念和基础API",
-  cardCount: 50,
-});
-
 const cards = ref<CardDTO[]>([]);
 
 const currentIndex = ref(0);
@@ -716,6 +708,10 @@ const toggleCard = () => {
   isFlipped.value = !isFlipped.value;
 };
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const rateCard = async (rating: number) => {
   if (!currentCard.value) return;
 
@@ -728,8 +724,6 @@ const rateCard = async (rating: number) => {
   // 重置已发送卡片的记录，这样切换到新卡片时可以重新发送
   cardSentToAI.value.clear();
   try {
-    const ttt = currentCard.value;
-    console.log("currentCard.value", ttt);
     await fsrsService.reviewCard(currentCard.value, rating);
 
     // 立即更新统计状态
@@ -744,14 +738,26 @@ const rateCard = async (rating: number) => {
     isFlipped.value = false;
 
     // 等待翻转动画完成后再更新索引和显示的卡片
-    setTimeout(() => {
-      currentIndex.value++;
-      // 清除显示的卡片，使用新的当前卡片
-      displayCard.value = null;
-      ratingSubmitted.value = false;
-    }, 100); // 300ms 是翻转动画的持续时间
+    //  setTimeout(() => {
+    await sleep(100);
+    currentIndex.value++;
+    // 清除显示的卡片，使用新的当前卡片
+    displayCard.value = null;
+    ratingSubmitted.value = false;
+    // }, 100); // 300ms 是翻转动画的持续时间
 
     Message.success("评分已保存");
+    console.log("currentIndex.value", currentIndex.value);
+    console.log("cards.value.length", cards.value.length);
+    if (currentIndex.value >= cards.value.length) {
+      cards.value = [exampleCard];
+      displayCard.value = exampleCard;
+
+      ratingSubmitted.value = false; // Set to false to allow flipping the example card
+      isFlipped.value = false;
+
+      currentIndex.value = 0;
+    }
   } catch (error) {
     console.error("保存评分失败:", error);
     Message.error("保存失败，请重试");
@@ -810,6 +816,15 @@ const handleKeyPress = (e: KeyboardEvent) => {
   }
 };
 
+const exampleCard = {
+  id: "sample",
+  question:
+    "# 恭喜！您已完成所有卡片的复习\n这是一张示例卡片\n\n卡片的背面介绍了复习功能的使用\n\n鼠标点击卡片或敲击空格即可使卡片翻转",
+  answer:
+    '# 使用提示\n\n## 1. 评分系统\n根据您的掌握情况，点击下方的按钮进行评分。系统会根据您的评分和卡片的信息使用<a href="https://github.com/open-spaced-repetition" target="_blank" rel="noopener">FSRS算法</a>计算出下一次复习时间和相关参数并保存起来。（这是一张示例卡无法真正保存）\n\n## 2. AI助手\n按**F键**或点击右方的蓝色机器人图标来召唤AI助手，他会自动帮你检查卡片内容的正确性和全面性。\n\n复习的过程中有任何疑问，您都可以和他进行交流，他能帮您答疑解惑。\n\n并且可以根据交流的内容，一键提取关键知识点自动生成适合学习复习的卡片。\n\n## 3. 编辑卡片\n将鼠标悬停在卡片上，点击右上角的编辑按钮就可以快速修改卡片的内容。\n*这是一张示例卡，所以修改、删除功能无法真正执行*',
+  tags: ["我是标签", "知识点标签"],
+};
+
 // 修改加载数据方法
 const loadDeckData = async () => {
   try {
@@ -821,16 +836,7 @@ const loadDeckData = async () => {
         Message.success("恭喜！您已完成所有卡片的复习");
 
         // 提供一张示例卡片，以便用户看到界面效果
-        cards.value = [
-          {
-            id: "sample",
-            question:
-              "# 恭喜！您已完成所有卡片的复习\n这是一张示例卡片\n\n卡片的背面介绍了复习功能的使用\n\n鼠标点击卡片或敲击空格即可使卡片翻转",
-            answer:
-              '# 使用提示\n\n## 1. 评分系统\n根据您的掌握情况，点击下方的按钮进行评分。系统会根据您的评分和卡片的信息使用<a href="https://github.com/open-spaced-repetition" target="_blank" rel="noopener">FSRS算法</a>计算出下一次复习时间和相关参数并保存起来。（这是一张示例卡无法真正保存）\n\n## 2. AI助手\n按**F键**或点击右方的蓝色机器人图标来召唤AI助手，他会自动帮你检查卡片内容的正确性和全面性。\n\n复习的过程中有任何疑问，您都可以和他进行交流，他能帮您答疑解惑。\n\n并且可以根据交流的内容，一键提取关键知识点自动生成适合学习复习的卡片。\n\n## 3. 编辑卡片\n将鼠标悬停在卡片上，点击右上角的编辑按钮就可以快速修改卡片的内容。\n*这是一张示例卡，所以修改、删除功能无法真正执行*',
-            tags: ["我是标签", "知识点标签"],
-          },
-        ];
+        cards.value = [exampleCard];
         return;
       }
       // 使用 Fisher-Yates 算法打乱卡片顺序
