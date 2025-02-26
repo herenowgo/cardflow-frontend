@@ -21,7 +21,7 @@
           <template #icon>
             <icon-sync />
           </template>
-          同步到Anki
+          与Anki双向同步
         </a-button>
       </a-space>
     </div>

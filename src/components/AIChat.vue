@@ -712,6 +712,7 @@ import { AiControllerService } from "@backendApi/index";
 import MdEditor from "./MdEditor.vue";
 import MdViewer from "./MdViewer.vue";
 import SessionManager from "./SessionManager.vue";
+import { FsrsService } from "@/services/FsrsService";
 
 interface HistoryResponse {
   content: string;
@@ -1497,12 +1498,13 @@ const saveToCardLibrary = async (card: Card, index: number) => {
       question: card.question,
       answer: card.answer,
       tags: card.tags,
-      group: "all",
+      group: "CardFlow",
     };
 
-    const response = await CardControllerService.createCard(cardAddRequest);
+    const response = await FsrsService.batchCreateCards([cardAddRequest]);
+    // const response = await CardControllerService.createCard(cardAddRequest);
 
-    if (response.code === 200 && response.data) {
+    if (response) {
       currentCards.value.splice(index, 1);
       Message.success("已成功添加到卡片库");
     } else {
