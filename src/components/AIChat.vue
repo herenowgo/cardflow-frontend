@@ -1039,9 +1039,10 @@ const handleSend = async (inputValue: string) => {
     }
   } catch (error) {
     console.error("Chat error:", error);
-    if (chatList.value[0] && chatList.value[0].role === "assistant") {
-      chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
-    }
+    // if (chatList.value[0] && chatList.value[0].role === "assistant") {
+    //   chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
+    // }
+    Message.error("抱歉，发生了错误，请稍后重试");
   } finally {
     loading.value = false;
     isStreamLoad.value = false;
@@ -1385,11 +1386,11 @@ const regenerateWithModel = async (model: AIChatRequest.model) => {
   isStreamLoad.value = true;
 
   try {
-    const res = await ChatControllerService.chat({
+    const res = await AiControllerService.chat({
       model: currentModel.value,
-      content: lastUserMessage.content,
-      sessionId: currentSessionId.value,
-      prompt: systemPrompt.value || undefined,
+      userPrompt: lastUserMessage.content,
+      conversationId: currentSessionId.value,
+      systemPrompt: systemPrompt.value || undefined,
     });
 
     if (res.code == 200 && res.data) {

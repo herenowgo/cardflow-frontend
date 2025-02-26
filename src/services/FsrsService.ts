@@ -36,7 +36,14 @@ export class FsrsService {
     } else {
       const defaultParams = generatorParameters({
         enable_fuzz: true,
-        enable_short_term: false,
+        enable_short_term: true,
+        request_retention: 0.9,
+        maximum_interval: 36500,
+        w: [
+          2.7183, 3.206, 8.6895, 16.0105, 7.2301, 0.5238, 1.9951, 0.001, 1.4419,
+          0.2305, 0.9407, 2.1765, 0.094, 0.5149, 2.5832, 0.0, 3.2416, 0.3299,
+          0.4634,
+        ],
       });
       this.fsrsInstance = fsrs(defaultParams);
     }
