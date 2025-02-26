@@ -3,6 +3,10 @@
     <div class="graph-header">
       <h2>我的知识图谱</h2>
       <div class="graph-actions">
+        <a-button v-if="isNodeFocused" type="primary" @click="resetFocus">
+          <template #icon><icon-undo /></template>
+          返回完整图谱
+        </a-button>
         <a-button type="primary" @click="refreshGraph">
           <template #icon><icon-refresh /></template>
           刷新
@@ -27,9 +31,11 @@
       </div>
       <div v-else class="graph-chart-container">
         <v-chart
+          ref="chartRef"
           class="knowledge-graph-chart"
           :option="graphOption"
           autoresize
+          @dblclick="handleNodeDblClick"
         />
         <div class="graph-legend">
           <div class="legend-item">
@@ -41,14 +47,32 @@
             <span>卡片</span>
           </div>
         </div>
+
+        <!-- 节点操作菜单 -->
+        <div
+          v-if="showNodeMenu"
+          class="node-action-menu"
+          :style="nodeMenuStyle"
+        >
+          <div
+            class="action-item"
+            v-for="(item, index) in nodeActionItems"
+            :key="index"
+            :style="getActionItemStyle(index)"
+            @click="item.action(activeNodeId)"
+          >
+            <span class="action-icon">{{ item.icon }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref, computed } from "vue";
+import { defineComponent, onMounted, ref, computed, nextTick } from "vue";
 import { use } from "echarts/core";
+import * as echarts from "echarts/core";
 import { GraphChart } from "echarts/charts";
 import {
   TitleComponent,
@@ -81,6 +105,167 @@ export default defineComponent({
     const graphData = ref<GraphDTO | null>(null);
     const loading = ref(true);
     const error = ref<string | null>(null);
+    const chartRef = ref<any>(null);
+
+    // 节点交互相关状态
+    const showNodeMenu = ref(false);
+    const activeNodeId = ref<string | null>(null);
+    const nodeMenuPosition = ref({ x: 0, y: 0 });
+    const menuRadius = 60; // 环形菜单半径
+
+    // 节点聚焦状态
+    const isNodeFocused = ref(false);
+    const originalGraphData = ref<GraphDTO | null>(null);
+    const focusedNodeId = ref<string | null>(null);
+
+    // 环形菜单样式计算
+    const nodeMenuStyle = computed(() => {
+      return {
+        left: `${nodeMenuPosition.value.x}px`,
+        top: `${nodeMenuPosition.value.y}px`,
+      };
+    });
+
+    // 环形菜单项
+    const nodeActionItems = [
+      {
+        name: "聚焦",
+        icon: "🔍",
+        action: (nodeId: string | null) => {
+          if (nodeId) {
+            focusOnNode(nodeId);
+            hideNodeMenu();
+          }
+        },
+      },
+      // 这里可以轻松添加更多菜单项
+    ];
+
+    // 计算每个菜单项的位置
+    const getActionItemStyle = (index: number) => {
+      const totalItems = nodeActionItems.length;
+      // 计算角度，从顶部开始，顺时针排列
+      const angle = (index * (360 / totalItems) - 90) * (Math.PI / 180);
+      return {
+        transform: `translate(${menuRadius * Math.cos(angle)}px, ${
+          menuRadius * Math.sin(angle)
+        }px)`,
+      };
+    };
+
+    // 处理节点双击事件
+    const handleNodeDblClick = (params: any) => {
+      if (
+        params.componentType === "series" &&
+        params.seriesType === "graph" &&
+        params.dataType === "node"
+      ) {
+        // 保存当前活跃节点ID
+        activeNodeId.value = params.data.id;
+
+        // 计算菜单位置（相对于图表容器）
+        const chartDom = chartRef.value?.chart;
+        if (chartDom) {
+          // 将图表坐标转换为容器坐标
+          const pointInPixel = chartDom.convertToPixel(
+            "grid",
+            params.event.offsetPos
+          );
+          nodeMenuPosition.value = {
+            x: pointInPixel ? pointInPixel[0] : params.event.offsetX,
+            y: pointInPixel ? pointInPixel[1] : params.event.offsetY,
+          };
+
+          // 显示菜单
+          showNodeMenu.value = true;
+        }
+      } else {
+        hideNodeMenu();
+      }
+    };
+
+    // 隐藏节点菜单
+    const hideNodeMenu = () => {
+      showNodeMenu.value = false;
+      activeNodeId.value = null;
+    };
+
+    // 聚焦到节点
+    const focusOnNode = (nodeId: string) => {
+      if (!graphData.value) return;
+
+      // 备份原始数据
+      if (!originalGraphData.value) {
+        originalGraphData.value = JSON.parse(JSON.stringify(graphData.value));
+      }
+
+      const { nodes, edges } = graphData.value;
+      if (!nodes || !edges) return;
+
+      // 找出目标节点
+      const targetNode = nodes.find((node) => String(node.id) === nodeId);
+      if (!targetNode) return;
+
+      // 找出与此节点直接相连的边和节点
+      const connectedEdges = edges.filter(
+        (edge) =>
+          String(edge.source) === nodeId || String(edge.target) === nodeId
+      );
+
+      const connectedNodeIds = new Set<string>();
+      connectedNodeIds.add(nodeId);
+
+      // 收集所有相连的节点ID
+      connectedEdges.forEach((edge) => {
+        connectedNodeIds.add(String(edge.source));
+        connectedNodeIds.add(String(edge.target));
+      });
+
+      // 过滤出相关节点和边
+      const filteredNodes = nodes.filter((node) =>
+        connectedNodeIds.has(String(node.id))
+      );
+      const filteredEdges = edges.filter(
+        (edge) =>
+          connectedNodeIds.has(String(edge.source)) &&
+          connectedNodeIds.has(String(edge.target))
+      );
+
+      // 更新图表数据
+      graphData.value = {
+        nodes: filteredNodes,
+        edges: filteredEdges,
+      };
+
+      // 更新聚焦状态
+      isNodeFocused.value = true;
+      focusedNodeId.value = nodeId;
+
+      // 重置环形菜单
+      hideNodeMenu();
+    };
+
+    // 重置聚焦，恢复完整图谱
+    const resetFocus = () => {
+      if (originalGraphData.value) {
+        graphData.value = originalGraphData.value;
+        originalGraphData.value = null;
+        isNodeFocused.value = false;
+        focusedNodeId.value = null;
+      }
+    };
+
+    // 监听点击事件以关闭菜单
+    onMounted(() => {
+      fetchGraphData();
+
+      document.addEventListener("click", (event) => {
+        // 点击外部区域关闭菜单
+        if (showNodeMenu.value) {
+          hideNodeMenu();
+        }
+      });
+    });
 
     // 计算 ECharts 图表配置
     const graphOption = computed(() => {
@@ -118,6 +303,14 @@ export default defineComponent({
           itemStyle: {
             shadowBlur: 10,
             shadowColor: "rgba(0, 0, 0, 0.3)",
+            // 聚焦节点高亮显示
+            ...(focusedNodeId.value === String(node.id)
+              ? {
+                  color: "#FF7D00",
+                  borderWidth: 4,
+                  borderColor: "#FF5500",
+                }
+              : {}),
           },
           label: {
             show: true,
@@ -258,8 +451,13 @@ export default defineComponent({
               focus: "adjacency",
               scale: true,
               labelFontSize: 14,
+              itemStyle: {
+                borderWidth: 2,
+                borderColor: "#FF5500",
+              },
               lineStyle: {
                 width: 4,
+                color: "#FF5500",
               },
             },
             labelLayout: {
@@ -310,6 +508,18 @@ export default defineComponent({
       loading,
       error,
       refreshGraph,
+      chartRef,
+      // 节点菜单相关
+      showNodeMenu,
+      activeNodeId,
+      nodeMenuStyle,
+      nodeActionItems,
+      getActionItemStyle,
+      handleNodeDblClick,
+      hideNodeMenu,
+      // 聚焦相关
+      isNodeFocused,
+      resetFocus,
     };
   },
 });
@@ -399,5 +609,38 @@ export default defineComponent({
   height: 15px;
   border-radius: 50%;
   margin-right: 8px;
+}
+
+.node-action-menu {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: 100;
+}
+
+.action-item {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  user-select: none;
+}
+
+.action-item:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  background-color: #f0f9ff;
+}
+
+.action-icon {
+  pointer-events: none;
 }
 </style>
