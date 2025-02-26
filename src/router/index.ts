@@ -1,10 +1,22 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { routes } from "@/router/routes";
 import store from "@/store";
+import KnowledgeGraph from "@/views/KnowledgeGraph.vue";
 
 const router = createRouter({
   history: createWebHistory(process.env.BASE_URL),
-  routes,
+  routes: [
+    {
+      path: "/knowledge-graph",
+      name: "KnowledgeGraph",
+      component: KnowledgeGraph,
+      meta: {
+        title: "知识图谱",
+        requireAuth: true,
+      },
+    },
+    ...routes,
+  ],
 });
 
 // 路由守卫中使用

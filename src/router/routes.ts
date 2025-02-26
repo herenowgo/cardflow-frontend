@@ -20,6 +20,7 @@ import UserManageView from "@/views/user/UserManageView.vue";
 import UserAnalysisView from "@/views/user/UserAnalysisView.vue";
 import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
 import GroupDetailView from "@/views/workspace/GroupDetailView.vue";
+import KnowledgeGraph from "@/views/KnowledgeGraph.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -201,6 +202,11 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/workspace",
     name: "工作台",
     component: WorkspaceView,
+  },
+  {
+    path: "/graph",
+    name: "知识图谱",
+    component: KnowledgeGraph,
   },
   {
     path: "/flashcard/review",
