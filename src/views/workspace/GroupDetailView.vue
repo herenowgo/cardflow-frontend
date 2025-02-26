@@ -246,8 +246,12 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import type { CardAddRequest } from "../../../generated/models/CardAddRequest";
 import type { CardUpdateRequest } from "../../../generated/models/CardUpdateRequest";
-import { CardControllerService } from "../../../generated/services/CardControllerService";
 import { FsrsService } from "@/services/FsrsService";
+import {
+  GraphControllerService,
+  CardControllerService,
+  CardDTO,
+} from "@backendApi/index";
 
 const router = useRouter();
 const route = useRoute();
@@ -303,7 +307,7 @@ const isEditingCard = ref(false);
 
 // 添加删除相关的状态
 const deleteModalVisible = ref(false);
-const cardToDelete = ref<Card | null>(null);
+const cardToDelete = ref<CardDTO | null>(null);
 
 // 添加冲突处理相关的状态
 const conflictModalVisible = ref(false);
@@ -373,7 +377,19 @@ const handleCardSubmit = async () => {
         group: decodeURIComponent(group),
         tags: cardForm.value.tags,
       };
-      const res = await CardControllerService.updateCard(updateParams);
+      const res = await CardControllerService.saveCards([updateParams]);
+      // 比对用户编辑后的卡片的标签和更新前的标签是否一致，如果不一致才更新图数据库中的标签
+      const currentCard = cards.value.find((c) => c.id === cardForm.value.id);
+      if (
+        currentCard &&
+        JSON.stringify(currentCard.tags) !== JSON.stringify(cardForm.value.tags)
+      ) {
+        GraphControllerService.updateCard({
+          cardId: cardForm.value.id,
+          tags: cardForm.value.tags || [],
+        });
+      }
+
       if (res.code === 200) {
         Message.success("更新成功");
         cardModalVisible.value = false;
@@ -387,8 +403,11 @@ const handleCardSubmit = async () => {
         tags: cardForm.value.tags,
       };
       const res = await FsrsService.batchCreateCards([cardForm.value]);
-
-      if (res == true) {
+      GraphControllerService.addCard({
+        cardId: res[0],
+        tags: cardForm.value.tags,
+      });
+      if (res.length != 0) {
         Message.success("创建成功");
         cardModalVisible.value = false;
         loadCards();
@@ -410,12 +429,21 @@ const confirmDelete = async () => {
   if (!cardToDelete.value) return;
 
   try {
-    const res = await CardControllerService.deleteCard(cardToDelete.value.id);
+    if (!cardToDelete?.value?.id) {
+      Message.error("卡片ID不存在");
+      return;
+    }
+
+    const res = await CardControllerService.deleteCard1(cardToDelete.value.id);
     if (res.code === 200) {
       Message.success("删除成功");
+      GraphControllerService.deleteCard(cardToDelete.value.id);
       loadCards();
       try {
-        await AnkiService.deleteNotes([cardToDelete.value.ankiInfo.noteId]);
+        const noteId = cardToDelete?.value?.ankiInfo?.noteId;
+        if (noteId !== undefined) {
+          await AnkiService.deleteNotes([noteId]);
+        }
       } catch (error) {
         Message.error("Anki同步删除失败，打开anki后点击同步到Anki即可");
         // todo 记录删除信息，延迟删除

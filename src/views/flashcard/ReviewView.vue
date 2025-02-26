@@ -445,7 +445,11 @@ import { AIChatRequest } from "../../../generated/models/AIChatRequest";
 
 import { ChatControllerService } from "../../../generated/services/ChatControllerService";
 import AIChat from "@/components/AIChat.vue";
-import { CardControllerService, CardDTO } from "@backendApi/index";
+import {
+  CardControllerService,
+  CardDTO,
+  GraphControllerService,
+} from "@backendApi/index";
 import { FsrsService } from "@/services/FsrsService";
 import { Grade } from "ts-fsrs";
 import { AnkiSyncService } from "@/services/AnkiSyncService";
@@ -912,6 +916,18 @@ const handleEditSave = async () => {
 
     if (res.code === 200 && res.data) {
       Message.success("更新成功");
+      console.log("currentCard Tag:", JSON.stringify(currentCard.value.tags));
+      console.log("editFormCard Tag:", JSON.stringify(editForm.value.tags));
+      if (
+        currentCard.value &&
+        JSON.stringify(currentCard.value.tags) !==
+          JSON.stringify(editForm.value.tags)
+      ) {
+        GraphControllerService.updateCard({
+          cardId: currentCard.value.id,
+          tags: editForm.value.tags || [],
+        });
+      }
       // 更新当前卡片内容
       if (currentCard.value) {
         currentCard.value.question = editForm.value.question;
@@ -1100,16 +1116,22 @@ const handleCardUpdate = async (updateData: {
     if (type === "tags" || type === "all") {
       currentCard.value.tags = [...data.tags];
       editForm.value.tags = [...data.tags];
+      GraphControllerService.updateCard({
+        cardId: currentCard.value.id,
+        tags: currentCard.value.tags || [],
+      });
     }
 
     // 保存更新到后端
-    await CardControllerService.updateCard1({
-      id: currentCard.value.id,
-      question: currentCard.value.question,
-      answer: currentCard.value.answer,
-      tags: currentCard.value.tags,
-      group: currentCard.value.group,
-    });
+    const res = await CardControllerService.saveCards([
+      {
+        id: currentCard.value.id,
+        question: currentCard.value.question,
+        answer: currentCard.value.answer,
+        tags: currentCard.value.tags,
+        group: currentCard.value.group,
+      },
+    ]);
 
     Message.success("卡片已更新");
   } catch (error) {
@@ -1144,6 +1166,7 @@ const handleDelete = async () => {
     if (!currentCard.value.id) throw new Error("当前卡片不存在ID");
     const res = await CardControllerService.deleteCard1(currentCard.value.id);
     if (res.code === 200) {
+      GraphControllerService.deleteCard(currentCard.value.id);
       Message.success("删除成功");
       // 从卡片列表中移除当前卡片
       cards.value = cards.value.filter(

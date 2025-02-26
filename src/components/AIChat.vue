@@ -736,7 +736,7 @@ import {
 import { AIChatRequest } from "../../generated/models/AIChatRequest";
 import { CardAddRequest } from "../../generated/models/CardAddRequest";
 import { ChatControllerService } from "../../generated/services/ChatControllerService";
-import { AiControllerService } from "@backendApi/index";
+import { AiControllerService, GraphControllerService } from "@backendApi/index";
 import MdEditor from "./MdEditor.vue";
 import MdViewer from "./MdViewer.vue";
 import SessionManager from "./SessionManager.vue";
@@ -1413,6 +1413,10 @@ const saveToCardLibrary = async (card: Card, index: number) => {
     };
 
     const response = await FsrsService.batchCreateCards([cardAddRequest]);
+    await GraphControllerService.addCard({
+      cardId: response[0],
+      tags: cardAddRequest.tags,
+    });
     // const response = await CardControllerService.createCard(cardAddRequest);
 
     if (response) {

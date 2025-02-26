@@ -298,7 +298,7 @@ export class AnkiSyncService {
         })
       );
 
-      await CardControllerService.updateCards(updateRequests);
+      await CardControllerService.saveCards(updateRequests);
       return true;
     } catch (error) {
       console.error("Failed to sync Anki cards to system:", error);
@@ -358,7 +358,7 @@ export class AnkiSyncService {
       }
     );
 
-    await CardControllerService.updateCards(updates);
+    await CardControllerService.saveCards(updates);
     return updates.map((update) => update.ankiInfo.cardId);
   }
 
@@ -402,7 +402,7 @@ export class AnkiSyncService {
     });
 
     // 更新系统卡片
-    await CardControllerService.updateCards(updates);
+    await CardControllerService.saveCards(updates);
     return updates.map((update) => update.ankiInfo.cardId);
   }
 

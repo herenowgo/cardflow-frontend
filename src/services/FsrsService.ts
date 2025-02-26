@@ -56,7 +56,7 @@ export class FsrsService {
    */
   static async batchCreateCards(
     cards: Array<CardUpdateRequest>
-  ): Promise<boolean> {
+  ): Promise<string[]> {
     try {
       // 为每张卡片创建 FSRS 参数
       const cardsWithFsrs = cards.map(({ id, ...cardWithoutId }) => {
@@ -75,8 +75,8 @@ export class FsrsService {
       });
 
       // 调用 CardControllerService 的 updateCards 方法批量更新
-      const result = await CardControllerService.updateCards(cardsWithFsrs);
-      return result.data ?? false;
+      const result = await CardControllerService.saveCards(cardsWithFsrs);
+      return result.data ?? [];
     } catch (error) {
       console.error("批量创建卡片失败:", error);
       throw error;

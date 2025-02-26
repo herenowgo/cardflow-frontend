@@ -8,6 +8,7 @@ import type { BaseResponseBoolean } from '../models/BaseResponseBoolean';
 import type { BaseResponseCardDTO } from '../models/BaseResponseCardDTO';
 import type { BaseResponseListCardDTO } from '../models/BaseResponseListCardDTO';
 import type { BaseResponseListReviewLogDTO } from '../models/BaseResponseListReviewLogDTO';
+import type { BaseResponseListString } from '../models/BaseResponseListString';
 import type { BaseResponsePageResultCardDTO } from '../models/BaseResponsePageResultCardDTO';
 import type { BaseResponseVoid } from '../models/BaseResponseVoid';
 import type { CardAddRequest } from '../models/CardAddRequest';
@@ -71,15 +72,15 @@ export class CardControllerService {
     }
 
     /**
-     * 批量更新卡片
-     * 批量更新多个卡片的内容
+     * 批量保存卡片
+     * 批量保存多个卡片的内容，返回更新或新创建的卡片ID列表
      * @param requestBody
-     * @returns BaseResponseBoolean OK
+     * @returns BaseResponseListString OK
      * @throws ApiError
      */
-    public static updateCards(
+    public static saveCards(
         requestBody: Array<CardUpdateRequest>,
-    ): CancelablePromise<BaseResponseBoolean> {
+    ): CancelablePromise<BaseResponseListString> {
         return __request(OpenAPI, {
             method: 'PUT',
             url: '/api/cards/batch',
