@@ -423,6 +423,8 @@ import MdViewer from "@/components/MdViewer.vue";
 import { AnkiService } from "@/services/AnkiService";
 import { eventStreamService } from "@/services/EventStreamService";
 import { Message } from "@arco-design/web-vue";
+// 确保在AIChat.vue中导出了PromptType枚举
+
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -478,6 +480,12 @@ const getCurrentReviewCard = (callback: (card: CardDTO) => void) => {
   callback(card);
 };
 
+enum PromptType {
+  CHAT = "chat", // AI助手对话时使用
+  REVIEW = "review", // 召唤AI助手检查卡片时使用
+  GENERATE = "generate", // 生成卡片功能使用
+}
+
 const showAIChat = async () => {
   // 如果已经显示，则不需要重复显示
   if (isAIChatVisible.value) return;
@@ -516,7 +524,7 @@ ${
 
     // 等待 AI 助手组件完全显示后再发送消息
     setTimeout(() => {
-      aiChatRef.value?.sendMessage(message);
+      aiChatRef.value?.sendMessage(message, PromptType.REVIEW);
     }, 100);
   }
 };
@@ -762,14 +770,6 @@ const rateCard = async (rating: number) => {
     console.error("保存评分失败:", error);
     Message.error("保存失败，请重试");
   }
-};
-
-const restartReview = async () => {
-  displayCard.value = null;
-  currentIndex.value = 0;
-  completedCards.value = 0;
-  correctAnswers.value = 0;
-  await loadDeckData();
 };
 
 // 在 script setup 中添加新的状态

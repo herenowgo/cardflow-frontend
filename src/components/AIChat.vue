@@ -172,7 +172,7 @@
             <template #footer>
               <t-chat-input
                 :stop-disabled="isStreamLoad"
-                @send="handleSend"
+                @send="(inputValue) => handleSend(inputValue, PromptType.CHAT)"
                 @stop="handleStop"
               />
             </template>
@@ -343,7 +343,7 @@
           <template #footer>
             <t-chat-input
               :stop-disabled="isStreamLoad"
-              @send="handleSend"
+              @send="(inputValue) => handleSend(inputValue, PromptType.CHAT)"
               @stop="handleStop"
             />
           </template>
@@ -550,77 +550,106 @@
     v-model:visible="isSettingVisible"
     header="系统提示词管理"
     :footer="false"
-    width="540"
+    width="640px"
   >
     <div class="prompts-manager">
       <div class="prompts-list">
+        <!-- 提示词类型切换 -->
+        <div class="prompt-type-switcher">
+          <t-tabs v-model="activePromptType">
+            <t-tab-panel value="chat" label="AI助手对话">
+              <div class="prompt-type-desc">AI助手聊天时使用的系统提示词</div>
+            </t-tab-panel>
+            <t-tab-panel value="review" label="卡片检查">
+              <div class="prompt-type-desc">检查复习卡片时使用的系统提示词</div>
+            </t-tab-panel>
+            <t-tab-panel value="generate" label="卡片生成">
+              <div class="prompt-type-desc">生成卡片时使用的系统提示词</div>
+            </t-tab-panel>
+          </t-tabs>
+        </div>
+
         <div class="prompts-header">
-          <span class="section-title">提示词列表</span>
-          <t-button theme="primary" size="small" @click="addNewPrompt">
-            <template #icon>
-              <t-icon name="add" />
-            </template>
-            新建提示词
+          <div class="section-title">提示词列表</div>
+          <t-button
+            theme="primary"
+            variant="text"
+            size="small"
+            @click="addNewPrompt"
+          >
+            <template #icon><icon-plus /></template>
+            新建
           </t-button>
         </div>
-        <t-list>
-          <t-list-item
-            v-for="prompt in prompts"
+
+        <!-- 过滤显示当前选择类型的提示词 -->
+        <div class="prompt-items">
+          <template
+            v-for="prompt in prompts.filter((p) => p.type === activePromptType)"
             :key="prompt.id"
-            :class="{
-              'active-prompt': currentPromptId === prompt.id,
-              'system-preset': prompt.id === 'system-preset',
-            }"
           >
-            <div class="prompt-item">
+            <div
+              class="prompt-item"
+              :class="{
+                'active-prompt':
+                  currentPromptIds[activePromptType] === prompt.id,
+                'system-preset': prompt.isSystem,
+              }"
+            >
               <div class="prompt-info" @click="selectPrompt(prompt.id)">
-                <span class="prompt-name">{{ prompt.name }}</span>
+                <div class="prompt-name">{{ prompt.name }}</div>
               </div>
-              <div class="prompt-actions" v-if="prompt.id !== 'system-preset'">
+              <div class="prompt-actions">
+                <!-- 不允许编辑系统预设 -->
                 <t-button
-                  theme="default"
+                  v-if="!prompt.isSystem"
                   variant="text"
+                  shape="square"
                   size="small"
                   @click="editPrompt(prompt)"
                 >
-                  <template #icon><t-icon name="edit" /></template>
+                  <template #icon><icon-edit /></template>
                 </t-button>
                 <t-button
-                  theme="danger"
+                  v-if="!prompt.isSystem"
                   variant="text"
+                  shape="square"
                   size="small"
                   @click="deletePrompt(prompt.id)"
                 >
-                  <template #icon><t-icon name="delete" /></template>
+                  <template #icon><icon-delete /></template>
                 </t-button>
               </div>
             </div>
-          </t-list-item>
-        </t-list>
+          </template>
+        </div>
       </div>
+
       <div class="prompt-editor">
-        <span class="section-title">{{
-          isNewPrompt ? "新建提示词" : "编辑提示词"
-        }}</span>
         <t-input
           v-model="editingPrompt.name"
           class="prompt-name-input"
           placeholder="请输入提示词名称"
+          :disabled="editingPrompt.isSystem"
         />
+
         <t-textarea
           v-model="editingPrompt.content"
           class="prompt-content-input"
-          placeholder="请输入提示词内容..."
+          placeholder="请输入提示词内容"
           :autosize="{ minRows: 10, maxRows: 15 }"
+          :disabled="editingPrompt.isSystem"
         />
+
         <div class="editor-actions">
+          <t-button @click="isSettingVisible = false">取消</t-button>
           <t-button
-            theme="default"
-            @click="editingPrompt = { id: '', name: '', content: '' }"
+            theme="primary"
+            @click="savePrompt"
+            :disabled="editingPrompt.isSystem"
           >
-            清空
+            保存
           </t-button>
-          <t-button theme="primary" @click="savePrompt"> 保存 </t-button>
         </div>
       </div>
     </div>
@@ -706,7 +735,6 @@ import {
 } from "vue";
 import { AIChatRequest } from "../../generated/models/AIChatRequest";
 import { CardAddRequest } from "../../generated/models/CardAddRequest";
-import { CardControllerService } from "../../generated/services/CardControllerService";
 import { ChatControllerService } from "../../generated/services/ChatControllerService";
 import { AiControllerService } from "@backendApi/index";
 import MdEditor from "./MdEditor.vue";
@@ -850,6 +878,7 @@ const cardsGeneratingMap = ref<Map<number, boolean>>(new Map());
 const currentModel = ref<AIChatRequest.model>(getSavedModel());
 const isFirstShow = ref(true);
 const defaultTags = ref<string[]>([]);
+const isSettingVisible = ref(false);
 
 const TAGS_STORAGE_KEY = "ai_chat_default_tags";
 
@@ -940,7 +969,7 @@ const handleSessionSwitch = (session: ChatSession) => {
   console.log("Switching to session:", session);
   chatList.value = session.messages;
   currentModel.value = session.model;
-  currentPromptId.value = session.promptId;
+  // currentPromptId.value = session.promptId;
   currentSessionId.value = session.sessionId;
   console.log("Current sessionId set to:", currentSessionId.value);
 };
@@ -949,7 +978,7 @@ const handleSessionCreate = (session: ChatSession) => {
   console.log("Creating new session:", session);
   chatList.value = session.messages;
   currentModel.value = session.model;
-  currentPromptId.value = session.promptId;
+  // currentPromptId.value = session.promptId;
   currentSessionId.value = session.sessionId;
 
   localStorage.setItem(CURRENT_SESSION_KEY, session.id);
@@ -969,6 +998,7 @@ const handleKeyDown = (e: KeyboardEvent) => {
 };
 
 onMounted(() => {
+  loadPromptData();
   currentCards.value = loadSavedCards();
   defaultTags.value = loadSavedTags();
 
@@ -979,10 +1009,12 @@ onUnmounted(() => {
   document.removeEventListener("keydown", handleKeyDown);
 });
 
-const handleSend = async (inputValue: string) => {
+// 优化 - 发送消息时使用正确的提示词
+const handleSend = async (inputValue: string, promptType?: PromptType) => {
   if (isStreamLoad.value || !inputValue) return;
+  console.log("开始");
+  // console.log(getPromptContent(PromptType.CHAT));
 
-  // console.log("Sending message with sessionId:", currentSessionId.value);
   const userMessage: ChatMessage = {
     avatar: props.userAvatar,
     name: props.userName,
@@ -1006,18 +1038,20 @@ const handleSend = async (inputValue: string) => {
     isStreamLoad.value = true;
     const lastItem = chatList.value[0];
 
-    // const res = await ChatControllerService.chat({
-    //   model: currentModel.value,
-    //   content: inputValue,
-    //   sessionId: currentSessionId.value,
-    //   prompt: systemPrompt.value || undefined,
-    // });
+    // 获取正确的提示词类型和内容
+    const type = promptType || PromptType.CHAT;
+    const promptContent = getPromptContent(type);
+
+    console.log(
+      `使用${type}类型提示词:`,
+      promptContent.substring(0, 50) + "..."
+    );
 
     const res = await AiControllerService.chat({
       model: currentModel.value,
       userPrompt: inputValue,
       conversationId: currentSessionId.value,
-      systemPrompt: systemPrompt.value || undefined,
+      systemPrompt: promptContent || undefined,
     });
 
     if (res.code == 200 && res.data) {
@@ -1029,7 +1063,6 @@ const handleSend = async (inputValue: string) => {
         currentRequestId.value,
         (newContent: string) => {
           loading.value = false;
-          const addedContent = newContent.slice(accumulatedContent.length);
           accumulatedContent = newContent;
           if (lastItem && lastItem.role === "assistant") {
             lastItem.content = newContent;
@@ -1039,16 +1072,12 @@ const handleSend = async (inputValue: string) => {
     }
   } catch (error) {
     console.error("Chat error:", error);
-    // if (chatList.value[0] && chatList.value[0].role === "assistant") {
-    //   chatList.value[0].content = "抱歉，发生了错误，请稍后重试";
-    // }
     Message.error("抱歉，发生了错误，请稍后重试");
   } finally {
     loading.value = false;
     isStreamLoad.value = false;
   }
 };
-
 const handleClear = () => {
   currentSessionId.value = "";
   createNewCardSession();
@@ -1110,57 +1139,6 @@ watch(currentModel, (newModel) => {
   saveModelSelection(newModel);
 });
 
-interface PromptItem {
-  id: string;
-  name: string;
-  content: string;
-}
-
-const PROMPTS_STORAGE_KEY = "ai_chat_prompts";
-const CURRENT_PROMPT_KEY = "ai_chat_current_prompt";
-
-const SYSTEM_PRESET_PROMPT: PromptItem = {
-  id: "system-preset",
-  name: "系统预设",
-  content: `你是一个专业的教育辅导助手，负责审查和优化用户创建的闪卡内容。你的主要任务包括：
-
-1. 验证内容准确性：检查问题和答案中的事实、概念和解释是否准确。
-2. 评估完整性：确保答案完整地回答了问题，包含了必要的细节和解释。
-3. 检查语言流畅性：确保问题和答案表述清晰、简洁、易懂。
-4. 提供优化建议：针对内容、结构和表达方式提供改进建议，使其更适合 Anki 复习。
-
-请以专业、友好的语气提供反馈，并给出具体的修改建议。`,
-};
-
-const getSavedPrompts = (): PromptItem[] => {
-  const saved = localStorage.getItem(PROMPTS_STORAGE_KEY);
-  const userPrompts = saved ? JSON.parse(saved) : [];
-  return [SYSTEM_PRESET_PROMPT, ...userPrompts];
-};
-
-const getCurrentPromptId = (): string => {
-  return localStorage.getItem(CURRENT_PROMPT_KEY) || "";
-};
-
-const savePrompts = (prompts: PromptItem[]) => {
-  const userPrompts = prompts.filter((p) => p.id !== SYSTEM_PRESET_PROMPT.id);
-  localStorage.setItem(PROMPTS_STORAGE_KEY, JSON.stringify(userPrompts));
-};
-
-const saveCurrentPromptId = (id: string) => {
-  localStorage.setItem(CURRENT_PROMPT_KEY, id);
-};
-
-const prompts = ref<PromptItem[]>(getSavedPrompts());
-const currentPromptId = ref<string>(getCurrentPromptId());
-const isSettingVisible = ref(false);
-const editingPrompt = ref<PromptItem>({
-  id: "",
-  name: "",
-  content: "",
-});
-const isNewPrompt = ref(false);
-
 // 在其他 ref 声明后添加
 const isTagsSelectModalVisible = ref(false);
 const existingTags = ref<string[]>([]);
@@ -1170,83 +1148,11 @@ const selectedNewTags = ref<string[]>([]);
 const pendingUpdateCard = ref<Card | null>(null);
 const pendingUpdateType = ref<"tags" | "all" | null>(null);
 
-const systemPrompt = computed(() => {
-  if (currentPromptId.value === SYSTEM_PRESET_PROMPT.id) {
-    return "";
-  }
-  const current = prompts.value.find((p) => p.id === currentPromptId.value);
-  return current?.content || "";
-});
-
 const showSettings = () => {
   isSettingVisible.value = true;
 };
 
-const addNewPrompt = () => {
-  isNewPrompt.value = true;
-  editingPrompt.value = {
-    id: generateUUID(),
-    name: "",
-    content: "",
-  };
-};
-
-const editPrompt = (prompt: PromptItem) => {
-  isNewPrompt.value = false;
-  editingPrompt.value = { ...prompt };
-};
-
-const deletePrompt = (id: string) => {
-  if (id === SYSTEM_PRESET_PROMPT.id) return;
-  prompts.value = prompts.value.filter((p) => p.id !== id);
-  if (currentPromptId.value === id) {
-    currentPromptId.value = "";
-  }
-  savePrompts(prompts.value);
-  saveCurrentPromptId(currentPromptId.value);
-  Message.success("删除提示词成功");
-};
-
-const savePrompt = () => {
-  if (!editingPrompt.value.name.trim() || !editingPrompt.value.content.trim()) {
-    Message.warning("请填写提示词名称和内容");
-    return;
-  }
-
-  if (isNewPrompt.value) {
-    prompts.value.push({ ...editingPrompt.value });
-    Message.success("新建提示词成功");
-  } else {
-    const index = prompts.value.findIndex(
-      (p) => p.id === editingPrompt.value.id
-    );
-    if (index !== -1) {
-      prompts.value[index] = { ...editingPrompt.value };
-      Message.success("更新提示词成功");
-    }
-  }
-
-  savePrompts(prompts.value);
-  editingPrompt.value = { id: "", name: "", content: "" };
-};
-
-const selectPrompt = (id: string) => {
-  currentPromptId.value = id;
-  saveCurrentPromptId(id);
-
-  const selectedPrompt = prompts.value.find((p) => p.id === id);
-  if (selectedPrompt) {
-    Message.success(`已切换到${selectedPrompt.name}提示词`);
-    chatList.value.unshift({
-      avatar: props.aiAvatar,
-      name: props.aiName,
-      datetime: new Date().toLocaleString(),
-      content: `已切换到${selectedPrompt.name}提示词`,
-      role: "model-change",
-    });
-  }
-};
-
+// 优化 - 卡片生成时使用正确的提示词
 const generateCards = async (item: ChatMessage, index: number) => {
   try {
     console.log("Starting card generation...");
@@ -1261,10 +1167,12 @@ const generateCards = async (item: ChatMessage, index: number) => {
     }
 
     const combinedContent = `问题：${userQuestion.content}\n\n回答：${item.content}`;
+    const promptContent = getPromptContent(PromptType.GENERATE);
 
     const res = await AiControllerService.getCards({
       model: currentModel.value,
       userPrompt: combinedContent,
+      systemPrompt: promptContent || undefined,
     });
 
     console.log("API response:", res);
@@ -1385,12 +1293,14 @@ const regenerateWithModel = async (model: AIChatRequest.model) => {
   loading.value = true;
   isStreamLoad.value = true;
 
+  const promptContent = getPromptContent(PromptType.CHAT);
+
   try {
     const res = await AiControllerService.chat({
       model: currentModel.value,
       userPrompt: lastUserMessage.content,
       conversationId: currentSessionId.value,
-      systemPrompt: systemPrompt.value || undefined,
+      systemPrompt: promptContent || undefined,
     });
 
     if (res.code == 200 && res.data) {
@@ -1470,7 +1380,7 @@ const checkCard = async (card: any, index: number) => {
       },
     ],
     model: currentModel.value,
-    promptId: currentPromptId.value,
+    // promptId: currentPromptId.value,
     lastUpdated: new Date().toLocaleString(),
   };
 
@@ -1490,7 +1400,7 @@ const checkCard = async (card: any, index: number) => {
   }\n\n答案：${card.answer}\n\n标签：${card.tags.join(", ")}`;
 
   visible.value = true;
-  await handleSend(checkContent);
+  await handleSend(checkContent, PromptType.REVIEW);
 };
 
 const saveToCardLibrary = async (card: Card, index: number) => {
@@ -1517,8 +1427,8 @@ const saveToCardLibrary = async (card: Card, index: number) => {
   }
 };
 
-const sendMessage = async (message: string) => {
-  await handleSend(message);
+const sendMessage = async (message: string, promptType: PromptType) => {
+  await handleSend(message, promptType);
 };
 
 const generateCardsFromText = async (text: string) => {
@@ -1574,23 +1484,25 @@ const setDefaultTags = (tags: string[]) => {
   }
 };
 
-// 对外暴露方法
-defineExpose({
-  show: () => {
-    visible.value = true;
-  },
-  hide: () => {
-    visible.value = false;
-  },
-  clear: handleClear,
-  sendMessage,
-  showCardsDrawer: () => {
-    showCardsDrawer.value = true;
-  },
-  generateCardsFromText,
-  getCurrentModel: () => currentModel.value,
-  setDefaultTags,
-});
+// // 对外暴露方法
+// defineExpose({
+//   show: () => {
+//     visible.value = true;
+//   },
+//   hide: () => {
+//     visible.value = false;
+//   },
+//   clear: handleClear,
+//   sendMessage,
+//   showCardsDrawer: () => {
+//     showCardsDrawer.value = true;
+//   },
+//   generateCardsFromText,
+//   getCurrentModel: () => currentModel.value,
+//   setDefaultTags,
+//   setPromptType,
+//   getSystemPrompt,
+// });
 
 watch(visible, (newVal) => {
   if (!newVal) {
@@ -1749,6 +1661,321 @@ watch(showCardsDrawer, (newValue) => {
   if (!newValue) {
     emit("cards-drawer-change", false);
   }
+});
+
+/**
+ * 开始系统提示词管理
+ */
+
+// 在 interface PromptItem 定义之前添加 PromptType 枚举
+enum PromptType {
+  CHAT = "chat", // AI助手对话时使用
+  REVIEW = "review", // 召唤AI助手检查卡片时使用
+  GENERATE = "generate", // 生成卡片功能使用
+}
+
+// 提示词结构
+interface PromptItem {
+  id: string; // 唯一ID
+  name: string; // 显示名称
+  content: string; // 提示词内容
+  type: PromptType; // 提示词类型
+  isSystem?: boolean; // 是否为系统预设
+}
+
+// 本地存储键
+const PROMPTS_STORAGE_KEY = "ai_chat_prompts";
+const CURRENT_PROMPT_IDS_KEY = "ai_chat_current_prompt_ids";
+
+// 系统预设提示词
+const SYSTEM_PRESET_PROMPTS: PromptItem[] = [
+  {
+    id: "system-preset-chat",
+    name: "AI助手预设",
+    type: PromptType.CHAT,
+    content: `你是一个专业的教育辅导助手，善于回答用户的问题并提供深入解释。尽可能简洁明了地回答，并在必要时提供更多详细信息。`,
+    isSystem: true,
+  },
+  {
+    id: "system-preset-review",
+    name: "复习检查预设",
+    type: PromptType.REVIEW,
+    content: `你是一个专业的教育辅导助手，负责审查和优化用户创建的闪卡内容。你的主要任务包括：
+
+1. 验证内容准确性：检查问题和答案中的事实、概念和解释是否准确。
+2. 评估完整性：确保答案完整地回答了问题，包含了必要的细节和解释。
+3. 检查语言流畅性：确保问题和答案表述清晰、简洁、易懂。
+4. 提供优化建议：针对内容、结构和表达方式提供改进建议，使其更适合复习。
+
+请以专业、友好的语气提供反馈，并给出具体的修改建议。`,
+    isSystem: true,
+  },
+  {
+    id: "system-preset-generate",
+    name: "卡片生成预设",
+    type: PromptType.GENERATE,
+    content: `你是一个专业的闪卡生成助手，需要从用户提供的内容中提取重要知识点，并创建高质量的问答式闪卡。请遵循以下原则：
+
+1. 每张卡片应关注一个具体的知识点或概念
+2. 问题应简洁明了、有针对性
+3. 答案应包含必要的细节，但不冗长
+4. 避免创建过于相似的卡片
+5. 卡片应覆盖内容中的关键概念和重要细节
+6. 为每张卡片添加适当的标签，以便分类
+
+请生成格式清晰的卡片，每张卡片包含问题、答案和相关标签。`,
+    isSystem: true,
+  },
+];
+
+// 修改获取保存的提示词函数
+const getSavedPrompts = (): PromptItem[] => {
+  const saved = localStorage.getItem(PROMPTS_STORAGE_KEY);
+  const userPrompts = saved ? JSON.parse(saved) : [];
+
+  // 添加所有系统预设提示词
+  const presets = Object.values(SYSTEM_PRESET_PROMPTS);
+
+  return [...presets, ...userPrompts];
+};
+
+// 重构 - 加载提示词数据
+const loadPromptData = () => {
+  try {
+    // 加载用户自定义提示词
+    const savedPrompts = localStorage.getItem(PROMPTS_STORAGE_KEY);
+    const userPrompts = savedPrompts ? JSON.parse(savedPrompts) : [];
+
+    // 合并系统预设和用户提示词
+    prompts.value = [...SYSTEM_PRESET_PROMPTS, ...userPrompts];
+
+    // 加载当前选择的提示词ID
+    const savedIds = localStorage.getItem(CURRENT_PROMPT_IDS_KEY);
+    if (savedIds) {
+      currentPromptIds.value = JSON.parse(savedIds);
+    } else {
+      // 默认使用系统预设
+      currentPromptIds.value = {
+        [PromptType.CHAT]: "system-preset-chat",
+        [PromptType.REVIEW]: "system-preset-review",
+        [PromptType.GENERATE]: "system-preset-generate",
+      };
+    }
+  } catch (error) {
+    console.error("加载提示词数据失败:", error);
+    // 出错时重置为系统预设
+    resetToSystemPresets();
+  }
+};
+
+// 重构 - 保存用户提示词
+const saveUserPrompts = () => {
+  try {
+    // 只保存用户自定义提示词
+    const userPrompts = prompts.value.filter((p) => !p.isSystem);
+    localStorage.setItem(PROMPTS_STORAGE_KEY, JSON.stringify(userPrompts));
+  } catch (error) {
+    console.error("保存提示词失败:", error);
+    Message.error("保存提示词失败");
+  }
+};
+
+// 重构 - 保存当前选择的提示词ID
+const saveCurrentPromptIds = () => {
+  try {
+    localStorage.setItem(
+      CURRENT_PROMPT_IDS_KEY,
+      JSON.stringify(currentPromptIds.value)
+    );
+  } catch (error) {
+    console.error("保存当前提示词ID失败:", error);
+  }
+};
+
+// 重构 - 重置为系统预设
+const resetToSystemPresets = () => {
+  currentPromptIds.value = {
+    [PromptType.CHAT]: "system-preset-chat",
+    [PromptType.REVIEW]: "system-preset-review",
+    [PromptType.GENERATE]: "system-preset-generate",
+  };
+  saveCurrentPromptIds();
+};
+
+// 重构 - 获取特定类型的当前提示词内容
+const getPromptContent = (type: PromptType): string => {
+  const promptId = currentPromptIds.value[type];
+  const prompt = prompts.value.find(
+    (p) => p.id === promptId && p.type === type
+  );
+  return prompt?.content || "";
+};
+
+// 添加提示词
+const addNewPrompt = () => {
+  editingPrompt.value = {
+    id: generateUUID(),
+    name: "",
+    content: "",
+    type: activePromptType.value,
+  };
+};
+
+// 重构 - 提示词管理相关变量
+const prompts = ref<PromptItem[]>([]);
+const currentPromptIds = ref<Record<PromptType, string>>({
+  [PromptType.CHAT]: "",
+  [PromptType.REVIEW]: "",
+  [PromptType.GENERATE]: "",
+});
+const activePromptType = ref<PromptType>(PromptType.CHAT);
+const editingPrompt = ref<PromptItem>({
+  id: "",
+  name: "",
+  content: "",
+  type: PromptType.CHAT,
+});
+const isNewPrompt = ref(false);
+
+// 编辑提示词
+const editPrompt = (prompt: PromptItem) => {
+  editingPrompt.value = { ...prompt };
+};
+
+// 保存提示词
+const savePrompt = () => {
+  if (!editingPrompt.value.name.trim() || !editingPrompt.value.content.trim()) {
+    Message.warning("请填写提示词名称和内容");
+    return;
+  }
+
+  // 检查是否已存在该ID的提示词
+  const existingIndex = prompts.value.findIndex(
+    (p) => p.id === editingPrompt.value.id
+  );
+
+  if (existingIndex === -1) {
+    // 新增提示词
+    prompts.value.push({ ...editingPrompt.value });
+    Message.success("新建提示词成功");
+  } else {
+    // 更新提示词
+    prompts.value[existingIndex] = { ...editingPrompt.value };
+    Message.success("更新提示词成功");
+  }
+
+  saveUserPrompts();
+};
+
+// 删除提示词
+const deletePrompt = (id: string) => {
+  // 不允许删除系统预设
+  if (prompts.value.find((p) => p.id === id)?.isSystem) {
+    Message.warning("系统预设提示词不可删除");
+    return;
+  }
+
+  // 从列表中删除
+  prompts.value = prompts.value.filter((p) => p.id !== id);
+
+  // 如果删除的是当前正在使用的提示词，重置为对应类型的系统预设
+  Object.entries(currentPromptIds.value).forEach(([type, promptId]) => {
+    if (promptId === id) {
+      const promptType = type as PromptType;
+      const systemPreset = SYSTEM_PRESET_PROMPTS.find(
+        (p) => p.type === promptType
+      );
+      if (systemPreset) {
+        currentPromptIds.value[promptType] = systemPreset.id;
+      }
+    }
+  });
+
+  saveUserPrompts();
+  saveCurrentPromptIds();
+  Message.success("删除提示词成功");
+};
+
+// 选择提示词
+const selectPrompt = (id: string) => {
+  const prompt = prompts.value.find((p) => p.id === id);
+  if (!prompt) return;
+
+  currentPromptIds.value[prompt.type] = id;
+  saveCurrentPromptIds();
+
+  // 通知用户已切换提示词
+  Message.success(`已切换到"${prompt.name}"提示词`);
+
+  // 如果是聊天提示词，添加系统消息提醒
+  if (prompt.type === PromptType.CHAT) {
+    chatList.value.unshift({
+      role: "model-change",
+      content: `系统提示词已切换为: ${prompt.name}`,
+      avatar: "",
+      name: "系统",
+      datetime: new Date().toLocaleString(),
+    });
+  }
+};
+
+// 切换提示词类型
+const switchPromptType = (type: PromptType) => {
+  activePromptType.value = type;
+};
+
+// 获取当前场景对应的系统提示词
+const getSystemPromptForType = (type: PromptType): string => {
+  const currentId = currentPromptIds.value[type];
+  if (
+    Object.values(SYSTEM_PRESET_PROMPTS).some(
+      (preset) => preset.id === currentId
+    )
+  ) {
+    return ""; // 系统预设返回空字符串
+  }
+
+  const current = prompts.value.find(
+    (p) => p.id === currentId && p.type === type
+  );
+  return current?.content || "";
+};
+
+// 提供给外部使用的函数
+// 这个函数用于获取特定类型的系统提示词
+const getSystemPrompt = (type: PromptType = PromptType.CHAT): string => {
+  return getSystemPromptForType(type);
+};
+
+// 添加一个属性来跟踪当前使用的提示词类型
+const currentPromptType = ref<PromptType>(PromptType.CHAT);
+
+// 向外部暴露设置提示词类型的方法
+function setPromptType(type: PromptType) {
+  currentPromptType.value = type;
+}
+
+defineExpose({
+  show: () => {
+    visible.value = true;
+  },
+  hide: () => {
+    visible.value = false;
+  },
+  clear: handleClear,
+  sendMessage,
+  showCardsDrawer: () => {
+    showCardsDrawer.value = true;
+  },
+  generateCardsFromText,
+  getCurrentModel: () => currentModel.value,
+  setDefaultTags,
+  setPromptType: (type: PromptType) => {
+    activePromptType.value = type;
+  },
+  getPromptContent,
+  getSystemPrompt, // 新增
+  PromptType,
 });
 </script>
 
@@ -2408,5 +2635,43 @@ watch(showCardsDrawer, (newValue) => {
   width: 32px;
   height: 32px;
   padding: 0;
+}
+
+/*
+ 系统提示词管理样式
+**/
+
+/* 在 AIChat.vue 的 <style> 部分添加 */
+
+.prompt-type-switcher {
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--td-component-border);
+}
+
+.prompt-type-desc {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.prompt-items {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 8px;
+}
+
+.prompt-items::-webkit-scrollbar {
+  width: 4px;
+}
+
+.prompt-items::-webkit-scrollbar-thumb {
+  background: var(--td-component-border);
+  border-radius: 4px;
+}
+
+.prompt-items:hover::-webkit-scrollbar-thumb {
+  background: var(--td-brand-color-hover);
 }
 </style>
