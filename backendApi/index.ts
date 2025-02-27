@@ -27,6 +27,7 @@ export type { CardAddRequest } from './models/CardAddRequest';
 export type { CardDTO } from './models/CardDTO';
 export type { CardIdsRequest } from './models/CardIdsRequest';
 export type { CardNodeDTO } from './models/CardNodeDTO';
+export type { CardPageRequest } from './models/CardPageRequest';
 export type { CardUpdateRequest } from './models/CardUpdateRequest';
 export type { ChatRequest } from './models/ChatRequest';
 export type { EdgeDTO } from './models/EdgeDTO';

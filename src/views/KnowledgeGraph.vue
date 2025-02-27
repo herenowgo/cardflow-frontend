@@ -611,7 +611,7 @@ export default defineComponent({
           name: node.name || "",
           value: node.value,
           // 调整尺寸公式，让节点不要过大
-          symbolSize: Math.min(node.value * 3 + 15, 50),
+          symbolSize: Math.min(Number(node.value) * 3 + 15, 50),
           category: node.type === NodeDTO.type.TAG ? 0 : 1,
           // 保存原始节点类型，用于菜单判断
           nodeType: node.type,

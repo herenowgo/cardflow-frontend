@@ -13,6 +13,7 @@ import type { BaseResponsePageResultCardDTO } from '../models/BaseResponsePageRe
 import type { BaseResponseVoid } from '../models/BaseResponseVoid';
 import type { CardAddRequest } from '../models/CardAddRequest';
 import type { CardIdsRequest } from '../models/CardIdsRequest';
+import type { CardPageRequest } from '../models/CardPageRequest';
 import type { CardUpdateRequest } from '../models/CardUpdateRequest';
 import type { ReviewLogDTO } from '../models/ReviewLogDTO';
 
@@ -126,6 +127,24 @@ export class CardControllerService {
     }
 
     /**
+     * 多条件分页获取卡片
+     * 多条件分页获取卡片
+     * @param requestBody
+     * @returns BaseResponsePageResultCardDTO OK
+     * @throws ApiError
+     */
+    public static getCardsWithPagination(
+        requestBody: CardPageRequest,
+    ): CancelablePromise<BaseResponsePageResultCardDTO> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/cards/page',
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
+
+    /**
      * 根据Anki卡片ID获取卡片
      * 传入一组Anki卡片ID，返回对应的卡片列表
      * @param requestBody
@@ -140,6 +159,25 @@ export class CardControllerService {
             url: '/api/cards/anki/cards',
             body: requestBody,
             mediaType: 'application/json',
+        });
+    }
+
+    /**
+     * 设置卡片为公开或私有
+     * 设置卡片为公开或私有
+     * @param cardId
+     * @returns BaseResponseBoolean OK
+     * @throws ApiError
+     */
+    public static setCardOvert(
+        cardId: string,
+    ): CancelablePromise<BaseResponseBoolean> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/cards/admin/overt/{cardId}',
+            path: {
+                'cardId': cardId,
+            },
         });
     }
 

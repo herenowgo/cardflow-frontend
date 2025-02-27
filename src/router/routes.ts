@@ -173,26 +173,31 @@ export const routes: Array<RouteRecordRaw> = [
   //   component: () =>
   //     import(/* webpackChunkName: "about" */ "../views/AboutView.vue"),
   // },
-  {
-    path: "/ai-recommend",
-    name: "AI推荐",
-    component: AIRecommendView,
-    meta: {
-      keepAlive: true,
-    },
-  },
-  {
-    path: "/aiAnalysis",
-    name: "AI 学习分析",
-    component: UserAnalysisView,
-    meta: {
-      keepAlive: true,
-    },
-  },
+  // {
+  //   path: "/ai-recommend",
+  //   name: "AI推荐",
+  //   component: AIRecommendView,
+  //   meta: {
+  //     keepAlive: true,
+  //   },
+  // },
+  // {
+  //   path: "/aiAnalysis",
+  //   name: "AI 学习分析",
+  //   component: UserAnalysisView,
+  //   meta: {
+  //     keepAlive: true,
+  //   },
+  // },
   {
     path: "/workspace",
     name: "工作台",
     component: WorkspaceView,
+    meta: {
+      hideHeader: true,
+      openInNewTab: true,
+      // hideInMenu: true,
+    },
   },
   {
     path: "/graph",
@@ -207,9 +212,7 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/flashcard/review",
     name: "抽认卡复习",
     component: () => import("@/views/flashcard/ReviewView.vue"),
-    meta: {
-      keepAlive: true,
-    },
+    meta: {},
   },
   {
     path: "/workspace/group/:group",
@@ -217,6 +220,7 @@ export const routes: Array<RouteRecordRaw> = [
     component: GroupDetailView,
     props: true,
     meta: {
+      hideHeader: true,
       hideInMenu: true,
     },
   },
@@ -224,6 +228,10 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/resource",
     name: "学习资源",
     component: () => import("@/views/resource/ResourceManagerView.vue"),
+    meta: {
+      hideHeader: true,
+      openInNewTab: true,
+    },
   },
   {
     path: "/resource-preview",
