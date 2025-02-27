@@ -69,7 +69,18 @@
 
       <div class="graph-main">
         <div class="graph-header">
-          <h2>我的知识图谱</h2>
+          <div class="header-left">
+            <h2>{{ overtActive ? "公共知识图谱" : "我的知识图谱" }}</h2>
+            <a-switch
+              v-model="overtActive"
+              type="line"
+              class="graph-mode-switch"
+              @change="handleOvertChange"
+            >
+              <template #checked>公共</template>
+              <template #unchecked>私有</template>
+            </a-switch>
+          </div>
           <div class="graph-actions">
             <a-button
               v-if="isNodeFocused || isSearchActive || showCardNodes"
@@ -110,35 +121,27 @@
               @click="handleNodeClick"
             />
 
-            <!-- 节点操作菜单，使用ArcoDesign组件 -->
-            <a-trigger
+            <!-- 修改后的节点操作菜单 -->
+            <div
               v-if="showNodeMenu"
-              :popup-visible="true"
-              :popup-translate="[0, 0]"
-              position="rt"
-              auto-fit-position
-              trigger="hover"
-              :popup-style="{ padding: '0px', minWidth: '120px' }"
-              unmount-on-close
+              class="node-menu-container"
+              :style="nodeMenuStyle"
             >
-              <div class="trigger-reference" :style="nodeMenuStyle"></div>
-              <template #content>
-                <a-doption-group>
-                  <a-doption
-                    v-for="(item, index) in getNodeActionItems"
-                    :key="index"
-                    @click="() => item.action(activeNodeId)"
-                  >
-                    <template #icon>
-                      <span class="action-icon">{{ item.icon }}</span>
-                    </template>
-                    {{ item.name }}
-                  </a-doption>
-                </a-doption-group>
-              </template>
-            </a-trigger>
+              <a-doption-group class="node-menu">
+                <a-doption
+                  v-for="(item, index) in getNodeActionItems"
+                  :key="index"
+                  @click="() => item.action(activeNodeId)"
+                >
+                  <template #icon>
+                    <span class="action-icon">{{ item.icon }}</span>
+                  </template>
+                  {{ item.name }}
+                </a-doption>
+              </a-doption-group>
+            </div>
 
-            <!-- 使用ArcoDesign的卡片组件实现卡片详情悬浮窗 -->
+            <!-- 使用绝对定位和过渡效果优化卡片详情显示 -->
             <a-modal
               v-model:visible="showCardDetail"
               :footer="false"
@@ -221,6 +224,8 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref<string | null>(null);
     const chartRef = ref<any>(null);
+    // 添加公共/私有模式切换状态
+    const overtActive = ref(false);
 
     // 搜索相关状态
     const searchText = ref("");
@@ -332,46 +337,50 @@ export default defineComponent({
         params.seriesType === "graph" &&
         params.dataType === "node"
       ) {
+        // 禁止点击事件的默认行为，防止图表重绘
+        params.event.event.preventDefault();
+
         // 保存当前活跃节点ID和类型
         activeNodeId.value = params.data.id;
         activeNodeType.value = params.data.nodeType;
 
-        // 计算菜单位置（相对于图表容器）
-        const chartDom = chartRef.value?.chart;
-        if (chartDom) {
-          // 将图表坐标转换为容器坐标
-          const pointInPixel = chartDom.convertToPixel({ seriesIndex: 0 }, [
-            params.event.offsetX,
-            params.event.offsetY,
-          ]);
+        // 使用event.offsetX/Y而不是转换坐标，减少计算误差
+        // 这里我们直接使用原始事件的位置信息
+        const eventX = params.event.offsetX;
+        const eventY = params.event.offsetY;
 
-          nodeMenuPosition.value = {
-            x: pointInPixel ? pointInPixel[0] : params.event.offsetX,
-            y: pointInPixel ? pointInPixel[1] : params.event.offsetY,
-          };
+        // 设置菜单位置
+        nodeMenuPosition.value = {
+          x: eventX,
+          y: eventY,
+        };
 
-          // 存储卡片详情窗口的初始位置（与菜单位置相同）
-          cardDetailPosition.value = {
-            x: nodeMenuPosition.value.x,
-            y: nodeMenuPosition.value.y,
-          };
+        // 存储卡片详情窗口的初始位置（与菜单位置相同）
+        cardDetailPosition.value = {
+          x: nodeMenuPosition.value.x,
+          y: nodeMenuPosition.value.y,
+        };
 
-          // 如果是卡片节点，直接显示卡片详情
-          if (
-            params.data.nodeType === NodeDTO.type.CARD &&
-            params.data.cardData
-          ) {
-            showCardDetails(params.data.id);
-          } else {
-            // 对于其他节点显示操作菜单
+        // 如果是卡片节点，直接显示卡片详情
+        if (
+          params.data.nodeType === NodeDTO.type.CARD &&
+          params.data.cardData
+        ) {
+          showCardDetails(params.data.id);
+        } else {
+          // 使用nextTick确保DOM更新后再显示菜单，避免位置闪烁
+          nextTick(() => {
             showNodeMenu.value = true;
 
             // 设置自动隐藏菜单的定时器
             setTimeout(() => {
               hideNodeMenu();
             }, 3000); // 3秒后自动隐藏菜单
-          }
+          });
         }
+
+        // 阻止事件冒泡，防止触发其他事件
+        params.event.event.stopPropagation();
       } else {
         hideNodeMenu();
       }
@@ -778,7 +787,15 @@ export default defineComponent({
                 width: 4,
                 color: "#FF5500",
               },
+              // 禁止 emphasis 状态的位置变动
+              scale: false,
             },
+            // 增加节点稳定性配置
+            nodeScaleRatio: 0.4, // 降低缩放比例，减少视觉抖动
+            draggable: true, // 允许节点拖拽
+            roam: true, // 允许缩放和平移
+            selectedMode: "single", // 单选模式，减少干扰
+            animation: false, // 关闭点击时的动画，减少抖动
             labelLayout: {
               hideOverlap: true,
               dx: 10, // 增加标签水平偏移
@@ -799,7 +816,10 @@ export default defineComponent({
       error.value = null;
 
       try {
-        const response = await GraphControllerService.getTagsGraph();
+        // 将overtActive状态传递给API调用
+        const response = await GraphControllerService.getTagsGraph(
+          overtActive.value
+        );
         if (response.code === 200 && response.data) {
           graphData.value = response.data;
         } else {
@@ -811,6 +831,14 @@ export default defineComponent({
       } finally {
         loading.value = false;
       }
+    };
+
+    // 处理overt切换事件
+    const handleOvertChange = (value: boolean) => {
+      // 重置图谱相关状态
+      resetView();
+      // 重新加载图谱数据
+      fetchGraphData();
     };
 
     const refreshGraph = () => {
@@ -924,6 +952,9 @@ export default defineComponent({
       closeCardDetail,
       showCardDetails,
       cardDescriptionData,
+      // 公共/私有模式切换
+      overtActive,
+      handleOvertChange,
     };
   },
 });
@@ -1079,10 +1110,20 @@ export default defineComponent({
   margin-bottom: 20px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .graph-header h2 {
   margin: 0;
   color: #333;
   font-size: 20px;
+}
+
+.graph-mode-switch {
+  margin-left: 12px;
 }
 
 .graph-actions {

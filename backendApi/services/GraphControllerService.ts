@@ -66,13 +66,19 @@ export class GraphControllerService {
 
     /**
      * 获取用户的知识标签图谱
+     * @param overt
      * @returns BaseResponseGraphDTO OK
      * @throws ApiError
      */
-    public static getTagsGraph(): CancelablePromise<BaseResponseGraphDTO> {
+    public static getTagsGraph(
+        overt?: boolean,
+    ): CancelablePromise<BaseResponseGraphDTO> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/graph/tags',
+            query: {
+                'overt': overt,
+            },
         });
     }
 
