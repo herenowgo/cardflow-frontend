@@ -9,6 +9,7 @@ import QuestionSolvingInformationView from "@/views/questionSolving/QuestionSolv
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import UserAnalysisView from "@/views/user/UserAnalysisView.vue";
 import UserManageView from "@/views/user/UserManageView.vue";
+import CardManagementView from "@/views/workspace/CardManagementView.vue";
 import GroupDetailView from "@/views/workspace/GroupDetailView.vue";
 import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
 import { RouteRecordRaw } from "vue-router";
@@ -228,6 +229,15 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/resource",
     name: "学习资源",
     component: () => import("@/views/resource/ResourceManagerView.vue"),
+    meta: {
+      hideHeader: true,
+      openInNewTab: true,
+    },
+  },
+  {
+    path: "/cardManage",
+    name: "卡片管理",
+    component: () => CardManagementView,
     meta: {
       hideHeader: true,
       openInNewTab: true,

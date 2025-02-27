@@ -15,6 +15,15 @@ const router = createRouter({
         requireAuth: true,
       },
     },
+    {
+      path: "/workspace/cards",
+      name: "cardManagement",
+      component: () => import("../views/workspace/CardManagementView.vue"),
+      meta: {
+        requiresAuth: true,
+        title: "卡片管理",
+      },
+    },
     ...routes,
   ],
 });
