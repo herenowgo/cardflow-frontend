@@ -1,128 +1,131 @@
 <template>
-  <div class="knowledge-graph-container">
-    <div class="graph-sidebar">
-      <div class="sidebar-section search-section">
-        <h3>搜索节点</h3>
-        <div class="search-input-wrapper">
-          <a-input-search
-            v-model="searchText"
-            placeholder="输入标签或卡片名称..."
-            allow-clear
-            @search="searchNode"
-          />
+  <!-- 使用 full-container 来确保占满屏幕 -->
+  <div class="full-container">
+    <div class="knowledge-graph-container">
+      <div class="graph-sidebar">
+        <div class="sidebar-section search-section">
+          <h3>搜索节点</h3>
+          <div class="search-input-wrapper">
+            <a-input-search
+              v-model="searchText"
+              placeholder="输入标签或卡片名称..."
+              allow-clear
+              @search="searchNode"
+            />
+          </div>
+          <div v-if="searchResults.length > 0" class="search-results">
+            <div class="results-title">搜索结果：</div>
+            <a-list size="small">
+              <a-list-item
+                v-for="node in searchResults"
+                :key="node.id"
+                class="search-result-item"
+                @click="focusOnNode(String(node.id))"
+              >
+                <div class="result-item-content">
+                  <div
+                    class="result-item-icon"
+                    :class="node.type === 0 ? 'tag-icon' : 'card-icon'"
+                  ></div>
+                  <div class="result-item-name">{{ node.name }}</div>
+                </div>
+              </a-list-item>
+            </a-list>
+          </div>
         </div>
-        <div v-if="searchResults.length > 0" class="search-results">
-          <div class="results-title">搜索结果：</div>
-          <a-list size="small">
-            <a-list-item
-              v-for="node in searchResults"
-              :key="node.id"
-              class="search-result-item"
-              @click="focusOnNode(String(node.id))"
+
+        <div class="sidebar-section legend-section">
+          <h3>图例说明</h3>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #5b8ff9"></div>
+            <span>标签</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background-color: #5ad8a6"></div>
+            <span>卡片</span>
+          </div>
+        </div>
+
+        <div class="sidebar-section stats-section">
+          <h3>统计信息</h3>
+          <div class="stat-item">
+            <span class="stat-label">节点总数:</span>
+            <span class="stat-value">{{ totalNodes }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">连接总数:</span>
+            <span class="stat-value">{{ totalEdges }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">标签数量:</span>
+            <span class="stat-value">{{ totalTags }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">卡片数量:</span>
+            <span class="stat-value">{{ totalCards }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="graph-main">
+        <div class="graph-header">
+          <h2>我的知识图谱</h2>
+          <div class="graph-actions">
+            <a-button
+              v-if="isNodeFocused || isSearchActive"
+              type="primary"
+              @click="resetView"
             >
-              <div class="result-item-content">
-                <div
-                  class="result-item-icon"
-                  :class="node.type === 0 ? 'tag-icon' : 'card-icon'"
-                ></div>
-                <div class="result-item-name">{{ node.name }}</div>
-              </div>
-            </a-list-item>
-          </a-list>
+              <template #icon><icon-undo /></template>
+              返回完整图谱
+            </a-button>
+            <a-button type="primary" @click="refreshGraph">
+              <template #icon><icon-refresh /></template>
+              刷新
+            </a-button>
+          </div>
         </div>
-      </div>
 
-      <div class="sidebar-section legend-section">
-        <h3>图例说明</h3>
-        <div class="legend-item">
-          <div class="legend-color" style="background-color: #5b8ff9"></div>
-          <span>标签</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color" style="background-color: #5ad8a6"></div>
-          <span>卡片</span>
-        </div>
-      </div>
+        <div class="graph-content">
+          <div v-if="loading" class="loading-container">
+            <a-spin tip="加载中..."></a-spin>
+          </div>
+          <div v-else-if="error" class="error-container">
+            <a-result
+              status="error"
+              :title="error"
+              :subtitle="'请刷新页面或稍后再试'"
+            >
+              <template #extra>
+                <a-button type="primary" @click="refreshGraph">重试</a-button>
+              </template>
+            </a-result>
+          </div>
+          <div v-else class="graph-chart-container">
+            <v-chart
+              ref="chartRef"
+              class="knowledge-graph-chart"
+              :option="graphOption"
+              autoresize
+              @dblclick="handleNodeDblClick"
+            />
 
-      <div class="sidebar-section stats-section">
-        <h3>统计信息</h3>
-        <div class="stat-item">
-          <span class="stat-label">节点总数:</span>
-          <span class="stat-value">{{ totalNodes }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">连接总数:</span>
-          <span class="stat-value">{{ totalEdges }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">标签数量:</span>
-          <span class="stat-value">{{ totalTags }}</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-label">卡片数量:</span>
-          <span class="stat-value">{{ totalCards }}</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="graph-main">
-      <div class="graph-header">
-        <h2>我的知识图谱</h2>
-        <div class="graph-actions">
-          <a-button
-            v-if="isNodeFocused || isSearchActive"
-            type="primary"
-            @click="resetView"
-          >
-            <template #icon><icon-undo /></template>
-            返回完整图谱
-          </a-button>
-          <a-button type="primary" @click="refreshGraph">
-            <template #icon><icon-refresh /></template>
-            刷新
-          </a-button>
-        </div>
-      </div>
-
-      <div class="graph-content">
-        <div v-if="loading" class="loading-container">
-          <a-spin tip="加载中..."></a-spin>
-        </div>
-        <div v-else-if="error" class="error-container">
-          <a-result
-            status="error"
-            :title="error"
-            :subtitle="'请刷新页面或稍后再试'"
-          >
-            <template #extra>
-              <a-button type="primary" @click="refreshGraph">重试</a-button>
-            </template>
-          </a-result>
-        </div>
-        <div v-else class="graph-chart-container">
-          <v-chart
-            ref="chartRef"
-            class="knowledge-graph-chart"
-            :option="graphOption"
-            autoresize
-            @dblclick="handleNodeDblClick"
-          />
-
-          <!-- 节点操作菜单 -->
-          <div
-            v-if="showNodeMenu"
-            class="node-action-menu"
-            :style="nodeMenuStyle"
-          >
+            <!-- 节点操作菜单 -->
             <div
-              class="action-item"
-              v-for="(item, index) in nodeActionItems"
-              :key="index"
-              :style="getActionItemStyle(index)"
-              @click="item.action(activeNodeId)"
-              :title="item.name"
+              v-if="showNodeMenu"
+              class="node-action-menu"
+              :style="nodeMenuStyle"
             >
-              <span class="action-icon">{{ item.icon }}</span>
+              <div
+                class="action-item"
+                v-for="(item, index) in nodeActionItems"
+                :key="index"
+                :style="getActionItemStyle(index)"
+                @click="item.action(activeNodeId)"
+                :title="item.name"
+              >
+                <span class="action-icon">{{ item.icon }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -658,12 +661,28 @@ export default defineComponent({
 </script>
 
 <style scoped>
+/* 添加占满屏幕的容器样式 */
+.full-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .knowledge-graph-container {
-  height: 100%;
+  flex: 1;
   display: flex;
   background-color: #f9f9f9;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  /* 删除高度限制，允许完全扩展 */
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 /* 侧边栏样式 */
@@ -675,6 +694,9 @@ export default defineComponent({
   flex-direction: column;
   gap: 20px;
   overflow: auto;
+  /* 确保侧边栏填满高度 */
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .sidebar-section {
@@ -774,7 +796,11 @@ export default defineComponent({
   display: flex;
   flex-direction: column;
   padding: 20px;
+  /* 移除overflow:hidden以查看是否限制了扩展 */
   overflow: hidden;
+  /* 确保填满剩余空间 */
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .graph-header {
@@ -802,6 +828,9 @@ export default defineComponent({
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   background-color: white;
   overflow: hidden;
+  /* 确保内容区域占满剩余空间 */
+  display: flex;
+  flex-direction: column;
 }
 
 .loading-container,
@@ -817,13 +846,19 @@ export default defineComponent({
   width: 100%;
   height: 100%;
   position: relative;
+  /* 确保图表容器填满内容区域 */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .knowledge-graph-chart {
   width: 100%;
-  height: 100%;
+  height: 100% !important; /* 强制设置图表高度 */
   border-radius: 8px;
   overflow: hidden;
+  /* 确保图表填满容器 */
+  flex: 1;
 }
 
 .node-action-menu {
