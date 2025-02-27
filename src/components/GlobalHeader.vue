@@ -71,9 +71,18 @@ const userName = computed(() => {
   return store.state.user?.loginUser?.userName ?? "未登录";
 });
 const doMenuClick = (key: string) => {
-  router.push({
-    path: key,
-  });
+  // 检查是否需要在新标签页打开
+  const route = visibleRoutes.value.find((route) => route.path === key);
+  if (route?.meta?.openInNewTab) {
+    // 在新标签页打开
+    const url = router.resolve({ path: key }).href;
+    window.open(url, "_blank");
+  } else {
+    // 在当前页面打开（原有行为）
+    router.push({
+      path: key,
+    });
+  }
 };
 
 const loginOut = async () => {

@@ -1,67 +1,129 @@
 <template>
   <div class="knowledge-graph-container">
-    <div class="graph-header">
-      <h2>我的知识图谱</h2>
-      <div class="graph-actions">
-        <a-button v-if="isNodeFocused" type="primary" @click="resetFocus">
-          <template #icon><icon-undo /></template>
-          返回完整图谱
-        </a-button>
-        <a-button type="primary" @click="refreshGraph">
-          <template #icon><icon-refresh /></template>
-          刷新
-        </a-button>
+    <div class="graph-sidebar">
+      <div class="sidebar-section search-section">
+        <h3>搜索节点</h3>
+        <div class="search-input-wrapper">
+          <a-input-search
+            v-model="searchText"
+            placeholder="输入标签或卡片名称..."
+            allow-clear
+            @search="searchNode"
+          />
+        </div>
+        <div v-if="searchResults.length > 0" class="search-results">
+          <div class="results-title">搜索结果：</div>
+          <a-list size="small">
+            <a-list-item
+              v-for="node in searchResults"
+              :key="node.id"
+              class="search-result-item"
+              @click="focusOnNode(String(node.id))"
+            >
+              <div class="result-item-content">
+                <div
+                  class="result-item-icon"
+                  :class="node.type === 0 ? 'tag-icon' : 'card-icon'"
+                ></div>
+                <div class="result-item-name">{{ node.name }}</div>
+              </div>
+            </a-list-item>
+          </a-list>
+        </div>
+      </div>
+
+      <div class="sidebar-section legend-section">
+        <h3>图例说明</h3>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #5b8ff9"></div>
+          <span>标签</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #5ad8a6"></div>
+          <span>卡片</span>
+        </div>
+      </div>
+
+      <div class="sidebar-section stats-section">
+        <h3>统计信息</h3>
+        <div class="stat-item">
+          <span class="stat-label">节点总数:</span>
+          <span class="stat-value">{{ totalNodes }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">连接总数:</span>
+          <span class="stat-value">{{ totalEdges }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">标签数量:</span>
+          <span class="stat-value">{{ totalTags }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">卡片数量:</span>
+          <span class="stat-value">{{ totalCards }}</span>
+        </div>
       </div>
     </div>
 
-    <div class="graph-content">
-      <div v-if="loading" class="loading-container">
-        <a-spin tip="加载中..."></a-spin>
-      </div>
-      <div v-else-if="error" class="error-container">
-        <a-result
-          status="error"
-          :title="error"
-          :subtitle="'请刷新页面或稍后再试'"
-        >
-          <template #extra>
-            <a-button type="primary" @click="refreshGraph">重试</a-button>
-          </template>
-        </a-result>
-      </div>
-      <div v-else class="graph-chart-container">
-        <v-chart
-          ref="chartRef"
-          class="knowledge-graph-chart"
-          :option="graphOption"
-          autoresize
-          @dblclick="handleNodeDblClick"
-        />
-        <div class="graph-legend">
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #5470c6"></div>
-            <span>标签</span>
-          </div>
-          <div class="legend-item">
-            <div class="legend-color" style="background-color: #91cc75"></div>
-            <span>卡片</span>
-          </div>
-        </div>
-
-        <!-- 节点操作菜单 -->
-        <div
-          v-if="showNodeMenu"
-          class="node-action-menu"
-          :style="nodeMenuStyle"
-        >
-          <div
-            class="action-item"
-            v-for="(item, index) in nodeActionItems"
-            :key="index"
-            :style="getActionItemStyle(index)"
-            @click="item.action(activeNodeId)"
+    <div class="graph-main">
+      <div class="graph-header">
+        <h2>我的知识图谱</h2>
+        <div class="graph-actions">
+          <a-button
+            v-if="isNodeFocused || isSearchActive"
+            type="primary"
+            @click="resetView"
           >
-            <span class="action-icon">{{ item.icon }}</span>
+            <template #icon><icon-undo /></template>
+            返回完整图谱
+          </a-button>
+          <a-button type="primary" @click="refreshGraph">
+            <template #icon><icon-refresh /></template>
+            刷新
+          </a-button>
+        </div>
+      </div>
+
+      <div class="graph-content">
+        <div v-if="loading" class="loading-container">
+          <a-spin tip="加载中..."></a-spin>
+        </div>
+        <div v-else-if="error" class="error-container">
+          <a-result
+            status="error"
+            :title="error"
+            :subtitle="'请刷新页面或稍后再试'"
+          >
+            <template #extra>
+              <a-button type="primary" @click="refreshGraph">重试</a-button>
+            </template>
+          </a-result>
+        </div>
+        <div v-else class="graph-chart-container">
+          <v-chart
+            ref="chartRef"
+            class="knowledge-graph-chart"
+            :option="graphOption"
+            autoresize
+            @dblclick="handleNodeDblClick"
+          />
+
+          <!-- 节点操作菜单 -->
+          <div
+            v-if="showNodeMenu"
+            class="node-action-menu"
+            :style="nodeMenuStyle"
+          >
+            <div
+              class="action-item"
+              v-for="(item, index) in nodeActionItems"
+              :key="index"
+              :style="getActionItemStyle(index)"
+              @click="item.action(activeNodeId)"
+              :title="item.name"
+            >
+              <span class="action-icon">{{ item.icon }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -70,7 +132,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, onMounted, ref, computed, nextTick } from "vue";
+import {
+  defineComponent,
+  onMounted,
+  ref,
+  computed,
+  nextTick,
+  watch,
+} from "vue";
 import { use } from "echarts/core";
 import * as echarts from "echarts/core";
 import { GraphChart } from "echarts/charts";
@@ -106,6 +175,11 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref<string | null>(null);
     const chartRef = ref<any>(null);
+
+    // 搜索相关状态
+    const searchText = ref("");
+    const searchResults = ref<any[]>([]);
+    const isSearchActive = ref(false);
 
     // 节点交互相关状态
     const showNodeMenu = ref(false);
@@ -240,6 +314,7 @@ export default defineComponent({
       // 更新聚焦状态
       isNodeFocused.value = true;
       focusedNodeId.value = nodeId;
+      isSearchActive.value = true;
 
       // 重置环形菜单
       hideNodeMenu();
@@ -498,6 +573,51 @@ export default defineComponent({
       fetchGraphData();
     };
 
+    // 统计信息计算
+    const totalNodes = computed(() => graphData.value?.nodes?.length || 0);
+    const totalEdges = computed(() => graphData.value?.edges?.length || 0);
+    const totalTags = computed(() => {
+      return (
+        graphData.value?.nodes?.filter((node) => node.type === NodeDTO.type.TAG)
+          .length || 0
+      );
+    });
+    const totalCards = computed(() => {
+      return (
+        graphData.value?.nodes?.filter(
+          (node) => node.type === NodeDTO.type.CARD
+        ).length || 0
+      );
+    });
+
+    // 搜索节点函数
+    const searchNode = () => {
+      if (!searchText.value.trim() || !graphData.value?.nodes) {
+        searchResults.value = [];
+        return;
+      }
+
+      const searchTerm = searchText.value.toLowerCase().trim();
+
+      // 查找匹配的节点
+      searchResults.value = graphData.value.nodes.filter(
+        (node) => node.name && node.name.toLowerCase().includes(searchTerm)
+      );
+    };
+
+    // 监听搜索文本变化，实时搜索
+    watch(searchText, () => {
+      searchNode();
+    });
+
+    // 重置视图（包括聚焦和搜索结果）
+    const resetView = () => {
+      resetFocus();
+      searchText.value = "";
+      searchResults.value = [];
+      isSearchActive.value = false;
+    };
+
     onMounted(() => {
       fetchGraphData();
     });
@@ -520,6 +640,18 @@ export default defineComponent({
       // 聚焦相关
       isNodeFocused,
       resetFocus,
+      focusOnNode,
+      // 搜索相关
+      searchText,
+      searchResults,
+      searchNode,
+      isSearchActive,
+      resetView,
+      // 统计信息
+      totalNodes,
+      totalEdges,
+      totalTags,
+      totalCards,
     };
   },
 });
@@ -529,11 +661,120 @@ export default defineComponent({
 .knowledge-graph-container {
   height: 100%;
   display: flex;
-  flex-direction: column;
   background-color: #f9f9f9;
   border-radius: 8px;
-  padding: 20px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* 侧边栏样式 */
+.graph-sidebar {
+  width: 280px;
+  padding: 20px;
+  border-right: 1px solid #eaeaea;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: auto;
+}
+
+.sidebar-section {
+  background-color: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.sidebar-section h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 16px;
+  color: #333;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.search-input-wrapper {
+  margin-bottom: 16px;
+}
+
+.search-results {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.results-title {
+  font-weight: 500;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #555;
+}
+
+.search-result-item {
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+  background-color: #f5f5f5;
+}
+
+.result-item-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-item-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.tag-icon {
+  background-color: #5b8ff9;
+}
+
+.card-icon {
+  background-color: #5ad8a6;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.legend-color {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.stat-item {
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.stat-label {
+  color: #666;
+}
+
+.stat-value {
+  font-weight: 500;
+  color: #333;
+}
+
+/* 主要内容区域样式 */
+.graph-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
 }
 
 .graph-header {
@@ -557,10 +798,9 @@ export default defineComponent({
 .graph-content {
   flex: 1;
   position: relative;
-  min-height: 500px;
-  background-color: white;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: white;
   overflow: hidden;
 }
 
@@ -582,33 +822,8 @@ export default defineComponent({
 .knowledge-graph-chart {
   width: 100%;
   height: 100%;
-  min-height: 500px;
   border-radius: 8px;
   overflow: hidden;
-}
-
-.graph-legend {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  background-color: rgba(255, 255, 255, 0.8);
-  padding: 10px;
-  border-radius: 4px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.1);
-  z-index: 1;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 5px;
-}
-
-.legend-color {
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  margin-right: 8px;
 }
 
 .node-action-menu {
@@ -642,5 +857,19 @@ export default defineComponent({
 
 .action-icon {
   pointer-events: none;
+}
+
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .knowledge-graph-container {
+    flex-direction: column;
+  }
+
+  .graph-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #eaeaea;
+    max-height: 200px;
+  }
 }
 </style>

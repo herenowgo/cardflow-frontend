@@ -1,26 +1,17 @@
-import { RouteRecordRaw } from "vue-router";
 import ACCESS_ENUM from "@/access/accessEnum";
-import UserLayout from "@/layouts/UserLayout.vue";
-import UserLoginView from "@/views/user/UserLoginView.vue";
-import UserRegisterView from "@/views/user/UserRegisterView.vue";
+import AIRecommendView from "@/views/AIRecommendView.vue";
+import KnowledgeGraph from "@/views/KnowledgeGraph.vue";
 import NoAuthView from "@/views/NoAuthView.vue";
 import AddQuestionView from "@/views/question/AddQuestionView.vue";
 import ManageQuestionView from "@/views/question/ManageQuestionView.vue";
-import QuestionsView from "@/views/question/QuestionsView.vue";
-import ViewQuestionView from "@/views/question/ViewQuestionView.vue";
-import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
 import QuestionSolvingInformationView from "@/views/questionSolving/QuestionSolvingInformationView.vue";
-import TopQuestionsView from "@/views/question/TopQuestionsView.vue";
-import UserSmsLoginView from "@/views/user/UserSmsLoginView.vue";
-import UserInfoView from "@/views/user/UserInfoView.vue";
-import AIRecommendView from "@/views/AIRecommendView.vue";
-import BasicLayout from "@/layouts/BasicLayout.vue";
-import UserManageView from "@/views/user/UserManageView.vue";
+import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
 import UserAnalysisView from "@/views/user/UserAnalysisView.vue";
-import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
+import UserManageView from "@/views/user/UserManageView.vue";
 import GroupDetailView from "@/views/workspace/GroupDetailView.vue";
-import KnowledgeGraph from "@/views/KnowledgeGraph.vue";
+import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
+import { RouteRecordRaw } from "vue-router";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -207,6 +198,10 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/graph",
     name: "知识图谱",
     component: KnowledgeGraph,
+    meta: {
+      hideHeader: true,
+      openInNewTab: true,
+    },
   },
   {
     path: "/flashcard/review",
