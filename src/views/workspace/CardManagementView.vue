@@ -119,13 +119,13 @@
               </template>
             </a-table-column>
             <a-table-column title="牌组" data-index="group" :width="40" />
-            <a-table-column title="状态" data-index="overt" :width="40">
+            <!-- <a-table-column title="状态" data-index="overt" :width="40">
               <template #cell="{ record }">
-                <a-tag :color="record.overt ? 'green' : 'gray'">
-                  {{ record.overt ? "公开" : "私有" }}
+                <a-tag :color="overtModalVisible ? 'green' : 'gray'">
+                  {{ overtModalVisible ? "公开" : "私有" }}
                 </a-tag>
               </template>
-            </a-table-column>
+            </a-table-column> -->
             <!-- <a-table-column title="创建时间" :width="150">
               <template #cell="{ record }">
                 {{ formatDate(record.createTime) }}
@@ -143,8 +143,21 @@
                     详情
                   </a-button>
 
-                  <!-- 私有卡片才有编辑和删除选项 -->
-                  <template v-if="!record.overt">
+                  <!-- 公开卡片模式或者是公开卡片时只显示收藏按钮 -->
+                  <template v-if="isPublicCardsMode || record.overt">
+                    <a-button
+                      type="text"
+                      status="warning"
+                      size="small"
+                      @click="importCard(record)"
+                    >
+                      <template #icon><icon-star /></template>
+                      收藏
+                    </a-button>
+                  </template>
+
+                  <!-- 非公开卡片模式下私有卡片显示完整操作 -->
+                  <template v-else-if="!isPublicCardsMode && !record.overt">
                     <a-button
                       type="text"
                       size="small"
@@ -170,19 +183,6 @@
                     >
                       <template #icon><icon-send /></template>
                       公开
-                    </a-button>
-                  </template>
-
-                  <!-- 公开卡片有收藏选项 -->
-                  <template v-else>
-                    <a-button
-                      type="text"
-                      status="warning"
-                      size="small"
-                      @click="importCard(record)"
-                    >
-                      <template #icon><icon-star /></template>
-                      收藏
                     </a-button>
                   </template>
                 </a-space>
@@ -235,8 +235,8 @@
         </div>
         <div class="detail-section">
           <h4>状态：</h4>
-          <a-tag :color="selectedCard.overt ? 'green' : 'gray'">
-            {{ selectedCard.overt ? "公开" : "私有" }}
+          <a-tag :color="overtModalVisible ? 'green' : 'gray'">
+            {{ overtModalVisible ? "公开" : "私有" }}
           </a-tag>
         </div>
         <div class="detail-section">
@@ -454,8 +454,12 @@ const loadCards = async () => {
   }
 };
 
+const isPublicCardsMode = ref(false);
+
 // 搜索事件
 const handleSearch = () => {
+  // 更新公开卡片模式状态
+  isPublicCardsMode.value = filterForm.overt === true;
   pagination.current = 1;
   loadCards();
 };
@@ -467,6 +471,8 @@ const resetFilters = () => {
   filterForm.question = "";
   filterForm.answer = "";
   filterForm.overt = null;
+  // 重置公开卡片模式
+  isPublicCardsMode.value = false;
   pagination.current = 1;
   loadCards();
 };
