@@ -4,6 +4,7 @@
 /* eslint-disable */
 import type { BaseResponseBoolean } from '../models/BaseResponseBoolean';
 import type { BaseResponseGraphDTO } from '../models/BaseResponseGraphDTO';
+import type { BaseResponseListCardDTO } from '../models/BaseResponseListCardDTO';
 import type { CardNodeDTO } from '../models/CardNodeDTO';
 
 import type { CancelablePromise } from '../core/CancelablePromise';
@@ -41,6 +42,23 @@ export class GraphControllerService {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/graph/card',
+            body: requestBody,
+            mediaType: 'application/json',
+        });
+    }
+
+    /**
+     * 根据知识点标签获取卡片
+     * @param requestBody
+     * @returns BaseResponseListCardDTO OK
+     * @throws ApiError
+     */
+    public static getCardsByTags(
+        requestBody: Array<string>,
+    ): CancelablePromise<BaseResponseListCardDTO> {
+        return __request(OpenAPI, {
+            method: 'POST',
+            url: '/api/graph/cards',
             body: requestBody,
             mediaType: 'application/json',
         });

@@ -72,7 +72,7 @@
           <h2>我的知识图谱</h2>
           <div class="graph-actions">
             <a-button
-              v-if="isNodeFocused || isSearchActive"
+              v-if="isNodeFocused || isSearchActive || showCardNodes"
               type="primary"
               @click="resetView"
             >
@@ -118,13 +118,46 @@
             >
               <div
                 class="action-item"
-                v-for="(item, index) in nodeActionItems"
+                v-for="(item, index) in getNodeActionItems"
                 :key="index"
                 :style="getActionItemStyle(index)"
                 @click="item.action(activeNodeId)"
                 :title="item.name"
               >
                 <span class="action-icon">{{ item.icon }}</span>
+              </div>
+            </div>
+
+            <!-- 卡片详情悬浮窗 -->
+            <div
+              v-if="showCardDetail"
+              class="card-detail-popup"
+              :style="cardDetailStyle"
+            >
+              <div class="card-detail-header">
+                <span class="card-title">卡片详情</span>
+                <span class="close-btn" @click="closeCardDetail">×</span>
+              </div>
+              <div class="card-detail-content">
+                <div class="card-question">
+                  <h4>问题：</h4>
+                  <div>{{ activeCard.question }}</div>
+                </div>
+                <div class="card-answer">
+                  <h4>答案：</h4>
+                  <div>{{ activeCard.answer }}</div>
+                </div>
+                <div class="card-tags">
+                  <h4>标签：</h4>
+                  <div class="tags-container">
+                    <a-tag
+                      v-for="tag in activeCard.tags"
+                      :key="tag"
+                      color="blue"
+                      >{{ tag }}</a-tag
+                    >
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -187,6 +220,7 @@ export default defineComponent({
     // 节点交互相关状态
     const showNodeMenu = ref(false);
     const activeNodeId = ref<string | null>(null);
+    const activeNodeType = ref<number | null>(null);
     const nodeMenuPosition = ref({ x: 0, y: 0 });
     const menuRadius = 60; // 环形菜单半径
 
@@ -194,6 +228,24 @@ export default defineComponent({
     const isNodeFocused = ref(false);
     const originalGraphData = ref<GraphDTO | null>(null);
     const focusedNodeId = ref<string | null>(null);
+
+    // 卡片节点相关状态
+    const showCardNodes = ref(false);
+    const showCardDetail = ref(false);
+    const activeCard = ref<any>({
+      question: "",
+      answer: "",
+      tags: [],
+    });
+    const cardDetailPosition = ref({ x: 0, y: 0 });
+
+    // 卡片详情样式
+    const cardDetailStyle = computed(() => {
+      return {
+        left: `${cardDetailPosition.value.x}px`,
+        top: `${cardDetailPosition.value.y}px`,
+      };
+    });
 
     // 环形菜单样式计算
     const nodeMenuStyle = computed(() => {
@@ -203,24 +255,54 @@ export default defineComponent({
       };
     });
 
-    // 环形菜单项
-    const nodeActionItems = [
-      {
-        name: "聚焦",
-        icon: "🔍",
-        action: (nodeId: string | null) => {
-          if (nodeId) {
-            focusOnNode(nodeId);
-            hideNodeMenu();
-          }
+    // 根据节点类型显示不同的菜单项
+    const getNodeActionItems = computed(() => {
+      const baseItems = [
+        {
+          name: "聚焦",
+          icon: "🔍",
+          action: (nodeId: string | null) => {
+            if (nodeId) {
+              focusOnNode(nodeId);
+              hideNodeMenu();
+            }
+          },
         },
-      },
-      // 这里可以轻松添加更多菜单项
-    ];
+      ];
+
+      // 如果是标签节点，添加显示相关卡片的操作
+      if (activeNodeType.value === NodeDTO.type.TAG) {
+        baseItems.push({
+          name: "显示相关卡片",
+          icon: "📋",
+          action: (nodeId: string | null) => {
+            if (nodeId) {
+              showRelatedCards(nodeId);
+              hideNodeMenu();
+            }
+          },
+        });
+      }
+      // 如果是卡片节点，添加显示卡片详情的操作
+      else if (activeNodeType.value === NodeDTO.type.CARD) {
+        baseItems.push({
+          name: "查看详情",
+          icon: "📝",
+          action: (nodeId: string | null) => {
+            if (nodeId) {
+              showCardDetails(nodeId);
+              hideNodeMenu();
+            }
+          },
+        });
+      }
+
+      return baseItems;
+    });
 
     // 计算每个菜单项的位置
     const getActionItemStyle = (index: number) => {
-      const totalItems = nodeActionItems.length;
+      const totalItems = getNodeActionItems.value.length;
       // 计算角度，从顶部开始，顺时针排列
       const angle = (index * (360 / totalItems) - 90) * (Math.PI / 180);
       return {
@@ -237,8 +319,9 @@ export default defineComponent({
         params.seriesType === "graph" &&
         params.dataType === "node"
       ) {
-        // 保存当前活跃节点ID
+        // 保存当前活跃节点ID和类型
         activeNodeId.value = params.data.id;
+        activeNodeType.value = params.data.nodeType;
 
         // 计算菜单位置（相对于图表容器）
         const chartDom = chartRef.value?.chart;
@@ -265,6 +348,100 @@ export default defineComponent({
     const hideNodeMenu = () => {
       showNodeMenu.value = false;
       activeNodeId.value = null;
+      activeNodeType.value = null;
+    };
+
+    // 显示相关卡片
+    const showRelatedCards = async (tagNodeId: string) => {
+      try {
+        // 备份原始数据（如果尚未备份）
+        if (!originalGraphData.value) {
+          originalGraphData.value = JSON.parse(JSON.stringify(graphData.value));
+        }
+
+        // 找到标签节点
+        const tagNode = graphData.value?.nodes?.find(
+          (node) => String(node.id) === tagNodeId
+        );
+        if (!tagNode || !tagNode.name) return;
+
+        loading.value = true;
+
+        // 获取包含此标签的所有卡片
+        const response = await GraphControllerService.getCardsByTags([
+          tagNode.name,
+        ]);
+        if (response.code === 200 && response.data) {
+          const cards = response.data;
+
+          // 创建新的卡片节点和连接
+          const currentNodes = [...(graphData.value?.nodes || [])];
+          const currentEdges = [...(graphData.value?.edges || [])];
+
+          // 为每张卡片创建节点
+          cards.forEach((card) => {
+            // 检查节点是否已存在
+            const existingCardNode = currentNodes.find(
+              (node) => String(node.id) === `card_${card.id}`
+            );
+
+            if (!existingCardNode) {
+              // 创建新的卡片节点
+              const cardNode = {
+                id: `card_${card.id}`,
+                name: card.question,
+                value: 1,
+                type: NodeDTO.type.CARD,
+                nodeType: NodeDTO.type.CARD,
+                // 存储完整卡片数据
+                cardData: {
+                  id: card.id,
+                  question: card.question,
+                  answer: card.answer,
+                  tags: card.tags,
+                },
+              };
+
+              currentNodes.push(cardNode);
+
+              // 创建从标签到卡片的边
+              currentEdges.push({
+                source: tagNodeId,
+                target: `card_${card.id}`,
+                name: "包含",
+                weight: 1,
+              });
+            }
+          });
+
+          // 更新图谱数据
+          graphData.value = {
+            nodes: currentNodes,
+            edges: currentEdges,
+          };
+
+          showCardNodes.value = true;
+        }
+      } catch (error) {
+        console.error("获取卡片数据失败:", error);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    // 显示卡片详情
+    const showCardDetails = (nodeId: string) => {
+      const node = graphData.value?.nodes?.find((n) => String(n.id) === nodeId);
+      if (node && node.cardData) {
+        activeCard.value = node.cardData;
+        cardDetailPosition.value = { ...nodeMenuPosition.value };
+        showCardDetail.value = true;
+      }
+    };
+
+    // 关闭卡片详情
+    const closeCardDetail = () => {
+      showCardDetail.value = false;
     };
 
     // 聚焦到节点
@@ -330,17 +507,21 @@ export default defineComponent({
         originalGraphData.value = null;
         isNodeFocused.value = false;
         focusedNodeId.value = null;
+        showCardNodes.value = false;
       }
     };
 
-    // 监听点击事件以关闭菜单
+    // 监听点击事件以关闭菜单和卡片详情
     onMounted(() => {
       fetchGraphData();
 
       document.addEventListener("click", (event) => {
-        // 点击外部区域关闭菜单
+        // 点击外部区域关闭菜单和卡片详情
         if (showNodeMenu.value) {
           hideNodeMenu();
+        }
+        if (showCardDetail.value) {
+          closeCardDetail();
         }
       });
     });
@@ -378,6 +559,10 @@ export default defineComponent({
           // 调整尺寸公式，让节点不要过大
           symbolSize: Math.min(node.value * 3 + 15, 50),
           category: node.type === NodeDTO.type.TAG ? 0 : 1,
+          // 保存原始节点类型，用于菜单判断
+          nodeType: node.type,
+          // 如果是卡片节点，保存卡片数据
+          ...(node.cardData ? { cardData: node.cardData } : {}),
           itemStyle: {
             shadowBlur: 10,
             shadowColor: "rgba(0, 0, 0, 0.3)",
@@ -443,7 +628,9 @@ export default defineComponent({
           trigger: "item",
           formatter: (params: any) => {
             if (params.dataType === "node") {
-              return `${params.name}<br/>连接数：${params.value}`;
+              const nodeType =
+                params.data.nodeType === NodeDTO.type.TAG ? "标签" : "卡片";
+              return `${nodeType}: ${params.name}<br/>连接数：${params.value}`;
             }
             return params.value || "关联";
           },
@@ -574,6 +761,8 @@ export default defineComponent({
 
     const refreshGraph = () => {
       fetchGraphData();
+      showCardNodes.value = false;
+      originalGraphData.value = null;
     };
 
     // 统计信息计算
@@ -619,6 +808,8 @@ export default defineComponent({
       searchText.value = "";
       searchResults.value = [];
       isSearchActive.value = false;
+      showCardNodes.value = false;
+      showCardDetail.value = false;
     };
 
     onMounted(() => {
@@ -635,8 +826,9 @@ export default defineComponent({
       // 节点菜单相关
       showNodeMenu,
       activeNodeId,
+      activeNodeType,
       nodeMenuStyle,
-      nodeActionItems,
+      getNodeActionItems,
       getActionItemStyle,
       handleNodeDblClick,
       hideNodeMenu,
@@ -655,6 +847,14 @@ export default defineComponent({
       totalEdges,
       totalTags,
       totalCards,
+      // 卡片节点相关
+      showRelatedCards,
+      showCardNodes,
+      showCardDetail,
+      activeCard,
+      cardDetailStyle,
+      closeCardDetail,
+      showCardDetails,
     };
   },
 });
@@ -906,5 +1106,101 @@ export default defineComponent({
     border-bottom: 1px solid #eaeaea;
     max-height: 200px;
   }
+}
+
+/* 卡片详情悬浮窗样式 */
+.card-detail-popup {
+  position: absolute;
+  width: 300px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  padding: 0;
+  transform: translate(-50%, -100%);
+  margin-top: -15px;
+}
+
+.card-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid #eaeaea;
+  background-color: #f5f5f5;
+  border-radius: 8px 8px 0 0;
+}
+
+.card-title {
+  font-weight: 500;
+  color: #333;
+}
+
+.close-btn {
+  font-size: 18px;
+  cursor: pointer;
+  color: #999;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #555;
+}
+
+.card-detail-content {
+  padding: 15px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.card-question,
+.card-answer,
+.card-tags {
+  margin-bottom: 15px;
+}
+
+.card-question h4,
+.card-answer h4,
+.card-tags h4 {
+  margin-top: 0;
+  margin-bottom: 5px;
+  color: #555;
+  font-size: 14px;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+/* 确保节点操作菜单的样式 */
+.node-action-menu {
+  position: absolute;
+  width: 0;
+  height: 0;
+  z-index: 100;
+}
+
+.action-item {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #fff;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  user-select: none;
+}
+
+.action-item:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  background-color: #f0f9ff;
 }
 </style>
