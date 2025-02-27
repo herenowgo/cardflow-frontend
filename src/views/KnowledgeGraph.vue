@@ -107,59 +107,67 @@
               class="knowledge-graph-chart"
               :option="graphOption"
               autoresize
-              @dblclick="handleNodeDblClick"
+              @click="handleNodeClick"
             />
 
-            <!-- 节点操作菜单 -->
-            <div
+            <!-- 节点操作菜单，使用ArcoDesign组件 -->
+            <a-trigger
               v-if="showNodeMenu"
-              class="node-action-menu"
-              :style="nodeMenuStyle"
+              :popup-visible="true"
+              :popup-translate="[0, 0]"
+              position="rt"
+              auto-fit-position
+              trigger="hover"
+              :popup-style="{ padding: '0px', minWidth: '120px' }"
+              unmount-on-close
             >
-              <div
-                class="action-item"
-                v-for="(item, index) in getNodeActionItems"
-                :key="index"
-                :style="getActionItemStyle(index)"
-                @click="item.action(activeNodeId)"
-                :title="item.name"
-              >
-                <span class="action-icon">{{ item.icon }}</span>
-              </div>
-            </div>
+              <div class="trigger-reference" :style="nodeMenuStyle"></div>
+              <template #content>
+                <a-doption-group>
+                  <a-doption
+                    v-for="(item, index) in getNodeActionItems"
+                    :key="index"
+                    @click="() => item.action(activeNodeId)"
+                  >
+                    <template #icon>
+                      <span class="action-icon">{{ item.icon }}</span>
+                    </template>
+                    {{ item.name }}
+                  </a-doption>
+                </a-doption-group>
+              </template>
+            </a-trigger>
 
-            <!-- 卡片详情悬浮窗 -->
-            <div
-              v-if="showCardDetail"
-              class="card-detail-popup"
+            <!-- 使用ArcoDesign的卡片组件实现卡片详情悬浮窗 -->
+            <a-modal
+              v-model:visible="showCardDetail"
+              :footer="false"
+              :mask="false"
+              :popup-visible="showCardDetail"
+              :unmount-on-close="false"
+              :draggable="true"
+              class="card-detail-modal"
               :style="cardDetailStyle"
+              modal-class="draggable-modal"
             >
-              <div class="card-detail-header">
-                <span class="card-title">卡片详情</span>
-                <span class="close-btn" @click="closeCardDetail">×</span>
-              </div>
-              <div class="card-detail-content">
-                <div class="card-question">
-                  <h4>问题：</h4>
-                  <div>{{ activeCard.question }}</div>
-                </div>
-                <div class="card-answer">
-                  <h4>答案：</h4>
-                  <div>{{ activeCard.answer }}</div>
-                </div>
-                <div class="card-tags">
-                  <h4>标签：</h4>
-                  <div class="tags-container">
+              <template #title>
+                <div class="card-modal-title">卡片详情</div>
+              </template>
+              <a-card :bordered="false" :body-style="{ padding: '0px' }">
+                <a-descriptions :column="1" :data="cardDescriptionData" />
+                <div class="card-tags-container">
+                  <span class="tag-label">标签：</span>
+                  <a-space>
                     <a-tag
                       v-for="tag in activeCard.tags"
                       :key="tag"
                       color="blue"
                       >{{ tag }}</a-tag
                     >
-                  </div>
+                  </a-space>
                 </div>
-              </div>
-            </div>
+              </a-card>
+            </a-modal>
           </div>
         </div>
       </div>
@@ -171,10 +179,12 @@
 import {
   defineComponent,
   onMounted,
+  onUnmounted,
   ref,
   computed,
   nextTick,
   watch,
+  reactive,
 } from "vue";
 import { use } from "echarts/core";
 import * as echarts from "echarts/core";
@@ -242,8 +252,11 @@ export default defineComponent({
     // 卡片详情样式
     const cardDetailStyle = computed(() => {
       return {
+        position: "absolute",
         left: `${cardDetailPosition.value.x}px`,
         top: `${cardDetailPosition.value.y}px`,
+        padding: "0",
+        margin: "0",
       };
     });
 
@@ -312,8 +325,8 @@ export default defineComponent({
       };
     };
 
-    // 处理节点双击事件
-    const handleNodeDblClick = (params: any) => {
+    // 修改为点击事件处理
+    const handleNodeClick = (params: any) => {
       if (
         params.componentType === "series" &&
         params.seriesType === "graph" &&
@@ -327,17 +340,37 @@ export default defineComponent({
         const chartDom = chartRef.value?.chart;
         if (chartDom) {
           // 将图表坐标转换为容器坐标
-          const pointInPixel = chartDom.convertToPixel(
-            "grid",
-            params.event.offsetPos
-          );
+          const pointInPixel = chartDom.convertToPixel({ seriesIndex: 0 }, [
+            params.event.offsetX,
+            params.event.offsetY,
+          ]);
+
           nodeMenuPosition.value = {
             x: pointInPixel ? pointInPixel[0] : params.event.offsetX,
             y: pointInPixel ? pointInPixel[1] : params.event.offsetY,
           };
 
-          // 显示菜单
-          showNodeMenu.value = true;
+          // 存储卡片详情窗口的初始位置（与菜单位置相同）
+          cardDetailPosition.value = {
+            x: nodeMenuPosition.value.x,
+            y: nodeMenuPosition.value.y,
+          };
+
+          // 如果是卡片节点，直接显示卡片详情
+          if (
+            params.data.nodeType === NodeDTO.type.CARD &&
+            params.data.cardData
+          ) {
+            showCardDetails(params.data.id);
+          } else {
+            // 对于其他节点显示操作菜单
+            showNodeMenu.value = true;
+
+            // 设置自动隐藏菜单的定时器
+            setTimeout(() => {
+              hideNodeMenu();
+            }, 3000); // 3秒后自动隐藏菜单
+          }
         }
       } else {
         hideNodeMenu();
@@ -429,13 +462,28 @@ export default defineComponent({
       }
     };
 
-    // 显示卡片详情
+    // 显示卡片详情 - 改进显示逻辑
     const showCardDetails = (nodeId: string) => {
-      const node = graphData.value?.nodes?.find((n) => String(n.id) === nodeId);
+      // 在显示图表中查找节点
+      const allNodes = graphData.value?.nodes || [];
+      const node = allNodes.find((n) => String(n.id) === nodeId);
+
       if (node && node.cardData) {
-        activeCard.value = node.cardData;
-        cardDetailPosition.value = { ...nodeMenuPosition.value };
-        showCardDetail.value = true;
+        // 存储卡片数据
+        activeCard.value = {
+          ...node.cardData,
+          question: node.cardData.question || "无问题内容",
+          answer: node.cardData.answer || "无答案内容",
+          tags: node.cardData.tags || [],
+        };
+
+        // 先隐藏节点菜单，再显示详情
+        hideNodeMenu();
+
+        // 使用 nextTick 确保 DOM 更新后再显示
+        nextTick(() => {
+          showCardDetail.value = true;
+        });
       }
     };
 
@@ -515,15 +563,21 @@ export default defineComponent({
     onMounted(() => {
       fetchGraphData();
 
-      document.addEventListener("click", (event) => {
-        // 点击外部区域关闭菜单和卡片详情
-        if (showNodeMenu.value) {
-          hideNodeMenu();
-        }
-        if (showCardDetail.value) {
-          closeCardDetail();
+      document.addEventListener("click", (event: MouseEvent) => {
+        // 检查点击是否在图表区域外
+        const chartElement = chartRef.value?.$el;
+        if (chartElement && !chartElement.contains(event.target as Node)) {
+          // 只关闭菜单，不关闭卡片详情
+          if (showNodeMenu.value) {
+            hideNodeMenu();
+          }
         }
       });
+    });
+
+    // 卸载时清理监听器
+    onUnmounted(() => {
+      document.removeEventListener("click", hideNodeMenu);
     });
 
     // 计算 ECharts 图表配置
@@ -812,6 +866,20 @@ export default defineComponent({
       showCardDetail.value = false;
     };
 
+    // 计算卡片详情的描述数据
+    const cardDescriptionData = computed(() => {
+      return [
+        {
+          label: "问题",
+          value: activeCard.value.question || "无问题内容",
+        },
+        {
+          label: "答案",
+          value: activeCard.value.answer || "无答案内容",
+        },
+      ];
+    });
+
     onMounted(() => {
       fetchGraphData();
     });
@@ -830,7 +898,7 @@ export default defineComponent({
       nodeMenuStyle,
       getNodeActionItems,
       getActionItemStyle,
-      handleNodeDblClick,
+      handleNodeClick,
       hideNodeMenu,
       // 聚焦相关
       isNodeFocused,
@@ -855,6 +923,7 @@ export default defineComponent({
       cardDetailStyle,
       closeCardDetail,
       showCardDetails,
+      cardDescriptionData,
     };
   },
 });
@@ -1202,5 +1271,67 @@ export default defineComponent({
 .action-item:hover {
   transform: translate(-50%, -50%) scale(1.1);
   background-color: #f0f9ff;
+}
+
+/* 使用ArcoDesign时的样式调整 */
+.trigger-reference {
+  width: 1px;
+  height: 1px;
+  position: absolute;
+  pointer-events: none;
+}
+
+.card-detail-modal {
+  min-width: 320px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.card-modal-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--color-text-1);
+}
+
+.card-tags-container {
+  margin-top: 16px;
+  padding: 0 16px 16px;
+  display: flex;
+  align-items: center;
+}
+
+.tag-label {
+  margin-right: 8px;
+  color: var(--color-text-2);
+  font-weight: 500;
+}
+
+:deep(.arco-modal-header) {
+  cursor: move;
+}
+
+:deep(.arco-descriptions-item-label) {
+  font-weight: 500;
+}
+
+:deep(.arco-descriptions-item-value) {
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+/* 确保ArcoDesign模态框中的内容能够正确展示 */
+:deep(.arco-descriptions-item) {
+  padding: 12px 16px;
+}
+
+:deep(.arco-descriptions-item-label-block) {
+  color: var(--color-text-2);
+  margin-bottom: 8px;
+}
+
+/* 给modal添加拖拽时的样式 */
+:deep(.draggable-modal:active) {
+  cursor: grabbing;
 }
 </style>
