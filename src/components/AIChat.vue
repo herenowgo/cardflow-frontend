@@ -520,6 +520,28 @@
               >
                 <template #icon><t-icon name="save" /></template>
                 收入卡片库
+                <t-dropdown
+                  trigger="hover"
+                  :min-column-width="120"
+                  :options="[
+                    {
+                      content: '默认牌组',
+                      value: 'default',
+                      onClick: () => saveToCardLibrary(card, index),
+                    },
+                    ...groupOptions.map((group) => ({
+                      content: group.name,
+                      value: group.id,
+                      onClick: () => saveToCardLibrary(card, index, group.id),
+                    })),
+                  ]"
+                >
+                  <t-icon
+                    name="chevron-down"
+                    size="small"
+                    style="margin-left: 4px"
+                  />
+                </t-dropdown>
               </t-button>
               <t-button
                 theme="danger"
@@ -719,11 +741,16 @@
 
 <script setup lang="ts">
 import { eventStreamService } from "@/services/EventStreamService";
+import { FsrsService } from "@/services/FsrsService";
 import type { ChatMessage } from "@/types/chat";
 import { Drawer, Message } from "@arco-design/web-vue";
+import {
+  AiControllerService,
+  GraphControllerService,
+  GroupControllerService,
+} from "@backendApi/index";
 import { marked } from "marked";
 import {
-  computed,
   defineEmits,
   defineExpose,
   defineProps,
@@ -736,11 +763,9 @@ import {
 import { AIChatRequest } from "../../generated/models/AIChatRequest";
 import { CardAddRequest } from "../../generated/models/CardAddRequest";
 import { ChatControllerService } from "../../generated/services/ChatControllerService";
-import { AiControllerService, GraphControllerService } from "@backendApi/index";
 import MdEditor from "./MdEditor.vue";
 import MdViewer from "./MdViewer.vue";
 import SessionManager from "./SessionManager.vue";
-import { FsrsService } from "@/services/FsrsService";
 
 interface HistoryResponse {
   content: string;
@@ -937,6 +962,29 @@ const isConfirmClearVisible = ref(false);
 const isUpdateConfirmVisible = ref(false);
 const updateType = ref<"question" | "answer" | "tags" | "all">("all");
 const updateCard = ref<Card | null>(null);
+const groupOptions = ref<{ id: string; name: string }[]>([]);
+
+const fetchGroupOptions = async () => {
+  try {
+    const response = await GroupControllerService.getUserGroups();
+    if (response && response.code === 200 && response.data) {
+      groupOptions.value = response.data.map((group) => ({
+        id: group,
+        name: group,
+      }));
+      console.log("Loaded group options:", groupOptions.value);
+    } else {
+      console.error("Failed to load user groups:", response);
+    }
+  } catch (error) {
+    console.error("Error fetching user groups:", error);
+    Message.error("获取牌组列表失败");
+  }
+};
+
+onMounted(() => {
+  fetchGroupOptions();
+});
 
 const createNewCardSession = () => {
   console.log("Creating new card session");
@@ -1438,13 +1486,13 @@ const checkCard = async (card: any, index: number) => {
   await handleSend(checkContent, PromptType.REVIEW);
 };
 
-const saveToCardLibrary = async (card: Card, index: number) => {
+const saveToCardLibrary = async (card: Card, index: number, group?: string) => {
   try {
     const cardAddRequest: CardAddRequest = {
       question: card.question,
       answer: card.answer,
       tags: card.tags,
-      group: "CardFlow",
+      group: group ? group : "CardFlow",
     };
 
     const response = await FsrsService.batchCreateCards([cardAddRequest]);
