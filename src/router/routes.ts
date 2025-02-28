@@ -73,6 +73,7 @@ export const routes: Array<RouteRecordRaw> = [
     meta: {
       hideHeader: true,
       hideInMenu: true,
+      openInNewTab: true,
     },
   },
   {

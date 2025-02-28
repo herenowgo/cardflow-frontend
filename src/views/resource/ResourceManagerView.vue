@@ -7,26 +7,24 @@ import {
 import { onMounted, ref } from "vue";
 import type { FileListVO } from "../../../api/models/FileListVO";
 
-import {
-  IconBook,
-  IconDelete,
-  IconDragDot,
-  IconDragDotVertical,
-  IconEdit,
-  IconFile,
-  IconFolder,
-  IconFolderAdd,
-  IconHome,
-  IconLink,
-  IconMore,
-  IconPlus,
-  IconUp,
-  IconUpload,
-  IconStar,
-  IconStarFill,
-  IconGlobe,
-  IconUser,
-} from "@arco-design/web-vue/es/icon";
+import IconBook from "@arco-design/web-vue/es/icon/icon-book";
+import IconDelete from "@arco-design/web-vue/es/icon/icon-delete";
+import IconDragDot from "@arco-design/web-vue/es/icon/icon-drag-dot";
+import IconDragDotVertical from "@arco-design/web-vue/es/icon/icon-drag-dot-vertical";
+import IconEdit from "@arco-design/web-vue/es/icon/icon-edit";
+import IconFile from "@arco-design/web-vue/es/icon/icon-file";
+import IconFolder from "@arco-design/web-vue/es/icon/icon-folder";
+import IconFolderAdd from "@arco-design/web-vue/es/icon/icon-folder-add";
+import IconGlobe from "@arco-design/web-vue/es/icon/icon-public";
+import IconHome from "@arco-design/web-vue/es/icon/icon-home";
+import IconLink from "@arco-design/web-vue/es/icon/icon-link";
+import IconMore from "@arco-design/web-vue/es/icon/icon-more";
+import IconPlus from "@arco-design/web-vue/es/icon/icon-plus";
+import IconStar from "@arco-design/web-vue/es/icon/icon-star";
+import IconStarFill from "@arco-design/web-vue/es/icon/icon-star-fill";
+import IconUp from "@arco-design/web-vue/es/icon/icon-up";
+import IconUpload from "@arco-design/web-vue/es/icon/icon-upload";
+import IconUser from "@arco-design/web-vue/es/icon/icon-user";
 import { useRouter } from "vue-router";
 
 interface CustomRequestOption {
@@ -472,7 +470,7 @@ onMounted(() => {
               我的资源
             </a-radio>
             <a-radio value="public">
-              <template #radio><icon-globe /></template>
+              <template #radio><icon-public /></template>
               公共资源
             </a-radio>
           </a-radio-group>
@@ -555,7 +553,7 @@ onMounted(() => {
                     v-if="!item.isFolder"
                     :value="item.isPublic ? 'setPrivate' : 'setPublic'"
                   >
-                    <icon-globe v-if="!item.isPublic" />
+                    <icon-public v-if="!item.isPublic" />
                     <icon-user v-else />
                     {{ item.isPublic ? "设为私有" : "设为公开" }}
                   </a-doption>
@@ -589,7 +587,7 @@ onMounted(() => {
                 v-if="item.isPublic && viewMode === 'personal'"
                 class="public-badge"
               >
-                <icon-globe />
+                <icon-public />
               </div>
 
               <icon-folder v-if="item.isFolder" :style="{ fontSize: '48px' }" />
