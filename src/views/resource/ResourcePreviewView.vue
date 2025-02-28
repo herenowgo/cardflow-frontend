@@ -348,6 +348,14 @@ const loadNoteContent = async (id: string) => {
       articleContent.value = articleText;
       resourceType.value = resourceResponse.data.resourceType;
 
+      // 保存文件路径，用于PDF阅读进度
+      if (resourceResponse.data.resourcePath) {
+        filePath.value = resourceResponse.data.resourcePath;
+      } else {
+        // 如果没有路径，使用ID作为唯一标识
+        filePath.value = id;
+      }
+
       // 先清空 AI 助手的默认标签
       if (aiChatRef.value) {
         aiChatRef.value.setDefaultTags([]);

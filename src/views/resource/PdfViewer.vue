@@ -179,7 +179,7 @@ const textLayerWrapper = ref(null);
 const outlineVisible = ref(false);
 const outline = ref([]);
 
-// 添加保存和恢复阅读进度的函数
+// 修改保存和恢复阅读进度的函数
 const saveReadingProgress = () => {
   // 使用文件路径作为 key
   const key = `pdf-progress-${props.path}`;
@@ -187,7 +187,8 @@ const saveReadingProgress = () => {
 };
 
 const restoreReadingProgress = () => {
-  const key = `pdf-progress-${props.source}`;
+  // 使用文件路径作为 key，而不是source
+  const key = `pdf-progress-${props.path}`;
   const savedPage = localStorage.getItem(key);
   if (savedPage) {
     const page = parseInt(savedPage);
