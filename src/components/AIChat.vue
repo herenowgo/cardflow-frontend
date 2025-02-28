@@ -2624,6 +2624,7 @@ defineExpose({
   border-bottom: 1px solid var(--td-component-border);
   background: var(--td-bg-color-container);
   flex-shrink: 0;
+  height: 48px;
 }
 
 .embedded-chat .chat-body {
@@ -2633,17 +2634,21 @@ defineExpose({
 }
 
 .embedded-chat :deep(.t-chat) {
-  height: 100% !important;
-  border-radius: 0;
+  height: 90% !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .embedded-chat :deep(.t-chat__main) {
-  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .embedded-chat :deep(.t-chat__footer) {
+  flex-shrink: 0;
   border-top: 1px solid var(--td-component-border);
   padding: 16px;
+  background: var(--td-bg-color-container);
 }
 
 .default-tags-wrapper {

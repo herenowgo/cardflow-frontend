@@ -13,6 +13,7 @@ import CardManagementView from "@/views/workspace/CardManagementView.vue";
 import GroupDetailView from "@/views/workspace/GroupDetailView.vue";
 import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
 import { RouteRecordRaw } from "vue-router";
+import HomeView from "@/views/HomeView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -49,7 +50,11 @@ export const routes: Array<RouteRecordRaw> = [
       hideInMenu: true,
     },
   },
-
+  {
+    path: "/home",
+    name: "首页",
+    component: HomeView,
+  },
   // {
   //   path: "/topQuestions",
   //   name: "Top50",
@@ -203,7 +208,7 @@ export const routes: Array<RouteRecordRaw> = [
   },
   {
     path: "/cardManage",
-    name: "卡片管理",
+    name: "卡片仓库",
     component: () => CardManagementView,
     meta: {
       hideHeader: true,
@@ -212,7 +217,7 @@ export const routes: Array<RouteRecordRaw> = [
   },
   {
     path: "/workspace",
-    name: "牌组",
+    name: "个人牌组",
     component: WorkspaceView,
     meta: {
       hideHeader: true,
@@ -223,7 +228,7 @@ export const routes: Array<RouteRecordRaw> = [
 
   {
     path: "/flashcard/review",
-    name: "复习",
+    name: "高效复习",
     component: () => import("@/views/flashcard/ReviewView.vue"),
     meta: {
       openInNewTab: true,

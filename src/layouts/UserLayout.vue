@@ -1,7 +1,7 @@
 <template>
   <div id="userLayout">
     <a-layout style="min-height: 100vh">
-      <a-layout-header class="header">
+      <a-layout-header>
         <img src="../assets/logo.jpg" class="logo" />
       </a-layout-header>
       <a-layout-content class="content">
@@ -20,14 +20,17 @@
 }
 
 #userLayout .header {
-  //box-shadow: #eee 1px 1px 5px; margin-top: 16px;
+  box-shadow: #eee 1px 1px 5px; 
+  margin-top: 16px;
+
   margin-bottom: 16px;
 }
 
 #userLayout .logo {
-  width: 131px;
-  height: 170px;
-  //margin: 16px;
+  width: 200px;
+  /* height: 170px;
+  margin: 16px; */
+  margin-top: 100px;
 }
 
 #userLayout .content {

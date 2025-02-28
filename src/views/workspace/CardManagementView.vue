@@ -1,7 +1,7 @@
 <template>
   <div id="cardManagementView">
     <div class="page-header">
-      <h2>卡片管理</h2>
+      <h2>卡片仓库</h2>
     </div>
 
     <!-- 筛选条件区域 -->
