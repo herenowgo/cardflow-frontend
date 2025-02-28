@@ -1,8 +1,25 @@
 <template>
   <div class="flashcard-review fullscreen">
-    <div class="review-container">
+    <!-- 添加全局加载状态指示器 -->
+    <div class="page-loading" v-if="isPageLoading">
+      <a-spin size="large" tip="正在加载卡片数据..."></a-spin>
+    </div>
+
+    <div class="review-container" v-else>
+      <!-- 当加载失败时显示重试按钮 -->
+      <div class="load-error-container" v-if="loadError">
+        <a-result status="error" :subtitle="loadErrorMessage">
+          <template #extra>
+            <a-button type="primary" @click="retryLoadData">
+              <template #icon><icon-refresh /></template>
+              重试
+            </a-button>
+          </template>
+        </a-result>
+      </div>
+
       <!-- 卡片区域 -->
-      <div class="review-content" :class="{ 'no-cards': !currentCard }">
+      <div class="review-content" :class="{ 'no-cards': !currentCard }" v-else>
         <div class="card-container" :class="{ 'shift-left': isAIChatVisible }">
           <div class="card-area">
             <template v-if="currentCard">
@@ -438,6 +455,7 @@ import {
   IconEdit,
   IconTag,
   IconDelete,
+  IconRefresh, // 添加刷新图标
 } from "@arco-design/web-vue/es/icon";
 import { computed, onMounted, onUnmounted, ref, nextTick } from "vue";
 import { AIChatRequest } from "../../../generated/models/AIChatRequest";
@@ -453,6 +471,13 @@ import {
 import { FsrsService } from "@/services/FsrsService";
 import { Grade } from "ts-fsrs";
 import { AnkiSyncService } from "@/services/AnkiSyncService";
+
+// 添加页面加载状态
+const isPageLoading = ref(true);
+const loadError = ref(false);
+const loadErrorMessage = ref("加载失败，请重试");
+const loadAttempts = ref(0);
+const MAX_LOAD_ATTEMPTS = 3;
 
 const aiChatRef = ref<InstanceType<typeof AIChat>>();
 const isAIChatVisible = ref(false);
@@ -735,8 +760,18 @@ const rateCard = async (rating: number) => {
   aiChatRef.value?.clear();
   // 重置已发送卡片的记录，这样切换到新卡片时可以重新发送
   cardSentToAI.value.clear();
+
   try {
-    await fsrsService.reviewCard(currentCard.value, rating);
+    // 添加一个本地变量记录当前操作的卡片，防止异步操作过程中卡片变化
+    const cardToRate = currentCard.value;
+
+    // 使用Promise.race实现超时处理
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("评分请求超时")), 5000)
+    );
+
+    const ratingPromise = fsrsService.reviewCard(cardToRate, rating);
+    await Promise.race([ratingPromise, timeoutPromise]);
 
     // 立即更新统计状态
     if (rating >= 3) correctAnswers.value++;
@@ -744,35 +779,31 @@ const rateCard = async (rating: number) => {
     ratingSubmitted.value = true;
 
     // 保存当前卡片用于显示
-    displayCard.value = currentCard.value;
+    displayCard.value = cardToRate;
 
     // 先翻转卡片到正面
     isFlipped.value = false;
 
     // 等待翻转动画完成后再更新索引和显示的卡片
-    //  setTimeout(() => {
     await sleep(100);
     currentIndex.value++;
     // 清除显示的卡片，使用新的当前卡片
     displayCard.value = null;
     ratingSubmitted.value = false;
-    // }, 100); // 300ms 是翻转动画的持续时间
 
     Message.success("评分已保存");
-    console.log("currentIndex.value", currentIndex.value);
-    console.log("cards.value.length", cards.value.length);
+
     if (currentIndex.value >= cards.value.length) {
+      Message.success("恭喜！您已完成所有卡片的复习");
       cards.value = [exampleCard];
       displayCard.value = exampleCard;
-
       ratingSubmitted.value = false; // Set to false to allow flipping the example card
       isFlipped.value = false;
-
       currentIndex.value = 0;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("保存评分失败:", error);
-    Message.error("保存失败，请重试");
+    Message.error(`保存失败：${error.message || "请重试"}`);
   }
 };
 
@@ -846,10 +877,19 @@ const exampleCard = {
   tags: ["我是标签", "知识点标签"],
 };
 
-// 修改加载数据方法
+// 修改加载数据方法，添加超时和错误处理
 const loadDeckData = async () => {
   try {
-    const res = await CardControllerService.getExpiredCards();
+    isPageLoading.value = true;
+    loadError.value = false;
+
+    // 设置请求超时
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("请求超时")), 10000)
+    );
+
+    const fetchPromise = CardControllerService.getExpiredCards();
+    const res = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (res.code === 200 && res.data) {
       if (res.data.length === 0) {
@@ -858,17 +898,40 @@ const loadDeckData = async () => {
 
         // 提供一张示例卡片，以便用户看到界面效果
         cards.value = [exampleCard];
-        return;
+      } else {
+        // 使用 Fisher-Yates 算法打乱卡片顺序
+        cards.value = shuffleArray(res.data);
       }
-      // 使用 Fisher-Yates 算法打乱卡片顺序
-      cards.value = shuffleArray(res.data);
+      loadAttempts.value = 0; // 重置尝试次数
     } else {
-      Message.error("加载卡片失败");
+      throw new Error("加载卡片失败");
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("加载卡片失败:", error);
-    Message.error("加载失败，请重试");
+    loadAttempts.value++;
+
+    if (loadAttempts.value < MAX_LOAD_ATTEMPTS) {
+      // 自动重试
+      loadErrorMessage.value = `加载失败，正在进行第${loadAttempts.value}次重试...`;
+      Message.warning(loadErrorMessage.value);
+      await sleep(1000); // 等待一秒后重试
+      return loadDeckData();
+    } else {
+      loadError.value = true;
+      loadErrorMessage.value = `加载失败：${error.message || "请检查网络连接"}`;
+      Message.error(loadErrorMessage.value);
+      // 降级处理：仍然显示示例卡片
+      cards.value = [exampleCard];
+    }
+  } finally {
+    isPageLoading.value = false;
   }
+};
+
+// 添加重试按钮的处理函数
+const retryLoadData = async () => {
+  loadAttempts.value = 0; // 重置尝试次数
+  await loadDeckData();
 };
 
 // 使用 Fisher-Yates 算法打乱卡片顺序
@@ -1184,8 +1247,15 @@ const handleDelete = async () => {
 };
 
 onMounted(async () => {
-  document.addEventListener("keydown", handleKeyPress);
-  await loadDeckData();
+  try {
+    document.addEventListener("keydown", handleKeyPress);
+    await loadDeckData();
+  } catch (error) {
+    console.error("加载初始数据失败:", error);
+    isPageLoading.value = false;
+    loadError.value = true;
+    loadErrorMessage.value = "初始化失败，请刷新页面重试";
+  }
 });
 
 onUnmounted(() => {
@@ -1829,5 +1899,28 @@ onUnmounted(() => {
     color: var(--color-danger);
     background: var(--color-danger-light);
   }
+}
+
+/* 添加加载状态和错误提示的样式 */
+.page-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--color-fill-2);
+  z-index: 10;
+}
+
+.load-error-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
 }
 </style>

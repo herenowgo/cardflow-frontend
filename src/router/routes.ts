@@ -49,17 +49,12 @@ export const routes: Array<RouteRecordRaw> = [
       hideInMenu: true,
     },
   },
-  {
-    path: "/questions",
-    alias: "/",
-    name: "题库",
-    component: () => import("@/views/question/QuestionsView.vue"),
-  },
-  {
-    path: "/topQuestions",
-    name: "Top50",
-    component: () => import("@/views/question/TopQuestionsView.vue"),
-  },
+
+  // {
+  //   path: "/topQuestions",
+  //   name: "Top50",
+  //   component: () => import("@/views/question/TopQuestionsView.vue"),
+  // },
   // {
   //   path: "/question_submit",
   //   name: "浏览题目提交",
@@ -192,13 +187,46 @@ export const routes: Array<RouteRecordRaw> = [
   //   },
   // },
   {
+    path: "/resource",
+    name: "学习资源",
+    component: () => import("@/views/resource/ResourceManagerView.vue"),
+    meta: {
+      hideHeader: true,
+      openInNewTab: true,
+    },
+  },
+  {
+    path: "/questions",
+    alias: "/",
+    name: "编程专区",
+    component: () => import("@/views/question/QuestionsView.vue"),
+  },
+  {
+    path: "/cardManage",
+    name: "卡片管理",
+    component: () => CardManagementView,
+    meta: {
+      hideHeader: true,
+      openInNewTab: true,
+    },
+  },
+  {
     path: "/workspace",
-    name: "工作台",
+    name: "牌组",
     component: WorkspaceView,
     meta: {
       hideHeader: true,
       openInNewTab: true,
       // hideInMenu: true,
+    },
+  },
+
+  {
+    path: "/flashcard/review",
+    name: "复习",
+    component: () => import("@/views/flashcard/ReviewView.vue"),
+    meta: {
+      openInNewTab: true,
     },
   },
   {
@@ -207,14 +235,6 @@ export const routes: Array<RouteRecordRaw> = [
     component: KnowledgeGraph,
     meta: {
       hideHeader: true,
-      openInNewTab: true,
-    },
-  },
-  {
-    path: "/flashcard/review",
-    name: "抽认卡复习",
-    component: () => import("@/views/flashcard/ReviewView.vue"),
-    meta: {
       openInNewTab: true,
     },
   },
@@ -228,24 +248,7 @@ export const routes: Array<RouteRecordRaw> = [
       hideInMenu: true,
     },
   },
-  {
-    path: "/resource",
-    name: "学习资源",
-    component: () => import("@/views/resource/ResourceManagerView.vue"),
-    meta: {
-      hideHeader: true,
-      openInNewTab: true,
-    },
-  },
-  {
-    path: "/cardManage",
-    name: "卡片管理",
-    component: () => CardManagementView,
-    meta: {
-      hideHeader: true,
-      openInNewTab: true,
-    },
-  },
+
   {
     path: "/resource-preview",
     name: "resource-preview",
