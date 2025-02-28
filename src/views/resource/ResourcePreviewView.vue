@@ -7,11 +7,11 @@
       :style="{ width: `${siderWidth}px` }"
     >
       <div class="viewer-container">
-        <template v-if="resourceType === 'NOTE'">
+        <template v-if="resourceType === 'NOTE' || resourceType === 'ARTICLE'">
           <div class="note-container">
             <div id="vditor-main" class="note-editor"></div>
             <div class="note-actions">
-              <a-button type="primary" @click="handleSave">保存</a-button>
+              <a-button type="primary" @click="handleSaveMain">保存</a-button>
             </div>
           </div>
         </template>
@@ -109,6 +109,7 @@ const filePath = ref<string>("");
 const aiChatRef = ref<InstanceType<typeof AIChat> | null>(null);
 const webViewerRef = ref<InstanceType<typeof WebViewer>>();
 const vditor = shallowRef<Vditor>();
+const vditorMain = shallowRef<Vditor>();
 const noteContent = ref<string>("");
 const articleContent = ref<string>("");
 const resourceId = ref<string>("");
@@ -228,28 +229,64 @@ const initVditor = (isMain = false) => {
         ],
       },
     ],
-    placeholder: isMain ? "在这里编辑文章..." : "在这里编辑笔记...",
+    placeholder: isMain
+      ? resourceType.value === StudyResourceVO.resourceType.ARTICLE
+        ? "在这里编辑文章..."
+        : "在这里编辑笔记..."
+      : "在这里编辑笔记...",
     cache: {
       enable: false,
     },
     after: () => {
-      if (noteContent.value) {
+      if (isMain) {
+        if (
+          resourceType.value === StudyResourceVO.resourceType.ARTICLE &&
+          articleContent.value
+        ) {
+          instance.setValue(articleContent.value);
+        } else if (
+          resourceType.value === StudyResourceVO.resourceType.NOTE &&
+          noteContent.value
+        ) {
+          instance.setValue(noteContent.value);
+        }
+      } else if (noteContent.value) {
         instance.setValue(noteContent.value);
       }
     },
     input: (value: string) => {
-      autoSaveNote(value);
+      if (isMain) {
+        if (resourceType.value === StudyResourceVO.resourceType.ARTICLE) {
+          autoSaveArticle(value);
+        } else {
+          autoSaveNote(value);
+        }
+      } else {
+        autoSaveNote(value);
+      }
     },
     blur: () => {
       if (instance) {
         const content = instance.getValue();
-        autoSaveNote.flush();
-        saveNote(content);
+        if (isMain) {
+          if (resourceType.value === StudyResourceVO.resourceType.ARTICLE) {
+            autoSaveArticle.flush();
+            saveArticle(content);
+          } else {
+            autoSaveNote.flush();
+            saveNote(content);
+          }
+        } else {
+          autoSaveNote.flush();
+          saveNote(content);
+        }
       }
     },
   });
 
   if (isMain) {
+    vditorMain.value = instance;
+  } else {
     vditor.value = instance;
   }
 };
@@ -263,9 +300,14 @@ onMounted(async () => {
 
     // 根据资源类型初始化不同的编辑器
     await nextTick();
-    if (resourceType.value === StudyResourceVO.resourceType.NOTE) {
+    if (
+      resourceType.value === StudyResourceVO.resourceType.NOTE ||
+      resourceType.value === StudyResourceVO.resourceType.ARTICLE
+    ) {
       initVditor(true); // 初始化主编辑器
-    } else {
+    }
+
+    if (resourceType.value !== StudyResourceVO.resourceType.NOTE) {
       initVditor(false); // 初始化右侧编辑器
     }
 
@@ -336,9 +378,15 @@ const loadNoteContent = async (id: string) => {
 
       // 如果编辑器已存在，直接设置内容
       if (vditor.value) {
-        vditor.value.setValue(
-          rightView.value === "note" ? noteContent.value : articleContent.value
-        );
+        vditor.value.setValue(noteContent.value);
+      }
+
+      if (vditorMain.value) {
+        if (resourceType.value === StudyResourceVO.resourceType.ARTICLE) {
+          vditorMain.value.setValue(articleContent.value);
+        } else if (resourceType.value === StudyResourceVO.resourceType.NOTE) {
+          vditorMain.value.setValue(noteContent.value);
+        }
       }
 
       // 如果存在结构化标签,则设置到 AI 助手
@@ -469,7 +517,17 @@ const handleDirectGenerate = async () => {
 // 保存笔记
 const saveNote = async (content?: string) => {
   try {
-    const currentContent = content ?? (vditor.value?.getValue() || "");
+    let currentContent;
+
+    if (
+      resourceType.value === StudyResourceVO.resourceType.NOTE &&
+      vditorMain.value
+    ) {
+      currentContent = content ?? (vditorMain.value.getValue() || "");
+    } else {
+      currentContent = content ?? (vditor.value?.getValue() || "");
+    }
+
     const response = await StudyResourceControllerService.updateResource({
       id: resourceId.value,
       note: currentContent,
@@ -490,7 +548,7 @@ const saveNote = async (content?: string) => {
 // 保存文章
 const saveArticle = async (content?: string) => {
   try {
-    const currentContent = content ?? (vditor.value?.getValue() || "");
+    const currentContent = content ?? (vditorMain.value?.getValue() || "");
     const response = await StudyResourceControllerService.updateResource({
       id: resourceId.value,
       content: currentContent,
@@ -511,6 +569,15 @@ const saveArticle = async (content?: string) => {
 // 手动保存按钮点击事件
 const handleSave = () => {
   saveNote();
+};
+
+// 主编辑区保存按钮点击事件
+const handleSaveMain = () => {
+  if (resourceType.value === StudyResourceVO.resourceType.ARTICLE) {
+    saveArticle();
+  } else {
+    saveNote();
+  }
 };
 
 // 添加保存标签的方法
@@ -555,6 +622,11 @@ onUnmounted(() => {
   if (vditor.value) {
     vditor.value.destroy();
     vditor.value = undefined;
+  }
+
+  if (vditorMain.value) {
+    vditorMain.value.destroy();
+    vditorMain.value = undefined;
   }
 });
 </script>

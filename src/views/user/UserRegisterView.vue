@@ -52,6 +52,7 @@ import { useStore } from "vuex";
 import { useRouter } from "vue-router";
 import message from "@arco-design/web-vue/es/message";
 import ACCESS_ENUM from "@/access/accessEnum";
+import { GroupControllerService } from "@backendApi/index";
 
 const form = reactive({
   userAccount: "",
@@ -73,6 +74,7 @@ const handleSubmit = async () => {
   const res = await UserControllerService.userRegisterUsingPost(form);
   if (String(res.code) === "200") {
     message.success("注册成功");
+
     await store.dispatch("user/getLoginUser");
     router.push({
       path: "/user/login",

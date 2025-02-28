@@ -22,6 +22,10 @@ import {
   IconPlus,
   IconUp,
   IconUpload,
+  IconStar,
+  IconStarFill,
+  IconGlobe,
+  IconUser,
 } from "@arco-design/web-vue/es/icon";
 import { useRouter } from "vue-router";
 
@@ -30,6 +34,9 @@ interface CustomRequestOption {
   onSuccess: () => void;
   onError: (error: Error) => void;
 }
+
+// 新增视图选择状态
+const viewMode = ref<"personal" | "public">("personal");
 
 const currentPath = ref("/");
 const files = ref<FileListVO[]>([]);
@@ -67,13 +74,25 @@ const folders = ref<FileListVO[]>([]);
 const uploadLoading = ref(false);
 const selectedFile = ref<File | null>(null);
 
+// 添加收藏相关状态
+const favoriteVisible = ref(false);
+const favoriteForm = ref({
+  id: "",
+  targetPath: "/",
+});
+
 const router = useRouter();
 
 // 获取文件列表
 const fetchFiles = async (path = "/") => {
   try {
     loading.value = true;
-    const response = await StudyResourceControllerService.listFiles(path);
+    // 根据当前视图模式获取不同的文件列表
+    const response =
+      viewMode.value === "personal"
+        ? await StudyResourceControllerService.listFiles(path)
+        : await StudyResourceControllerService.getPublicResources();
+
     if (response.data) {
       files.value = response.data;
     }
@@ -84,6 +103,17 @@ const fetchFiles = async (path = "/") => {
   }
 };
 
+// 更改视图模式
+const changeViewMode = (mode: "personal" | "public") => {
+  viewMode.value = mode;
+  // 在切换到公共视图时，将当前路径重置为根目录
+  if (mode === "public") {
+    currentPath.value = "/";
+  }
+  // 获取对应视图的文件列表
+  fetchFiles(mode === "personal" ? currentPath.value : "/");
+};
+
 // 创建文件夹
 const createFolder = async () => {
   if (!folderName.value.trim()) {
@@ -91,7 +121,10 @@ const createFolder = async () => {
     return;
   }
   try {
-    await StudyResourceControllerService.createFolder(folderName.value, "/");
+    await StudyResourceControllerService.createFolder(
+      folderName.value,
+      currentPath.value
+    );
     Message.success("创建文件夹成功");
     createFolderVisible.value = false;
     folderName.value = "";
@@ -120,6 +153,8 @@ const createResource = async () => {
       loadingTip.close();
       Message.success("上传PDF成功");
     } else {
+      // 设置正确的父路径
+      resourceForm.value.parentPath = currentPath.value;
       await StudyResourceControllerService.createResource(resourceForm.value);
       Message.success("创建资源成功");
     }
@@ -159,6 +194,18 @@ const handleFileSelect = (e: Event) => {
 
 // 进入文件夹或预览资源
 const enterFolder = async (file: FileListVO) => {
+  // 在公共资源视图中不允许导航到文件夹
+  if (viewMode.value === "public") {
+    if (file.id) {
+      router.push({
+        name: "resource-preview",
+        query: { id: file.id, isPublic: "true" },
+      });
+    }
+    return;
+  }
+
+  // 在个人资源视图中允许导航
   if (file.isFolder) {
     currentPath.value =
       currentPath.value === "/"
@@ -179,6 +226,9 @@ const enterFolder = async (file: FileListVO) => {
 
 // 返回上级目录
 const goBack = () => {
+  // 在公共资源视图中不允许导航
+  if (viewMode.value === "public") return;
+
   if (currentPath.value === "/") return;
   const parentPath = currentPath.value.substring(
     0,
@@ -311,6 +361,56 @@ const openMove = (item: FileListVO) => {
   fetchFolders();
 };
 
+// 设置资源公开状态
+const togglePublicStatus = async (item: FileListVO, isPublic: boolean) => {
+  if (!item.id) {
+    Message.error("资源ID不存在");
+    return;
+  }
+
+  try {
+    await StudyResourceControllerService.setResourcePublicStatus(
+      item.id,
+      isPublic
+    );
+    Message.success(isPublic ? "已设为公开资源" : "已取消公开状态");
+    fetchFiles(currentPath.value);
+  } catch (error) {
+    Message.error(isPublic ? "设置公开失败" : "取消公开失败");
+  }
+};
+
+// 收藏公开资源
+const openFavorite = (item: FileListVO) => {
+  if (!item.id) {
+    Message.error("资源ID不存在");
+    return;
+  }
+  favoriteForm.value.id = item.id;
+  favoriteForm.value.targetPath = "/";
+  favoriteVisible.value = true;
+  fetchFolders();
+};
+
+// 执行收藏操作
+const favoriteResource = async () => {
+  try {
+    const response =
+      await StudyResourceControllerService.favoritePublicResource(
+        favoriteForm.value.id,
+        favoriteForm.value.targetPath
+      );
+    if (response.code === 200) {
+      Message.success("收藏成功");
+      favoriteVisible.value = false;
+    } else {
+      Message.error("收藏失败");
+    }
+  } catch (error) {
+    Message.error("收藏失败");
+  }
+};
+
 // 处理资源操作
 const handleOperation = (operation: unknown, item: FileListVO) => {
   if (!item.id) {
@@ -330,6 +430,15 @@ const handleOperation = (operation: unknown, item: FileListVO) => {
     case "delete":
       deleteResource(item.id);
       break;
+    case "setPublic":
+      togglePublicStatus(item, true);
+      break;
+    case "setPrivate":
+      togglePublicStatus(item, false);
+      break;
+    case "favorite":
+      openFavorite(item);
+      break;
   }
 };
 
@@ -342,6 +451,7 @@ const handleCreateModalClose = () => {
 
 onMounted(() => {
   fetchFiles();
+  fetchFolders();
 });
 </script>
 
@@ -351,9 +461,28 @@ onMounted(() => {
       <!-- 顶部操作栏 -->
       <div class="operation-bar">
         <div class="left-operations">
+          <!-- 视图切换 -->
+          <a-radio-group
+            v-model="viewMode"
+            type="button"
+            @change="changeViewMode"
+          >
+            <a-radio value="personal">
+              <template #radio><icon-user /></template>
+              我的资源
+            </a-radio>
+            <a-radio value="public">
+              <template #radio><icon-globe /></template>
+              公共资源
+            </a-radio>
+          </a-radio-group>
+
+          <a-divider direction="vertical" />
+
+          <!-- 面包屑导航 -->
           <a-breadcrumb>
             <a-breadcrumb-item><icon-home />根目录</a-breadcrumb-item>
-            <template v-if="currentPath !== '/'">
+            <template v-if="currentPath !== '/' && viewMode === 'personal'">
               <a-breadcrumb-item
                 v-for="(path, index) in currentPath.split('/').filter(Boolean)"
                 :key="index"
@@ -362,18 +491,22 @@ onMounted(() => {
               </a-breadcrumb-item>
             </template>
           </a-breadcrumb>
+
+          <!-- 返回上级按钮 -->
           <a-button
             type="text"
             size="small"
             @click="goBack"
-            :disabled="currentPath === '/'"
+            :disabled="currentPath === '/' || viewMode === 'public'"
           >
             <template #icon><icon-up /></template>
             返回上级
           </a-button>
         </div>
+
+        <!-- 操作按钮 -->
         <div class="right-operations">
-          <a-space>
+          <a-space v-if="viewMode === 'personal'">
             <a-button type="outline" @click="createFolderVisible = true">
               <template #icon><icon-folder-add /></template>
               新建文件夹
@@ -383,6 +516,14 @@ onMounted(() => {
               新建资源
             </a-button>
           </a-space>
+          <a-space v-else>
+            <a-tooltip
+              content="在公共资源视图中，您可以浏览并收藏公开的学习资源"
+            >
+              <icon-star-fill style="color: #f5ba18" />
+              <span class="public-tip">您可以收藏感兴趣的公共资源</span>
+            </a-tooltip>
+          </a-space>
         </div>
       </div>
 
@@ -391,12 +532,17 @@ onMounted(() => {
         <div class="resource-grid">
           <div
             v-for="item in files"
-            :key="item.name"
+            :key="item.id || item.name"
             class="resource-item"
             @click="enterFolder(item)"
           >
+            <!-- 操作下拉菜单 -->
             <div class="resource-operations">
-              <a-dropdown @select="(key) => handleOperation(key, item)">
+              <!-- 个人资源的操作菜单 -->
+              <a-dropdown
+                v-if="viewMode === 'personal'"
+                @select="(key) => handleOperation(key, item)"
+              >
                 <a-button type="text" size="mini" @click.stop>
                   <icon-more />
                 </a-button>
@@ -405,17 +551,47 @@ onMounted(() => {
                   <a-doption v-if="!item.isFolder" value="move">
                     <icon-drag-dot />移动到
                   </a-doption>
+                  <a-doption
+                    v-if="!item.isFolder"
+                    :value="item.isPublic ? 'setPrivate' : 'setPublic'"
+                  >
+                    <icon-globe v-if="!item.isPublic" />
+                    <icon-user v-else />
+                    {{ item.isPublic ? "设为私有" : "设为公开" }}
+                  </a-doption>
                   <a-doption value="delete"> <icon-delete />删除 </a-doption>
                 </template>
               </a-dropdown>
+
+              <!-- 公共资源的收藏操作 -->
+              <a-button
+                v-else
+                type="text"
+                size="mini"
+                @click.stop="openFavorite(item)"
+                class="favorite-button"
+              >
+                <icon-star />收藏
+              </a-button>
             </div>
+
+            <!-- 资源图标 -->
             <div
               class="resource-icon"
               :class="[
                 { 'is-folder': item.isFolder },
                 item.resourceType?.toLowerCase(),
+                { 'is-public': item.isPublic },
               ]"
             >
+              <!-- 公开资源标记 -->
+              <div
+                v-if="item.isPublic && viewMode === 'personal'"
+                class="public-badge"
+              >
+                <icon-globe />
+              </div>
+
               <icon-folder v-if="item.isFolder" :style="{ fontSize: '48px' }" />
               <template v-else>
                 <icon-book
@@ -437,6 +613,8 @@ onMounted(() => {
                 <icon-file v-else :style="{ fontSize: '48px' }" />
               </template>
             </div>
+
+            <!-- 资源信息 -->
             <div class="resource-info">
               <div class="resource-name" :title="item.name">
                 {{ item.name }}
@@ -449,6 +627,26 @@ onMounted(() => {
                 }}
               </div>
             </div>
+          </div>
+
+          <!-- 空状态提示 -->
+          <div v-if="files.length === 0" class="empty-state">
+            <icon-file :style="{ fontSize: '64px', opacity: 0.5 }" />
+            <p>
+              {{
+                viewMode === "personal"
+                  ? "没有资源，开始创建吧！"
+                  : "当前没有公共资源可用"
+              }}
+            </p>
+            <a-button
+              v-if="viewMode === 'personal'"
+              type="outline"
+              @click="createVisible = true"
+            >
+              <template #icon><icon-plus /></template>
+              新建资源
+            </a-button>
           </div>
         </div>
       </a-spin>
@@ -591,7 +789,7 @@ onMounted(() => {
       </a-form>
     </a-modal>
 
-    <!-- 添加移动对话框 -->
+    <!-- 移动对话框 -->
     <a-modal
       v-model:visible="moveVisible"
       title="移动到文件夹"
@@ -602,6 +800,32 @@ onMounted(() => {
       <a-form :model="moveForm" layout="vertical">
         <a-form-item field="targetPath" label="选择目标文件夹">
           <a-radio-group v-model="moveForm.targetPath" direction="vertical">
+            <a-radio value="/">
+              <icon-home style="margin-right: 4px" />根目录
+            </a-radio>
+            <a-radio
+              v-for="folder in folders"
+              :key="folder.name"
+              :value="'/' + folder.name"
+            >
+              <icon-folder style="margin-right: 4px" />{{ folder.name }}
+            </a-radio>
+          </a-radio-group>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 收藏对话框 -->
+    <a-modal
+      v-model:visible="favoriteVisible"
+      title="收藏到我的资源"
+      @ok="favoriteResource"
+      @cancel="favoriteVisible = false"
+      :ok-button-props="{ type: 'primary' }"
+    >
+      <a-form :model="favoriteForm" layout="vertical">
+        <a-form-item field="targetPath" label="选择收藏位置">
+          <a-radio-group v-model="favoriteForm.targetPath" direction="vertical">
             <a-radio value="/">
               <icon-home style="margin-right: 4px" />根目录
             </a-radio>

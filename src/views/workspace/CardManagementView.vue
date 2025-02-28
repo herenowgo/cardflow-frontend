@@ -573,7 +573,7 @@ const handleSetCardOvert = async () => {
       Message.success("设置成功");
       loadCards();
     } else {
-      Message.error("设置失败");
+      Message.error("暂时只有管理员才能设置");
     }
   } catch (error) {
     Message.error("设置失败");

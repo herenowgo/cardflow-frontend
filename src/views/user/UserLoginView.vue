@@ -48,6 +48,7 @@ import { useStore } from "vuex";
 import { useRouter, useRoute } from "vue-router";
 import message from "@arco-design/web-vue/es/message";
 import ACCESS_ENUM from "@/access/accessEnum";
+import { GroupControllerService } from "@backendApi/index";
 
 const form = reactive({
   userAccount: "",
@@ -73,7 +74,9 @@ const handleSubmit = async () => {
   }
   try {
     const res = await UserControllerService.userLoginUsingPost(form);
-    if (res.code === "200") {
+    await GroupControllerService.addGroup("CardFlow");
+
+    if (res.code == "200") {
       const loginUser = await store.dispatch("user/getLoginUser");
       if (!loginUser) {
         message.error("获取用户信息失败");
@@ -81,6 +84,7 @@ const handleSubmit = async () => {
       }
 
       message.success("登录成功");
+
       const redirect = route.query.redirect as string;
       router.push({
         path: redirect || "/questions",
