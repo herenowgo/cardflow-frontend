@@ -1,139 +1,127 @@
 /* prettier-ignore */
 <template>
   <div id="viewQuestionView">
-    <a-split v-model:size="horizontalSplitSize" style="height: 100vh">
+    <a-split
+      v-model:size="horizontalSplitSize"
+      style="height: calc(100vh - 24px)"
+    >
       <!-- 左侧题目区域 -->
       <template #first>
         <a-card
           v-if="question"
           :bodyStyle="{
-            height: 'calc(100vh - 48px)',
-            overflow: 'auto',
+            height: 'calc(100vh - 72px)',
+            padding: '12px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
           }"
         >
-          <a-tabs v-model:activeKey="activeTabKey">
-            <a-tab-pane key="1" title="题目描述">
-              <a-descriptions
-                title="判题条件"
-                :column="{ xs: 1, md: 2, lg: 3 }"
-                size="small"
-              >
-                <a-descriptions-item label="时间限制">
-                  {{ question.judgeConfig?.timeLimit ?? 0 }}
-                </a-descriptions-item>
-                <a-descriptions-item label="内存限制">
-                  {{ question.judgeConfig?.memoryLimit ?? 0 }}
-                </a-descriptions-item>
-                <a-descriptions-item label="堆栈限制">
-                  {{ question.judgeConfig?.stackLimit ?? 0 }}
-                </a-descriptions-item>
-              </a-descriptions>
-              <MdViewer :value="question.content || ''" />
-            </a-tab-pane>
-            <a-tab-pane key="2" title="题解">
-              <div class="solving-header">
-                <a-button
-                  type="primary"
-                  @click="showSolvingEditor = true"
-                  v-if="!showSolvingEditor"
+          <a-tabs v-model:activeKey="activeTabKey" class="full-height-tabs">
+            <a-tab-pane key="1" title="题目描述" class="tab-pane-content">
+              <div class="scrollable-content">
+                <a-descriptions
+                  title="判题条件"
+                  :column="{ xs: 1, md: 2, lg: 3 }"
+                  size="small"
                 >
-                  <template #icon>
-                    <icon-edit />
-                  </template>
-                  写题解
-                </a-button>
-                <a-button @click="showSolvingEditor = false" v-else>
-                  <template #icon>
-                    <icon-left />
-                  </template>
-                  返回题解列表
-                </a-button>
+                  <a-descriptions-item label="时间限制">
+                    {{ question.judgeConfig?.timeLimit ?? 0 }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="内存限制">
+                    {{ question.judgeConfig?.memoryLimit ?? 0 }}
+                  </a-descriptions-item>
+                  <a-descriptions-item label="堆栈限制">
+                    {{ question.judgeConfig?.stackLimit ?? 0 }}
+                  </a-descriptions-item>
+                </a-descriptions>
+                <MdViewer :value="question.content || ''" />
               </div>
+            </a-tab-pane>
+            <a-tab-pane key="2" title="题解" class="tab-pane-content">
+              <div class="scrollable-content">
+                <div class="solving-header">
+                  <a-button
+                    type="primary"
+                    @click="showSolvingEditor = true"
+                    v-if="!showSolvingEditor"
+                  >
+                    <template #icon>
+                      <icon-edit />
+                    </template>
+                    写题解
+                  </a-button>
+                  <a-button @click="showSolvingEditor = false" v-else>
+                    <template #icon>
+                      <icon-left />
+                    </template>
+                    返回题解列表
+                  </a-button>
+                </div>
 
-              <div v-if="showSolvingEditor">
-                <EditQuestionSolvingView
-                  :questionId="questionId"
-                  @submit-success="onSolvingSubmitted"
+                <div v-if="showSolvingEditor">
+                  <EditQuestionSolvingView
+                    :questionId="questionId"
+                    @submit-success="onSolvingSubmitted"
+                  />
+                </div>
+                <div v-else>
+                  <ViewQuestionSolvingView :questionId="questionId" />
+                </div>
+              </div>
+            </a-tab-pane>
+            <!-- 新增AI建议标签页 - 使用AIChat组件替换原实现 -->
+            <a-tab-pane key="3" title="AI建议" class="tab-pane-content">
+              <div class="scrollable-content ai-chat-container">
+                <a-spin v-if="!isSubmited && !aiChatPrompt">
+                  <template #tip>请先提交代码或点击"获取AI建议"按钮</template>
+                </a-spin>
+                <AIChat
+                  ref="aiChatRef"
+                  embedded
+                  height="100%"
+                  title="代码分析助手"
+                  :show-clear="false"
+                  v-if="aiChatPrompt"
                 />
               </div>
-              <div v-else>
-                <ViewQuestionSolvingView :questionId="questionId" />
-              </div>
-            </a-tab-pane>
-            <!-- 新增AI建议标签页 -->
-            <a-tab-pane key="3" title="AI建议">
-              <a-spin v-if="!isSubmited || !submitStatus?.judgeInfo?.inputList">
-                请先提交代码
-              </a-spin>
-              <template v-else>
-                <a-collapse v-model:activeKey="activeCollapseKeys">
-                  <a-collapse-item
-                    v-for="(input, index) in submitStatus?.judgeInfo?.inputList"
-                    :key="index"
-                    :header="`测试用例 ${index + 1}`"
-                  >
-                    <template #extra>
-                      <a-button
-                        type="text"
-                        size="small"
-                        :loading="aiLoading[index]"
-                        @click.stop="getAiSuggestion(index)"
-                      >
-                        获取AI建议
-                      </a-button>
-                    </template>
-
-                    <!-- 使用 StreamingMarkdown 组件 -->
-                    <StreamingMarkdown
-                      v-if="aiLoading[index] || aiSuggestions[index]"
-                      :requestId="currentRequestIds[index]"
-                      :initialContent="aiSuggestions[index]"
-                      :loading="aiLoading[index]"
-                      show-header
-                      show-robot-icon
-                      title="AI 分析建议"
-                      @update="(content) => updateAiSuggestion(index, content)"
-                      @complete="() => onAiSuggestionComplete(index)"
-                      @error="(error) => handleAiSuggestionError(error, index)"
-                    />
-                  </a-collapse-item>
-                </a-collapse>
-              </template>
             </a-tab-pane>
             <!-- 新增提交记录标签页 -->
-            <a-tab-pane key="4" title="提交记录">
-              <a-table
-                :columns="submitRecordColumns"
-                :data="submitRecords"
-                :pagination="{
-                  total: submitRecordTotal,
-                  current: submitRecordCurrent,
-                  pageSize: submitRecordPageSize,
-                  showTotal: true,
-                }"
-                @page-change="onSubmitRecordPageChange"
-                :loading="submitRecordLoading"
-                @row-click="onRecordClick"
-              >
-                <template #status="{ record }">
-                  <a-tag
-                    :color="getStatusColor(record.status, record.judgeInfo)"
-                  >
-                    {{ getStatusText(record.status, record.judgeInfo) }}
-                  </a-tag>
-                </template>
-                <template #language="{ record }">
-                  <a-tag>{{ record.language }}</a-tag>
-                </template>
-                <template #judgeInfo="{ record }">
-                  <span>{{
-                    `耗时:${record.judgeInfo?.time}ms 内存:${record.judgeInfo?.memory}KB`
-                  }}</span>
-                </template>
-                <template #createTime="{ record }">
-                  {{ record.createTime?.replace("T", " ").split(".")[0] }}
-                </template>
-              </a-table>
+            <a-tab-pane key="4" title="提交记录" class="tab-pane-content">
+              <div class="scrollable-content">
+                <a-table
+                  :columns="submitRecordColumns"
+                  :data="submitRecords"
+                  :pagination="{
+                    total: submitRecordTotal,
+                    current: submitRecordCurrent,
+                    pageSize: submitRecordPageSize,
+                    showTotal: true,
+                  }"
+                  @page-change="onSubmitRecordPageChange"
+                  :loading="submitRecordLoading"
+                  @row-click="onRecordClick"
+                >
+                  <template #status="{ record }">
+                    <a-tag
+                      :color="getStatusColor(record.status, record.judgeInfo)"
+                    >
+                      {{ getStatusText(record.status, record.judgeInfo) }}
+                    </a-tag>
+                  </template>
+                  <template #language="{ record }">
+                    <a-tag>{{ record.language }}</a-tag>
+                  </template>
+                  <template #judgeInfo="{ record }">
+                    <span>{{
+                      `耗时:${record.judgeInfo?.time}ms 内存:${record.judgeInfo?.memory}KB`
+                    }}</span>
+                  </template>
+                  <template #createTime="{ record }">
+                    {{ record.createTime?.replace("T", " ").split(".")[0] }}
+                  </template>
+                </a-table>
+              </div>
             </a-tab-pane>
             <!-- 动态添加的提交详情标签页 -->
             <a-tab-pane
@@ -142,97 +130,101 @@
               title="提交详情"
               :closable="true"
               @close="closeSubmitDetail"
+              class="tab-pane-content"
             >
-              <div class="submit-detail-container">
-                <a-result :status="getResultStatus(recordDetail.status)">
-                  <template #icon>
-                    <icon-check-circle-fill
-                      v-if="recordDetail.status === 2"
-                      style="color: #00b42a; font-size: 48px"
-                    />
-                    <icon-close-circle-fill
-                      v-else-if="recordDetail.status === 3"
-                      style="color: #f53f3f; font-size: 48px"
-                    />
-                    <icon-exclamation-circle-fill
-                      v-else
-                      style="color: #ff7d00; font-size: 48px"
-                    />
-                  </template>
-                  <template #title>
-                    <span class="result-title">{{
-                      getResultTitle(recordDetail.status)
-                    }}</span>
-                  </template>
-                  <template #subtitle>
-                    <span class="result-subtitle">{{
-                      recordDetail.judgeInfo?.message
-                    }}</span>
-                  </template>
-                </a-result>
+              <div class="scrollable-content">
+                <div class="submit-detail-container">
+                  <a-result :status="getResultStatus(recordDetail.status)">
+                    <template #icon>
+                      <icon-check-circle-fill
+                        v-if="recordDetail.status === 2"
+                        style="color: #00b42a; font-size: 48px"
+                      />
+                      <icon-close-circle-fill
+                        v-else-if="recordDetail.status === 3"
+                        style="color: #f53f3f; font-size: 48px"
+                      />
+                      <icon-exclamation-circle-fill
+                        v-else
+                        style="color: #ff7d00; font-size: 48px"
+                      />
+                    </template>
+                    <template #title>
+                      <span class="result-title">{{
+                        getResultTitle(recordDetail.status)
+                      }}</span>
+                    </template>
+                    <template #subtitle>
+                      <span class="result-subtitle">{{
+                        recordDetail.judgeInfo?.message
+                      }}</span>
+                    </template>
+                  </a-result>
 
-                <a-descriptions
-                  :column="2"
-                  bordered
-                  size="small"
-                  class="submit-info"
-                >
-                  <a-descriptions-item label="提交时间">
-                    {{
-                      recordDetail.createTime?.replace("T", " ").split(".")[0]
-                    }}
-                  </a-descriptions-item>
-                  <a-descriptions-item label="编程语言">
-                    <a-tag>{{ recordDetail.language }}</a-tag>
-                  </a-descriptions-item>
-                  <a-descriptions-item label="执行用时">
-                    {{ recordDetail.judgeInfo?.time }} ms
-                  </a-descriptions-item>
-                  <a-descriptions-item label="内存消耗">
-                    {{ recordDetail.judgeInfo?.memory }} KB
-                  </a-descriptions-item>
-                </a-descriptions>
+                  <a-descriptions
+                    :column="2"
+                    bordered
+                    size="small"
+                    class="submit-info"
+                  >
+                    <a-descriptions-item label="提交时间">
+                      {{
+                        recordDetail.createTime?.replace("T", " ").split(".")[0]
+                      }}
+                    </a-descriptions-item>
+                    <a-descriptions-item label="编程语言">
+                      <a-tag>{{ recordDetail.language }}</a-tag>
+                    </a-descriptions-item>
+                    <a-descriptions-item label="执行用时">
+                      {{ recordDetail.judgeInfo?.time }} ms
+                    </a-descriptions-item>
+                    <a-descriptions-item label="内存消耗">
+                      {{ recordDetail.judgeInfo?.memory }} KB
+                    </a-descriptions-item>
+                  </a-descriptions>
 
-                <!-- 测试用例结果 -->
-                <div
-                  v-if="recordDetail.judgeInfo?.inputList?.length"
-                  class="test-cases"
-                >
-                  <div class="section-title">测试用例</div>
-                  <a-collapse>
-                    <a-collapse-item
-                      v-for="(input, index) in recordDetail.judgeInfo.inputList"
-                      :key="index"
-                      :header="`测试用例 ${index + 1}`"
-                    >
-                      <a-descriptions :column="1" bordered size="small">
-                        <a-descriptions-item label="输入">
-                          <pre>{{ input }}</pre>
-                        </a-descriptions-item>
-                        <a-descriptions-item label="输出">
-                          <pre>{{
-                            recordDetail.judgeInfo.runOutput?.[index]
-                          }}</pre>
-                        </a-descriptions-item>
-                        <a-descriptions-item label="预期结果">
-                          <pre>{{
-                            recordDetail.judgeInfo.answers?.[index]
-                          }}</pre>
-                        </a-descriptions-item>
-                      </a-descriptions>
-                    </a-collapse-item>
-                  </a-collapse>
-                </div>
+                  <!-- 测试用例结果 -->
+                  <div
+                    v-if="recordDetail.judgeInfo?.inputList?.length"
+                    class="test-cases"
+                  >
+                    <div class="section-title">测试用例</div>
+                    <a-collapse>
+                      <a-collapse-item
+                        v-for="(input, index) in recordDetail.judgeInfo
+                          .inputList"
+                        :key="index"
+                        :header="`测试用例 ${index + 1}`"
+                      >
+                        <a-descriptions :column="1" bordered size="small">
+                          <a-descriptions-item label="输入">
+                            <pre>{{ input }}</pre>
+                          </a-descriptions-item>
+                          <a-descriptions-item label="输出">
+                            <pre>{{
+                              recordDetail.judgeInfo.runOutput?.[index]
+                            }}</pre>
+                          </a-descriptions-item>
+                          <a-descriptions-item label="预期结果">
+                            <pre>{{
+                              recordDetail.judgeInfo.answers?.[index]
+                            }}</pre>
+                          </a-descriptions-item>
+                        </a-descriptions>
+                      </a-collapse-item>
+                    </a-collapse>
+                  </div>
 
-                <!-- 代码展示 -->
-                <div class="code-section">
-                  <div class="section-title">提交的代码</div>
-                  <CodeEditor
-                    :value="recordDetail.code || ''"
-                    :language="recordDetail.language?.toLowerCase()"
-                    :readonly="true"
-                    style="height: 400px; margin-top: 8px"
-                  />
+                  <!-- 代码展示 -->
+                  <div class="code-section">
+                    <div class="section-title">提交的代码</div>
+                    <CodeEditor
+                      :value="recordDetail.code || ''"
+                      :language="recordDetail.language?.toLowerCase()"
+                      :readonly="true"
+                      style="height: 400px; margin-top: 8px"
+                    />
+                  </div>
                 </div>
               </div>
             </a-tab-pane>
@@ -257,8 +249,11 @@
       <template #second>
         <a-card
           :bodyStyle="{
-            height: 'calc(100vh - 48px)',
+            height: 'calc(100vh - 72px)',
             padding: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
           }"
         >
           <!-- 根据是否有结果切换布局 -->
@@ -266,20 +261,17 @@
             <a-split
               v-model:size="splitSize"
               direction="vertical"
-              min="200px"
-              max="800px"
-              style="height: 100%"
+              min="180px"
+              style="
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+              "
             >
               <!-- 上半部分代码编辑区域 -->
               <template #first>
-                <div
-                  style="
-                    height: 100%;
-                    padding: 16px;
-                    display: flex;
-                    flex-direction: column;
-                  "
-                >
+                <div class="code-editor-container">
                   <div class="code-header">
                     <a-form :model="form" layout="inline">
                       <a-form-item
@@ -289,7 +281,7 @@
                       >
                         <a-select
                           v-model="form.language"
-                          :style="{ width: '200px' }"
+                          :style="{ width: '150px' }"
                           placeholder="选择编程语言"
                           @change="handleLanguageChange"
                         >
@@ -320,33 +312,33 @@
                     :value="form.code as string"
                     :language="form.language"
                     :handle-change="changeCode"
-                    style="flex: 1; overflow: auto; margin: 16px 0"
+                    style="flex: 1; margin-top: 8px"
                   />
                 </div>
               </template>
 
               <!-- 下半部分结果展示区域 -->
               <template #second>
-                <div style="height: 100%; overflow: auto; padding: 16px">
+                <div class="results-container">
                   <!-- 提交结果显示 -->
-                  <div v-if="isSubmited">
+                  <div v-if="isSubmited" class="result-wrapper">
                     <a-result
                       v-if="submitStatus.status != 0"
                       :status="getResultStatus(submitStatus.status)"
-                      style="padding: 16px"
+                      class="compact-result"
                     >
                       <template #icon>
                         <icon-check-circle-fill
                           v-if="submitStatus.status === 2"
-                          style="color: #00b42a; font-size: 48px"
+                          style="color: #00b42a; font-size: 36px"
                         />
                         <icon-close-circle-fill
                           v-else-if="submitStatus.status === 3"
-                          style="color: #f53f3f; font-size: 48px"
+                          style="color: #f53f3f; font-size: 36px"
                         />
                         <icon-exclamation-circle-fill
                           v-else
-                          style="color: #ff7d00; font-size: 48px"
+                          style="color: #ff7d00; font-size: 36px"
                         />
                       </template>
                       <template #title>
@@ -362,7 +354,7 @@
                       <template #extra>
                         <a-space
                           direction="vertical"
-                          size="medium"
+                          size="small"
                           style="width: 100%"
                         >
                           <a-alert
@@ -390,62 +382,70 @@
                                       "
                                       :status="getCaseStatus(index)"
                                       @click="selectTestCase(index)"
+                                      size="small"
                                     >
-                                      测试用例 {{ index + 1 }}
+                                      测试 {{ index + 1 }}
                                     </a-button>
                                   </a-button-group>
                                 </div>
                               </div>
 
-                              <div class="test-case-details">
-                                <template v-if="selectedCase !== null">
-                                  <a-descriptions
-                                    :column="1"
-                                    size="small"
-                                    bordered
-                                  >
-                                    <a-descriptions-item label="输入">
-                                      <pre>{{
-                                        submitStatus.judgeInfo.inputList[
-                                          selectedCase
-                                        ]
-                                      }}</pre>
-                                    </a-descriptions-item>
-                                    <a-descriptions-item label="输出">
-                                      <pre>{{
-                                        submitStatus.judgeInfo.runOutput?.[
-                                          selectedCase
-                                        ]
-                                      }}</pre>
-                                    </a-descriptions-item>
-                                    <a-descriptions-item label="预期结果">
-                                      <pre>{{
-                                        submitStatus.judgeInfo.answers?.[
-                                          selectedCase
-                                        ]
-                                      }}</pre>
-                                    </a-descriptions-item>
-                                  </a-descriptions>
+                              <div
+                                class="test-case-details"
+                                v-if="selectedCase !== null"
+                              >
+                                <a-descriptions
+                                  :column="1"
+                                  size="small"
+                                  bordered
+                                  :labelStyle="{
+                                    width: '80px',
+                                    padding: '4px 8px',
+                                  }"
+                                  :valueStyle="{ padding: '4px 8px' }"
+                                >
+                                  <a-descriptions-item label="输入">
+                                    <pre class="compact-pre">{{
+                                      submitStatus.judgeInfo.inputList[
+                                        selectedCase
+                                      ]
+                                    }}</pre>
+                                  </a-descriptions-item>
+                                  <a-descriptions-item label="输出">
+                                    <pre class="compact-pre">{{
+                                      submitStatus.judgeInfo.runOutput?.[
+                                        selectedCase
+                                      ]
+                                    }}</pre>
+                                  </a-descriptions-item>
+                                  <a-descriptions-item label="预期结果">
+                                    <pre class="compact-pre">{{
+                                      submitStatus.judgeInfo.answers?.[
+                                        selectedCase
+                                      ]
+                                    }}</pre>
+                                  </a-descriptions-item>
+                                </a-descriptions>
+                                <div class="test-case-actions">
                                   <a-button
-                                    v-if="submitStatus.status === 3"
                                     @click="getAiSuggestion(selectedCase)"
-                                    :loading="aiLoading[selectedCase]"
-                                    style="margin-top: 16px"
+                                    :loading="loadingAiSuggestion"
+                                    size="small"
                                   >
                                     获取AI建议
                                   </a-button>
-                                </template>
-                                <a-empty v-else description="请选择测试用例" />
+                                </div>
                               </div>
+                              <a-empty v-else description="请选择测试用例" />
                             </div>
 
                             <a-alert
                               v-if="submitStatus.judgeInfo.runErrorOutput"
                               type="error"
-                              title="运行错"
-                              style="margin-top: 16px"
+                              title="运行错误"
+                              style="margin-top: 8px"
                             >
-                              <pre style="max-height: 100px; overflow: auto">{{
+                              <pre style="max-height: 80px; overflow: auto">{{
                                 submitStatus.judgeInfo.runErrorOutput
                               }}</pre>
                             </a-alert>
@@ -454,7 +454,9 @@
                               :column="2"
                               size="small"
                               bordered
-                              style="margin-top: 16px"
+                              style="margin-top: 8px"
+                              :labelStyle="{ padding: '4px 8px' }"
+                              :valueStyle="{ padding: '4px 8px' }"
                             >
                               <a-descriptions-item label="内存占用"
                                 >{{ submitStatus.judgeInfo.memory }}
@@ -469,14 +471,18 @@
                         </a-space>
                       </template>
                     </a-result>
-                    <a-result v-else status="info" class="judging-result">
+                    <a-result
+                      v-else
+                      status="info"
+                      class="judging-result compact-result"
+                    >
                       <template #icon>
                         <div class="judging-animation">
-                          <a-spin :size="48" dot>
+                          <a-spin :size="36" dot>
                             <template #icon>
                               <icon-loading
                                 style="
-                                  font-size: 48px;
+                                  font-size: 36px;
                                   color: rgb(var(--primary-6));
                                 "
                               />
@@ -495,20 +501,20 @@
                     </a-result>
                   </div>
                   <!-- 调试结果显示 -->
-                  <div v-else>
+                  <div v-else class="result-wrapper">
                     <!-- 添加调试加载状态 -->
                     <a-result
                       v-if="debugLoading"
                       status="info"
-                      class="judging-result"
+                      class="judging-result compact-result"
                     >
                       <template #icon>
                         <div class="judging-animation">
-                          <a-spin :size="48" dot>
+                          <a-spin :size="36" dot>
                             <template #icon>
                               <icon-loading
                                 style="
-                                  font-size: 48px;
+                                  font-size: 36px;
                                   color: rgb(var(--primary-6));
                                 "
                               />
@@ -526,10 +532,10 @@
                       </template>
                     </a-result>
                     <!-- 试结果内容 -->
-                    <div v-else-if="debugResult">
-                      <a-result status="info" style="padding: 16px">
+                    <div v-else-if="debugResult" class="debug-result">
+                      <a-result status="info" class="compact-result">
                         <template #icon>
-                          <icon-code style="color: #165dff; font-size: 48px" />
+                          <icon-code style="color: #165dff; font-size: 36px" />
                         </template>
                         <template #title>
                           <span class="result-title">调试结果</span>
@@ -545,7 +551,7 @@
                         <template #extra>
                           <a-space
                             direction="vertical"
-                            size="medium"
+                            size="small"
                             style="width: 100%"
                           >
                             <!-- 编译错误信息 -->
@@ -554,27 +560,27 @@
                               type="error"
                               title="编译错误"
                             >
-                              <pre
-                                style="
-                                  max-height: 100px;
-                                  overflow: auto;
-                                  text-align: left;
-                                "
-                                >{{ debugResult.compileErrorOutput }}</pre
-                              >
+                              <pre class="compact-pre">{{
+                                debugResult.compileErrorOutput
+                              }}</pre>
                             </a-alert>
                             <!-- 运行结果 -->
-                            <div class="debug-cases-container">
+                            <div class="debug-cases-container" v-else>
                               <div class="debug-cases-content">
                                 <a-descriptions
                                   :column="1"
                                   bordered
                                   size="small"
+                                  :labelStyle="{
+                                    width: '80px',
+                                    padding: '4px 8px',
+                                  }"
+                                  :valueStyle="{ padding: '4px 8px' }"
                                 >
                                   <a-descriptions-item label="输入">
                                     <a-textarea
                                       v-model="debugTestCase"
-                                      :auto-size="{ minRows: 2, maxRows: 6 }"
+                                      :auto-size="{ minRows: 1, maxRows: 3 }"
                                       placeholder="在这里输入测试用例，点击上方调试按钮运行"
                                       allow-clear
                                       class="debug-input"
@@ -591,7 +597,7 @@
                                     </a-textarea>
                                   </a-descriptions-item>
                                   <a-descriptions-item label="输出">
-                                    <pre class="debug-output">{{
+                                    <pre class="compact-pre">{{
                                       debugResult.runOutput?.[0]
                                     }}</pre>
                                   </a-descriptions-item>
@@ -599,7 +605,7 @@
                                     v-if="debugResult.runErrorOutput?.[0]"
                                     label="错误输出"
                                   >
-                                    <pre class="debug-error">{{
+                                    <pre class="compact-pre">{{
                                       debugResult.runErrorOutput[0]
                                     }}</pre>
                                   </a-descriptions-item>
@@ -608,7 +614,9 @@
                                   :column="2"
                                   bordered
                                   size="small"
-                                  style="margin-top: 16px"
+                                  style="margin-top: 8px"
+                                  :labelStyle="{ padding: '4px 8px' }"
+                                  :valueStyle="{ padding: '4px 8px' }"
                                 >
                                   <a-descriptions-item label="执行用时">
                                     {{ debugResult.time?.[0] }} ms
@@ -637,6 +645,7 @@
                 padding: 16px;
                 display: flex;
                 flex-direction: column;
+                overflow: hidden;
               "
             >
               <div class="code-header">
@@ -699,6 +708,7 @@ import {
   onBeforeUnmount,
   provide,
   withDefaults,
+  nextTick,
 } from "vue";
 import MdViewer from "@/components/MdViewer.vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
@@ -720,8 +730,7 @@ import {
   QuestionVO,
 } from "../../../generated";
 import { eventStreamService } from "@/services/EventStreamService";
-import { ChatControllerService } from "../../../generated/services/ChatControllerService";
-import StreamingMarkdown from "@/components/StreamingMarkdown.vue";
+import AIChat from "@/components/AIChat.vue";
 
 interface Props {
   id: string;
@@ -734,6 +743,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const questionId = route.params.id;
 const question = ref<QuestionVO>();
+const activeTabKey = ref("1");
 provide("questionId", questionId);
 const loadData = async () => {
   const res = await QuestionControllerService.getQuestionVoByIdUsingGet(
@@ -963,53 +973,74 @@ const getResultTitle = (status: number) => {
   }
 };
 
-const aiLoading = ref<boolean[]>([]);
+// 新增AIChat相关变量
+const aiChatRef = ref<InstanceType<typeof AIChat>>();
+const aiChatPrompt = ref<string>("");
+const loadingAiSuggestion = ref(false);
 const aiSuggestions = ref<string[]>([]);
+const aiLoading = ref<boolean[]>([]);
 
-// 新增响应式变量
-const activeTabKey = ref("1");
-const activeCollapseKeys = ref<number[]>([]);
-
-// 添加一个方法来生成唯一的 ID
-const getAiSuggestionId = (index: number) => `ai-suggestion-${index}`;
-
-// 修改 getAiSuggestion 方法
+// 修改AI建议标签页 - 重新实现获取AI建议的方法
 const getAiSuggestion = async (index: number) => {
-  if (submitStatus.value.judgeInfo.message == "Accepted") {
-    message.error("只有在答案错误时才能获取AI建议");
-    return;
-  }
-
-  if (!lastSubmitInfo.value?.questionSubmitId) {
-    message.error("请先提交代码");
-    return;
-  }
-
-  // 立即切换到AI建议签页
-  activeTabKey.value = "3";
-
-  // 展开对应的折叠面板
-  if (!activeCollapseKeys.value.includes(index)) {
-    activeCollapseKeys.value.push(index);
-  }
-
-  aiLoading.value[index] = true;
-  aiSuggestions.value[index] = ""; // 清空之前的建议
-
+  loadingAiSuggestion.value = true;
   try {
-    const res = await ChatControllerService.analysisUserCode({
-      index,
-      questionSubmitId: lastSubmitInfo.value.questionSubmitId,
-    });
+    // 准备要发送给AI的内容
+    const testCase = submitStatus.value.judgeInfo.inputList[index];
+    const userOutput =
+      submitStatus.value.judgeInfo.runOutput?.[index] || "无输出";
+    const expectedOutput =
+      submitStatus.value.judgeInfo.answers?.[index] || "无预期结果";
+    const isCorrect = userOutput === expectedOutput;
+    const runErrorOutput =
+      submitStatus.value.judgeInfo.runErrorOutput || "无错误";
 
-    if (String(res.code) === "200" && res.data) {
-      currentRequestIds.value[index] = res.data; // 只设置对应索引的 requestId
-    } else {
-      message.error("获取AI建议失败: " + res.message);
-      aiLoading.value[index] = false;
+    // 构建AI提示
+    const prompt = `
+# 题目分析与代码优化
+
+## 题目描述
+${question.value?.title || "未知题目"}
+${question.value?.content || "无题目描述"}
+
+## 用户代码 (${form.value.language})
+\`\`\`${form.value.language}
+${form.value.code}
+\`\`\`
+
+## 测试用例信息
+- 输入: ${testCase}
+- 用户代码输出: ${userOutput}
+- 预期输出: ${expectedOutput}
+- 运行状态: ${isCorrect ? "通过" : "错误"}
+${runErrorOutput !== "无错误" ? `- 错误信息: ${runErrorOutput}` : ""}
+
+## 要求
+1. 分析代码问题并指出错误所在
+2. 提供改进建议或修复代码
+3. 解释解题思路和核心算法
+4. 如有需要，提供优化后的完整代码
+`;
+
+    aiChatPrompt.value = prompt;
+
+    // 立即切换到AI建议标签页
+    activeTabKey.value = "3";
+
+    // 等待DOM更新，确保AIChat组件已完全加载
+    await nextTick();
+
+    // 调用AIChat组件的方法发送消息
+    if (aiChatRef.value) {
+      // 先清空历史消息
+      aiChatRef.value.clear();
+      // 发送消息到AI助手
+      await aiChatRef.value.sendMessage(prompt);
     }
   } catch (error) {
-    handleAiSuggestionError(error, index);
+    console.error("获取AI建议失败:", error);
+    message.error("获取AI建议失败，请重试");
+  } finally {
+    loadingAiSuggestion.value = false;
   }
 };
 
@@ -1263,10 +1294,10 @@ const handleDebugCode = async (useCurrentTestCase = false) => {
 };
 
 // 添加分割比例的响应式变量
-const splitSize = ref(0.6); // 默认上半部分占60%
+const splitSize = ref(0.55); // 默认上半部分占55%
 
 // 添加水平分割比例的响应式变量
-const horizontalSplitSize = ref(0.5); // 默认左右各占50%
+const horizontalSplitSize = ref(0.45); // 默认左侧题目区域占45%
 
 // 添加 ref 控制编辑器的显示状态
 const showSolvingEditor = ref(false);
@@ -1303,12 +1334,109 @@ const CodeEditor = defineAsyncComponent(
 <style>
 #viewQuestionView {
   height: 100vh;
-  padding: 24px;
-  padding-bottom: 0;
+  padding: 24px 24px 0;
   box-sizing: border-box;
   background-color: var(--color-bg-1);
+  overflow: hidden;
 }
 
+/* 添加新样式确保标签内容可滚动 */
+.full-height-tabs {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.full-height-tabs :deep(.arco-tabs-content) {
+  flex: 1;
+  overflow: hidden;
+  height: auto;
+}
+
+.tab-pane-content {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px; /* 为滚动条预留空间 */
+}
+
+/* 编辑器容器样式 */
+.code-editor-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* 结果容器样式 */
+.results-container {
+  height: 100%;
+  padding: 0 12px 12px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.result-wrapper {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* 紧凑型结果显示 */
+.compact-result {
+  padding: 12px;
+  margin: 0;
+}
+
+.compact-result :deep(.arco-result-icon) {
+  margin-bottom: 8px;
+}
+
+.compact-result :deep(.arco-result-title) {
+  margin-top: 8px;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.compact-result :deep(.arco-result-subtitle) {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+/* 紧凑型预格式化文本 */
+.compact-pre {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  max-height: 60px;
+  overflow: auto;
+}
+
+/* 减小测试用例区域的内间距 */
+.test-cases-container {
+  margin-bottom: 8px;
+}
+
+/* 修复选项卡内容区域的滚动问题 */
+.arco-tabs-content {
+  overflow: hidden;
+}
+
+/* 覆盖选项卡内容区域的高度计算 */
+.arco-tabs-content {
+  height: auto !important;
+}
+
+/* 其他现有样式 */
 .result-title {
   font-size: 28px;
   font-weight: bold;
@@ -1455,6 +1583,28 @@ pre {
   width: 48px;
   height: 48px;
   position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -2px;
+    transform: translateX(-50%);
+    width: 40px; /* 中间小条的宽度 */
+    height: 4px; /* 中间小横条的高度 */
+    background-color: var(--color-neutral-3);
+    border-radius: 2px;
+    opacity: 0.6;
+  }
+
+  &:hover {
+    background-color: var(--color-neutral-3);
+
+    &::after {
+      opacity: 1;
+      background-color: var(--color-neutral-4);
+    }
+  }
 }
 
 .judging-animation .arco-spin {
@@ -1984,5 +2134,17 @@ pre {
 :deep(.ti-cursor) {
   color: var(--color-primary);
   font-weight: bold;
+}
+
+/* 添加AI聊天容器样式 */
+.ai-chat-container {
+  height: 100%;
+  position: relative;
+}
+
+.ai-chat-container :deep(.embedded-chat) {
+  height: 100%;
+  border-radius: 0;
+  overflow: hidden;
 }
 </style>

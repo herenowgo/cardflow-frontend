@@ -71,7 +71,7 @@ export const routes: Array<RouteRecordRaw> = [
     component: () => import("@/views/question/ViewQuestionView.vue"),
     props: true,
     meta: {
-      // access: ACCESS_ENUM.USER,
+      hideHeader: true,
       hideInMenu: true,
     },
   },
