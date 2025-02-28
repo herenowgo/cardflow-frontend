@@ -98,10 +98,10 @@ import Vditor from "vditor";
 import "vditor/dist/index.css";
 import { onMounted, onUnmounted, ref, shallowRef, watch, nextTick } from "vue";
 import { useRoute } from "vue-router";
-import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
+import { StudyResourceControllerService } from "@documentApi/index";
 import PdfViewer from "./PdfViewer.vue";
 import WebViewer from "./WebViewer.vue";
-import { StudyResourceVO } from "../../../api/models/StudyResourceVO";
+import { StudyResourceVO } from "@documentApi/index";
 
 const route = useRoute();
 const pdfUrl = ref<string>("");

@@ -1009,17 +1009,50 @@ onUnmounted(() => {
   document.removeEventListener("keydown", handleKeyDown);
 });
 
+// 清理输入文本，移除可能导致JSON解析问题的字符，但保留换行
+const sanitizeInputForAI = (input) => {
+  if (!input) return "";
+
+  // 移除不可见字符，保留基本空白字符和换行符
+  let sanitized = input.replace(
+    /[\u0000-\u0009\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g,
+    ""
+  );
+
+  // 将所有的 \_ 转换为 _
+  // sanitized = sanitized.replace(/\\_/g, "_");
+
+  // 处理无效的转义序列，如 \_
+  sanitized = sanitized.replace(/\\([^"\\/bfnrtu])/g, "$1"); // 移除无效转义的反斜杠
+
+  // 处理可能导致JSON解析错误的特殊字符
+  sanitized = sanitized.replace(/\\(?!["\\/bfnrt])/g, "\\\\"); // 转义单个反斜杠
+  sanitized = sanitized.replace(/"/g, '\\"'); // 转义双引号
+
+  // 可选：限制长度，防止过大输入
+  if (sanitized.length > 100000) {
+    sanitized = sanitized.substring(0, 100000) + "...";
+    console.log("输入已截断，原始长度超过100000字符");
+  }
+
+  console.log("输入已清理完成");
+  return sanitized;
+};
+
 // 优化 - 发送消息时使用正确的提示词
 const handleSend = async (inputValue: string, promptType?: PromptType) => {
   if (isStreamLoad.value || !inputValue) return;
   console.log("开始");
   // console.log(getPromptContent(PromptType.CHAT));
 
+  // 在发送前清理输入
+  const cleanedInput = sanitizeInputForAI(inputValue);
+
   const userMessage: ChatMessage = {
     avatar: props.userAvatar,
     name: props.userName,
     datetime: new Date().toLocaleString(),
-    content: inputValue,
+    content: cleanedInput,
     role: "user",
   };
   chatList.value.unshift(userMessage);
@@ -1049,7 +1082,7 @@ const handleSend = async (inputValue: string, promptType?: PromptType) => {
 
     const res = await AiControllerService.chat({
       model: currentModel.value,
-      userPrompt: inputValue,
+      userPrompt: cleanedInput,
       conversationId: currentSessionId.value,
       systemPrompt: promptContent || undefined,
     });
@@ -1166,7 +1199,9 @@ const generateCards = async (item: ChatMessage, index: number) => {
       return;
     }
 
-    const combinedContent = `问题：${userQuestion.content}\n\n回答：${item.content}`;
+    const combinedContent = `用户问题：${sanitizeInputForAI(
+      userQuestion.content
+    )}\n\nAI回答：${sanitizeInputForAI(item.content)}`;
     const promptContent = getPromptContent(PromptType.GENERATE);
 
     const res = await AiControllerService.getCards({

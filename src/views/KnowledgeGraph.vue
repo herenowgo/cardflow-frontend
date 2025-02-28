@@ -788,19 +788,15 @@ export default defineComponent({
                 color: "#FF5500",
               },
               // 禁止 emphasis 状态的位置变动
-              scale: false,
             },
             // 增加节点稳定性配置
             nodeScaleRatio: 0.4, // 降低缩放比例，减少视觉抖动
-            draggable: true, // 允许节点拖拽
-            roam: true, // 允许缩放和平移
             selectedMode: "single", // 单选模式，减少干扰
             animation: false, // 关闭点击时的动画，减少抖动
             labelLayout: {
               hideOverlap: true,
               dx: 10, // 增加标签水平偏移
             },
-            animation: true,
             autoCurveness: true, // 自动计算曲度，避免重叠
             circular: {
               rotateLabel: true,

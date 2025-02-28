@@ -55,22 +55,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import {
-  IconPlus,
-  IconFolder,
-  IconEdit,
-  IconDelete,
-  IconSync,
-  IconFile,
-  IconMessage,
-} from "@arco-design/web-vue/es/icon";
 import { Message } from "@arco-design/web-vue";
-import { CardControllerService } from "../../../generated/services/CardControllerService";
-import { GroupControllerService } from "../../../generated/services/GroupControllerService";
+import { IconFolder, IconPlus } from "@arco-design/web-vue/es/icon";
+import { onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import type { CardAddRequest } from "../../../generated/models/CardAddRequest";
 import type { CardUpdateRequest } from "../../../generated/models/CardUpdateRequest";
-import { useRouter } from "vue-router";
+import { CardControllerService } from "../../../generated/services/CardControllerService";
+import { GroupControllerService } from "@backendApi/index";
 
 // 接口定义
 interface Card {

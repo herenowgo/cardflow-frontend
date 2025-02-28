@@ -1,24 +1,27 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { Message, Modal, Upload, Dropdown } from "@arco-design/web-vue";
-import { StudyResourceControllerService } from "../../../api/services/StudyResourceControllerService";
-import type { FileListVO } from "../../../api/models/FileListVO";
-import { StudyResourceRequest } from "../../../api/models/StudyResourceRequest";
+import { Message, Modal } from "@arco-design/web-vue";
 import {
-  IconFile,
-  IconFolder,
-  IconPlus,
-  IconUpload,
-  IconHome,
-  IconUp,
-  IconLink,
-  IconEdit,
+  StudyResourceControllerService,
+  StudyResourceRequest,
+} from "@documentApi/index";
+import { onMounted, ref } from "vue";
+import type { FileListVO } from "../../../api/models/FileListVO";
+
+import {
   IconBook,
-  IconDragDotVertical,
-  IconFolderAdd,
-  IconMore,
   IconDelete,
   IconDragDot,
+  IconDragDotVertical,
+  IconEdit,
+  IconFile,
+  IconFolder,
+  IconFolderAdd,
+  IconHome,
+  IconLink,
+  IconMore,
+  IconPlus,
+  IconUp,
+  IconUpload,
 } from "@arco-design/web-vue/es/icon";
 import { useRouter } from "vue-router";
 

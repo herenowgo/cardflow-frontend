@@ -18,7 +18,10 @@ module.exports = defineConfig({
       "@backendApi",
       path.resolve(__dirname, "backendApi")
     ); // 添加这行
-
+    config.resolve.alias.set(
+      "@documentApi",
+      path.resolve(__dirname, "documentApi")
+    ); // 添加这行
     if (process.env.NODE_ENV === "production") {
       // 生产环境优化
       config.optimization.splitChunks({

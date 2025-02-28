@@ -213,7 +213,9 @@ export const routes: Array<RouteRecordRaw> = [
     path: "/flashcard/review",
     name: "抽认卡复习",
     component: () => import("@/views/flashcard/ReviewView.vue"),
-    meta: {},
+    meta: {
+      openInNewTab: true,
+    },
   },
   {
     path: "/workspace/group/:group",
