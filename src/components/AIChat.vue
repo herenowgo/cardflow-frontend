@@ -377,6 +377,27 @@
             <template #icon><icon-delete /></template>
             清空
           </a-button>
+          <a-dropdown
+            trigger="click"
+            position="br"
+            @select="(key) => handleBatchSaveToGroup(key)"
+            v-if="currentCards.length > 0"
+          >
+            <a-button type="primary" size="small">
+              <template #icon><icon-plus /></template>
+              收入牌库
+            </a-button>
+            <template #content>
+              <a-doption value="CardFlow">默认牌组</a-doption>
+              <a-doption
+                v-for="group in groupOptions"
+                :key="group.id"
+                :value="group.id"
+              >
+                {{ group.name }}
+              </a-doption>
+            </template>
+          </a-dropdown>
         </div>
       </div>
     </template>
@@ -979,6 +1000,43 @@ const fetchGroupOptions = async () => {
   } catch (error) {
     console.error("Error fetching user groups:", error);
     Message.error("获取牌组列表失败");
+  }
+};
+
+const handleBatchSaveToGroup = async (groupId: string) => {
+  try {
+    if (currentCards.value.length === 0) {
+      return;
+    }
+    
+    const cardRequests = currentCards.value.map(card => ({
+      question: card.question,
+      answer: card.answer,
+      tags: card.tags,
+      group: groupId
+    }));
+    
+    const response = await FsrsService.batchCreateCards(cardRequests);
+    
+    if (response && response.length === cardRequests.length) {
+      // Add cards to graph
+      for (let i = 0; i < response.length; i++) {
+        await GraphControllerService.addCard({
+          cardId: response[i],
+          tags: cardRequests[i].tags,
+        });
+      }
+      
+      currentCards.value = [];
+      saveCards(currentCards.value);
+      Message.success(`成功将${response.length}张卡片添加到牌组`);
+      showCardsDrawer.value = false;
+    } else {
+      Message.error("批量添加卡片失败");
+    }
+  } catch (error) {
+    console.error("Batch save cards error:", error);
+    Message.error("批量添加卡片失败");
   }
 };
 

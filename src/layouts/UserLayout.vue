@@ -20,7 +20,7 @@
 }
 
 #userLayout .header {
-  box-shadow: #eee 1px 1px 5px; 
+  box-shadow: #eee 1px 1px 5px;
   margin-top: 16px;
 
   margin-bottom: 16px;
