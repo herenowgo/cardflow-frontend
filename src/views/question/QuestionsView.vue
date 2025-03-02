@@ -153,8 +153,9 @@ const router = useRouter();
  * @param question
  */
 const toQuestionPage = (question: Question) => {
-  const route = `/view/question/${question.id}`;
-  window.open(route, "_blank");
+  router.push({
+    path: `/view/question/${question.id}`,
+  });
 };
 
 /**

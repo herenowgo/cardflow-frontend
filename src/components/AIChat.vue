@@ -385,7 +385,7 @@
           >
             <a-button type="primary" size="small">
               <template #icon><icon-plus /></template>
-              收入牌库
+              全部收入牌库
             </a-button>
             <template #content>
               <a-doption value="CardFlow">默认牌组</a-doption>
@@ -1008,16 +1008,19 @@ const handleBatchSaveToGroup = async (groupId: string) => {
     if (currentCards.value.length === 0) {
       return;
     }
-    
-    const cardRequests = currentCards.value.map(card => ({
+
+    const cardRequests = currentCards.value.map((card) => ({
       question: card.question,
       answer: card.answer,
       tags: card.tags,
-      group: groupId
+      group: groupId,
     }));
-    
+
+    currentCards.value = [];
+    Message.success(`正在将全部卡片添加到牌组`);
+
     const response = await FsrsService.batchCreateCards(cardRequests);
-    
+
     if (response && response.length === cardRequests.length) {
       // Add cards to graph
       for (let i = 0; i < response.length; i++) {
@@ -1026,8 +1029,7 @@ const handleBatchSaveToGroup = async (groupId: string) => {
           tags: cardRequests[i].tags,
         });
       }
-      
-      currentCards.value = [];
+
       saveCards(currentCards.value);
       Message.success(`成功将${response.length}张卡片添加到牌组`);
       showCardsDrawer.value = false;
@@ -1120,13 +1122,16 @@ const sanitizeInputForAI = (input) => {
   if (!input) return "";
 
   // 移除不可见字符，保留基本空白字符和换行符
-  let sanitized = input.replace(
-    /[\u0000-\u0009\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g,
-    ""
-  );
+  // let sanitized = input.replace(
+  //   /[\u0000-\u0009\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g,
+  //   ""
+  // );
 
   // 将所有的 \_ 转换为 _
   // sanitized = sanitized.replace(/\\_/g, "_");
+
+  // 初始化 sanitized 变量
+  let sanitized = input;
 
   // 处理无效的转义序列，如 \_
   sanitized = sanitized.replace(/\\([^"\\/bfnrtu])/g, "$1"); // 移除无效转义的反斜杠

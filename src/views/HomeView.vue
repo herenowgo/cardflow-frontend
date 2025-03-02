@@ -46,66 +46,6 @@
             <span>出发</span>
           </a-button>
         </div>
-
-        <style scoped>
-          .search-input-wrapper {
-            position: relative;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-          }
-
-          .textarea-container {
-            width: 100%;
-            position: relative;
-          }
-
-          .custom-textarea {
-            width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-            transition: box-shadow 0.3s ease;
-          }
-
-          .custom-textarea:deep(.arco-textarea-wrapper) {
-            padding: 12px 16px;
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 1px solid var(--color-primary-light-2);
-          }
-
-          .custom-textarea:deep(.arco-textarea-wrapper:focus-within) {
-            border-color: var(--color-primary-5);
-            box-shadow: 0 0 0 2px rgba(var(--primary-6), 0.2);
-          }
-
-          .textarea-hint {
-            position: absolute;
-            right: 12px;
-            bottom: 8px;
-            font-size: 12px;
-            color: var(--color-text-3);
-            background-color: rgba(255, 255, 255, 0.8);
-            padding: 2px 6px;
-            border-radius: 4px;
-          }
-
-          .search-button {
-            width: 180px;
-            height: 48px;
-            border-radius: 24px;
-            font-size: 16px;
-            font-weight: 500;
-            box-shadow: 0 4px 12px rgba(var(--primary-6), 0.3);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-          }
-
-          .search-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(var(--primary-6), 0.4);
-          }
-        </style>
       </div>
       <div class="search-background"></div>
     </div>
@@ -521,6 +461,63 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.search-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.textarea-container {
+  width: 100%;
+  position: relative;
+}
+
+.custom-textarea {
+  width: 100%;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.3s ease;
+}
+
+.custom-textarea:deep(.arco-textarea-wrapper) {
+  padding: 12px 16px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--color-primary-light-2);
+}
+
+.custom-textarea:deep(.arco-textarea-wrapper:focus-within) {
+  border-color: var(--color-primary-5);
+  box-shadow: 0 0 0 2px rgba(var(--primary-6), 0.2);
+}
+
+.textarea-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  font-size: 12px;
+  color: var(--color-text-3);
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.search-button {
+  width: 180px;
+  height: 48px;
+  border-radius: 24px;
+  font-size: 16px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(var(--primary-6), 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(var(--primary-6), 0.4);
+}
 .home-container {
   max-width: 1280px;
   margin: 0 auto;

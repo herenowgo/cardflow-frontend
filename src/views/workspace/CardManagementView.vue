@@ -48,7 +48,7 @@
           />
         </a-form-item>
 
-        <a-form-item label="是否公开" field="overt">
+        <a-form-item label="是否查看公共卡片" field="overt">
           <a-select
             v-model="filterForm.overt"
             placeholder="选择状态"

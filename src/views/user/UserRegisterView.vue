@@ -71,6 +71,10 @@ const handleSubmit = async () => {
     message.error("两次密码不一致");
     return;
   }
+  if (form.userPassword.length < 8) {
+    message.error("密码不少于 8 位");
+    return;
+  }
   const res = await UserControllerService.userRegisterUsingPost(form);
   if (String(res.code) === "200") {
     message.success("注册成功");

@@ -30,12 +30,12 @@
           style="width: 100%; color: var(--color-text-3) !important"
           >注册账号
         </a-button>
-        <a-button
+        <!-- <a-button
           type="text"
           @click="userSmsLogin"
           style="width: 100%; color: var(--color-text-3) !important"
           >短信登录
-        </a-button>
+        </a-button> -->
       </a-form-item>
     </a-form>
   </div>
@@ -72,6 +72,7 @@ const handleSubmit = async () => {
     message.error("账号或密码不能为空");
     return;
   }
+
   try {
     const res = await UserControllerService.userLoginUsingPost(form);
     await GroupControllerService.addGroup("CardFlow");
@@ -87,7 +88,7 @@ const handleSubmit = async () => {
 
       const redirect = route.query.redirect as string;
       router.push({
-        path: redirect || "/questions",
+        path: redirect || "/",
         replace: true,
       });
     } else {

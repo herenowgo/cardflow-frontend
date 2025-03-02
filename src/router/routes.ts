@@ -1,5 +1,5 @@
 import ACCESS_ENUM from "@/access/accessEnum";
-import AIRecommendView from "@/views/AIRecommendView.vue";
+import HomeView from "@/views/HomeView.vue";
 import KnowledgeGraph from "@/views/KnowledgeGraph.vue";
 import NoAuthView from "@/views/NoAuthView.vue";
 import AddQuestionView from "@/views/question/AddQuestionView.vue";
@@ -7,13 +7,11 @@ import ManageQuestionView from "@/views/question/ManageQuestionView.vue";
 import EditQuestionSolvingView from "@/views/questionSolving/EditQuestionSolvingView.vue";
 import QuestionSolvingInformationView from "@/views/questionSolving/QuestionSolvingInformationView.vue";
 import ViewQuestionSolvingView from "@/views/questionSolving/ViewQuestionSolvingView.vue";
-import UserAnalysisView from "@/views/user/UserAnalysisView.vue";
 import UserManageView from "@/views/user/UserManageView.vue";
 import CardManagementView from "@/views/workspace/CardManagementView.vue";
 import GroupDetailView from "@/views/workspace/GroupDetailView.vue";
 import WorkspaceView from "@/views/workspace/WorkspaceView.vue";
 import { RouteRecordRaw } from "vue-router";
-import HomeView from "@/views/HomeView.vue";
 
 export const routes: Array<RouteRecordRaw> = [
   {
@@ -51,7 +49,7 @@ export const routes: Array<RouteRecordRaw> = [
     },
   },
   {
-    path: "/home",
+    path: "/",
     name: "首页",
     component: HomeView,
   },
@@ -73,7 +71,7 @@ export const routes: Array<RouteRecordRaw> = [
     meta: {
       hideHeader: true,
       hideInMenu: true,
-      openInNewTab: true,
+      // openInNewTab: true,
     },
   },
   {
@@ -196,23 +194,22 @@ export const routes: Array<RouteRecordRaw> = [
     name: "学习资源",
     component: () => import("@/views/resource/ResourceManagerView.vue"),
     meta: {
-      hideHeader: true,
-      openInNewTab: true,
+      // hideHeader: true,
+      // openInNewTab: true,
     },
   },
   {
     path: "/questions",
-    alias: "/",
     name: "编程专区",
     component: () => import("@/views/question/QuestionsView.vue"),
   },
   {
     path: "/cardManage",
     name: "卡片仓库",
-    component: () => CardManagementView,
+    component: CardManagementView,
     meta: {
       hideHeader: true,
-      openInNewTab: true,
+      // openInNewTab: true,
     },
   },
   {
@@ -220,8 +217,8 @@ export const routes: Array<RouteRecordRaw> = [
     name: "个人牌组",
     component: WorkspaceView,
     meta: {
-      hideHeader: true,
-      openInNewTab: true,
+      // hideHeader: true,
+      // openInNewTab: true,
       // hideInMenu: true,
     },
   },
@@ -231,7 +228,7 @@ export const routes: Array<RouteRecordRaw> = [
     name: "高效复习",
     component: () => import("@/views/flashcard/ReviewView.vue"),
     meta: {
-      openInNewTab: true,
+      // openInNewTab: true,
     },
   },
   {
@@ -240,7 +237,7 @@ export const routes: Array<RouteRecordRaw> = [
     component: KnowledgeGraph,
     meta: {
       hideHeader: true,
-      openInNewTab: true,
+      // openInNewTab: true,
     },
   },
   {

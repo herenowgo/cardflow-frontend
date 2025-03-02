@@ -6,6 +6,7 @@ module.exports = defineConfig({
   transpileDependencies: true,
   productionSourceMap: false,
   chainWebpack(config) {
+    config.plugins.delete("fork-ts-checker");
     config.plugin("monaco").use(
       new MonacoWebpackPlugin({
         languages: ["java", "python"], // 只加载需要的语言
