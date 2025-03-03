@@ -15,19 +15,32 @@ import { createPinia } from "pinia";
 // 导入 vue-echarts
 import VChart from "vue-echarts";
 import "./plugins/echarts";
+// 导入权限控制设置函数
+import { setupAccessControl } from "./access";
 
 const pinia = createPinia();
-const app = createApp(App);
 
-// 注册 VChart 全局组件
-app.component("VChart", VChart);
+// 初始化时获取用户信息，但使用 await 确保按顺序执行
+const initApp = async () => {
+  const app = createApp(App);
+  await store.dispatch("user/getLoginUser").catch(console.error);
 
-app
-  .use(ArcoVue)
-  .use(store)
-  .use(pinia)
-  .use(router)
-  .use(ArcoVueIcon)
-  .use(TDesign)
-  .use(TDesignChat)
-  .mount("#app");
+  // 注册 VChart 全局组件
+  app.component("VChart", VChart);
+
+  app
+    .use(ArcoVue)
+    .use(store)
+    .use(pinia)
+    .use(router)
+    .use(ArcoVueIcon)
+    .use(TDesign)
+    .use(TDesignChat);
+
+  // 设置权限控制（确保在router初始化后调用）
+  setupAccessControl(router);
+
+  app.mount("#app");
+};
+
+initApp();

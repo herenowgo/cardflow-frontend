@@ -3,6 +3,8 @@ import { ActionContext } from "vuex";
 import { eventStreamService } from "@/services/EventStreamService";
 import Cookies from "js-cookie";
 
+const STORAGE_KEY = "user_info";
+
 // 定义 State 接口
 interface UserState {
   loginUser: LoginUserVO | null; // 使用具体的类型而不是 any
@@ -14,7 +16,8 @@ interface UserState {
 export default {
   namespaced: true,
   state: (): UserState => ({
-    loginUser: null,
+    // 尝试从localStorage恢复用户信息
+    loginUser: JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"),
     loading: false,
     lastUpdateTime: null,
   }),
@@ -39,23 +42,25 @@ export default {
       try {
         const res = await UserControllerService.getLoginUserUsingGet();
         if (String(res.code) === "200" && res.data) {
+          // 保存到本地存储
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(res.data));
           commit("updateUser", res.data);
           commit("updateLastUpdateTime", Date.now());
 
-          // 确保用户 ID 存在且有效
-          if (res.data.id) {
+          // 修改：仅在未连接时建立连接
+          if (res.data.id && !eventStreamService.isConnected()) {
             eventStreamService.connect(res.data.id);
-          } else {
-            console.warn("User ID is missing, SSE connection not established");
           }
 
           return res.data;
         } else {
+          localStorage.removeItem(STORAGE_KEY);
           commit("updateUser", null);
           commit("updateLastUpdateTime", null);
           eventStreamService.disconnect();
         }
       } catch (error) {
+        localStorage.removeItem(STORAGE_KEY);
         commit("updateUser", null);
         commit("updateLastUpdateTime", null);
         console.error("Failed to get user info:", error);
@@ -68,7 +73,10 @@ export default {
     async logout({ commit }: ActionContext<UserState, any>) {
       try {
         await UserControllerService.userLogoutUsingPost();
+        // 清除本地存储
+        localStorage.removeItem(STORAGE_KEY);
         commit("updateUser", null);
+        commit("updateLastUpdateTime", null);
 
         // 断开 SSE 连接
         eventStreamService.disconnect();
@@ -76,8 +84,11 @@ export default {
         // 清除特定的 cookies
         Cookies.remove("Authorization", { path: "/" });
         Cookies.remove("JSESSIONID", { path: "/api" });
+
+        return true;
       } catch (error) {
         console.error("Logout failed:", error);
+        return false;
       }
     },
   },
@@ -97,6 +108,7 @@ export default {
   getters: {
     isLoggedIn: (state: UserState) => !!state.loginUser,
     userRole: (state: UserState) => state.loginUser?.userRole || "guest",
-    userName: (state: UserState) => state.loginUser?.userName || "未登录",
+    userName: (state: UserState) => state.loginUser?.userName || "",
+    userId: (state: UserState) => state.loginUser?.id || null,
   },
 };

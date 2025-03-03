@@ -44,7 +44,7 @@ export const routes: Array<RouteRecordRaw> = [
     name: "用户信息",
     component: () => import("@/views/user/UserInfoView.vue"),
     meta: {
-      // access: ACCESS_ENUM.USER,
+      access: ACCESS_ENUM.USER,
       hideInMenu: true,
     },
   },
@@ -80,7 +80,7 @@ export const routes: Array<RouteRecordRaw> = [
     component: QuestionSolvingInformationView,
     props: true,
     meta: {
-      // access: ACCESS_ENUM.USER,
+      access: ACCESS_ENUM.USER,
       hideInMenu: true,
     },
   },
@@ -194,6 +194,8 @@ export const routes: Array<RouteRecordRaw> = [
     name: "学习资源",
     component: () => import("@/views/resource/ResourceManagerView.vue"),
     meta: {
+      requireAuth: true,
+
       // hideHeader: true,
       // openInNewTab: true,
     },
@@ -208,6 +210,8 @@ export const routes: Array<RouteRecordRaw> = [
     name: "卡片仓库",
     component: CardManagementView,
     meta: {
+      requireAuth: true,
+
       hideHeader: true,
       // openInNewTab: true,
     },
@@ -217,6 +221,7 @@ export const routes: Array<RouteRecordRaw> = [
     name: "个人牌组",
     component: WorkspaceView,
     meta: {
+      requireAuth: true,
       // hideHeader: true,
       // openInNewTab: true,
       // hideInMenu: true,
@@ -228,6 +233,7 @@ export const routes: Array<RouteRecordRaw> = [
     name: "高效复习",
     component: () => import("@/views/flashcard/ReviewView.vue"),
     meta: {
+      requireAuth: true,
       // openInNewTab: true,
     },
   },
@@ -236,6 +242,7 @@ export const routes: Array<RouteRecordRaw> = [
     name: "知识图谱",
     component: KnowledgeGraph,
     meta: {
+      requireAuth: true,
       hideHeader: true,
       // openInNewTab: true,
     },
@@ -246,6 +253,7 @@ export const routes: Array<RouteRecordRaw> = [
     component: GroupDetailView,
     props: true,
     meta: {
+      requireAuth: true,
       hideHeader: true,
       hideInMenu: true,
     },

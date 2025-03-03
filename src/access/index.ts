@@ -1,37 +1,23 @@
-import router from "@/router";
 import store from "@/store";
 import ACCESS_ENUM from "@/access/accessEnum";
-import checkAccess from "@/access/checkAccess";
 import { eventStreamService } from "@/services/EventStreamService";
+import checkAccess from "./checkAccess";
+import { Router } from "vue-router";
 import { Message } from "@arco-design/web-vue";
+import { publicRoutes, isPublicRoute } from "@/router/authGuard";
 
-router.beforeEach(async (to, from, next) => {
-  const needAccess = (to.meta?.access as string) ?? ACCESS_ENUM.NOT_LOGIN;
+/**
+ * 设置路由守卫处理权限
+ * @param router Vue Router实例
+ */
+export const setupAccessControl = (router: Router) => {
+  // 注意：这里不再设置路由守卫，避免重复
+  // 我们将使用 authGuard.ts 中的守卫
 
-  // 不需要登录的路由直接放行
-  if (needAccess === ACCESS_ENUM.NOT_LOGIN) {
-    return next();
-  }
+  // 监听路由变化，处理SSE连接等逻辑
+  router.afterEach(async (to) => {
+    // 不再在这里处理 SSE 连接
+  });
+};
 
-  // 获取当前登录用户
-  const loginUser = await store.dispatch("user/getLoginUser");
-
-  // 如果用户已登录且 SSE 未连接，则建立连接
-  if (loginUser?.id && !eventStreamService.isConnected()) {
-    eventStreamService.connect(loginUser.id);
-  }
-
-  // 用户登录后的权限检查
-  if (loginUser) {
-    if (!checkAccess(loginUser, needAccess)) {
-      Message.error("您没有权限访问该页面");
-      next("/noAuth");
-      return;
-    }
-    return next();
-  }
-
-  // 未登录用户，显示提示并跳转到登录页
-  Message.warning("请先登录后再访问");
-  next(`/user/login?redirect=${to.fullPath}`);
-});
+export { checkAccess, publicRoutes, isPublicRoute };

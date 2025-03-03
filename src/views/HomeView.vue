@@ -27,7 +27,7 @@
                 (e) => {
                   if (!e.shiftKey) {
                     e.preventDefault();
-                    checkLoginBeforeAction(() => handleSearch());
+                    handleSearch();
                   }
                 }
               "
@@ -38,7 +38,7 @@
             size="large"
             class="search-button"
             style="border-radius: 8px"
-            @click="checkLoginBeforeAction(() => handleSearch())"
+            @click="handleSearch"
           >
             <template #icon>
               <icon-search />
@@ -76,10 +76,7 @@
         <a-col :span="showAIChat ? 24 : 8">
           <a-card class="resource-card" title="热门学习资料" :bordered="false">
             <template #extra>
-              <a-button
-                type="text"
-                @click="checkLoginBeforeAction(() => navigateTo('/resource'))"
-              >
+              <a-button type="text" @click="() => navigateTo('/resource')">
                 查看更多
                 <template #icon>
                   <icon-right />
@@ -91,11 +88,7 @@
                 <template #item="{ item }">
                   <a-list-item
                     class="resource-list-item"
-                    @click="
-                      checkLoginBeforeAction(() =>
-                        navigateTo(`/resource-preview?id=${item.id}`)
-                      )
-                    "
+                    @click="() => navigateTo(`/resource-preview?id=${item.id}`)"
                   >
                     <div class="resource-item">
                       <div class="resource-icon">
@@ -131,12 +124,9 @@
 
         <!-- 卡片推荐 -->
         <a-col :span="showAIChat ? 24 : 8">
-          <a-card class="resource-card" title="热门复习卡片" :bordered="false">
+          <a-card class="resource-card" title="热门抽认卡片" :bordered="false">
             <template #extra>
-              <a-button
-                type="text"
-                @click="checkLoginBeforeAction(() => navigateTo('/cardManage'))"
-              >
+              <a-button type="text" @click="() => navigateTo('/cardManage')">
                 查看更多
                 <template #icon>
                   <icon-right />
@@ -149,9 +139,7 @@
                   v-for="card in recommendedCards"
                   :key="card.id"
                   class="card-item"
-                  @click="
-                    checkLoginBeforeAction(() => navigateTo('/cardManage'))
-                  "
+                  @click="() => navigateTo('/cardManage')"
                 >
                   <div class="card-front">
                     <div class="card-content">{{ card.question }}</div>
@@ -171,10 +159,7 @@
         <a-col :span="showAIChat ? 24 : 8">
           <a-card class="resource-card" title="热门知识图谱" :bordered="false">
             <template #extra>
-              <a-button
-                type="text"
-                @click="checkLoginBeforeAction(() => navigateTo('/graph'))"
-              >
+              <a-button type="text" @click="() => navigateTo('/graph')">
                 查看更多
                 <template #icon>
                   <icon-right />
@@ -186,7 +171,7 @@
                 <template #item="{ item }">
                   <a-list-item
                     class="resource-list-item"
-                    @click="checkLoginBeforeAction(() => navigateTo('/graph'))"
+                    @click="() => navigateTo('/graph')"
                   >
                     <div class="resource-item">
                       <div class="resource-icon graph-icon">
@@ -217,10 +202,7 @@
       <!-- 编程题目推荐 -->
       <div class="section-title">
         <h2>推荐编程题目</h2>
-        <a-button
-          type="text"
-          @click="checkLoginBeforeAction(() => navigateTo('/questions'))"
-        >
+        <a-button type="text" @click="() => navigateTo('/questions')">
           查看更多
           <template #icon>
             <icon-right />
@@ -237,11 +219,7 @@
             <a-card
               class="question-card"
               :bordered="false"
-              @click="
-                checkLoginBeforeAction(() =>
-                  navigateTo(`/view/question/${question.id}`)
-                )
-              "
+              @click="() => navigateTo(`/view/question/${question.id}`)"
             >
               <div class="question-title">{{ question.title }}</div>
               <div class="question-tags">
@@ -289,25 +267,21 @@ import {
   IconMindMapping,
 } from "@arco-design/web-vue/es/icon";
 import { QuestionControllerService, QuestionVO } from "../../generated";
+import { authService } from "@/services/AuthService";
 
 // 路由实例
 const router = useRouter();
 const store = useStore();
 
-// 添加用户登录状态检查
+// 使用统一认证服务
 const isLoggedIn = computed(() => store.getters["user/isLoggedIn"]);
 
 // 权限检查与路由导航
-const checkLoginBeforeAction = (callback: Function) => {
-  if (!isLoggedIn.value) {
-    Message.warning("请先登录后再继续操作");
-    router.push({
-      path: "/user/login",
-      query: { redirect: router.currentRoute.value.fullPath },
-    });
-    return;
+const checkLoginBeforeAction = async (callback: () => void) => {
+  const loggedIn = await authService.checkLogin();
+  if (loggedIn) {
+    callback();
   }
-  callback();
 };
 
 // 搜索和AIChat状态
@@ -376,6 +350,14 @@ const recommendedQuestions = ref(Array<QuestionVO>());
 
 // 处理搜索事件
 const handleSearch = async () => {
+  const loginUser = await store.dispatch("user/getLoginUser");
+
+  // 如果用户未登录，直接跳转到登录页
+  if (!loginUser) {
+    Message.warning("请先登录");
+    router.push("/user/login");
+    return;
+  }
   if (!searchInput.value.trim()) {
     Message.warning("请输入搜索内容");
     return;
