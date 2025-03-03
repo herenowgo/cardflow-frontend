@@ -18,7 +18,7 @@
             <a-textarea
               v-model="searchInput"
               style="border-radius: 8px"
-              placeholder="询问任何问题"
+              placeholder="询问任何问题，然后一键制卡，自动构建个人知识图谱"
               allow-clear
               :auto-size="{ minRows: 2, maxRows: 4 }"
               :max-length="500"
