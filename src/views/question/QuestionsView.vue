@@ -97,20 +97,14 @@ const loadData = async () => {
 };
 
 /**
- * 监听 searchParams 变量，改变时触发页面的重新加载
+ * 使用 watchEffect 监听 searchParams 变量，改变时触发页面的重新加载
+ * 这样只会在组件初始化和参数变化时加载一次数据
  */
 watchEffect(() => {
   loadData();
 });
 
-/**
- * 页面加载时，请求数据
- */
-onMounted(() => {
-  loadData();
-});
-
-// {id: "1", title: "A+ D", content: "新的题目内容", tags: "["二叉树"]", answer: "新的答案", submitNum: 0,…}
+// 移除 onMounted 钩子中的 loadData 调用，因为 watchEffect 已经会在组件初始化时执行一次
 
 const columns = [
   {
