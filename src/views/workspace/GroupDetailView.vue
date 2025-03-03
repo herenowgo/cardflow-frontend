@@ -403,10 +403,7 @@ const handleCardSubmit = async () => {
         tags: cardForm.value.tags,
       };
       const res = await FsrsService.batchCreateCards([cardForm.value]);
-      GraphControllerService.addCard({
-        cardId: res[0],
-        tags: cardForm.value.tags,
-      });
+
       if (res.length != 0) {
         Message.success("创建成功");
         cardModalVisible.value = false;

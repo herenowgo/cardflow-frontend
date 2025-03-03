@@ -163,7 +163,7 @@ export class AnkiService {
           Back: note.answer,
         },
         options: {
-          allowDuplicate: false,
+          allowDuplicate: true,
         },
         tags: note.tags,
       }));

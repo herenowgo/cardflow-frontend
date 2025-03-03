@@ -29,7 +29,7 @@ class EventStreamService {
 
   // 存储待处理的请求
   private pendingRequests: Map<string, PendingRequest> = new Map();
-  private readonly REQUEST_TIMEOUT = 30000; // 30 seconds timeout
+  private readonly REQUEST_TIMEOUT = 300000; // 300 seconds timeout
 
   // 存储流式消息的Map
   private streamingMessages: Map<string, Map<number, string>> = new Map();

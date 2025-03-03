@@ -533,37 +533,33 @@
                   />
                 </t-button>
               </t-dropdown>
-              <t-button
-                theme="primary"
-                variant="text"
-                size="small"
-                @click.stop="saveToCardLibrary(card, index)"
+
+              <t-dropdown
+                trigger="click"
+                :min-column-width="120"
+                :options="[
+                  {
+                    content: '默认牌组',
+                    value: 'default',
+                    onClick: () => saveToCardLibrary(card, index),
+                  },
+                  ...groupOptions.map((group) => ({
+                    content: group.name,
+                    value: group.id,
+                    onClick: () => saveToCardLibrary(card, index, group.id),
+                  })),
+                ]"
               >
-                <template #icon><t-icon name="save" /></template>
-                收入卡片库
-                <t-dropdown
-                  trigger="hover"
-                  :min-column-width="120"
-                  :options="[
-                    {
-                      content: '默认牌组',
-                      value: 'default',
-                      onClick: () => saveToCardLibrary(card, index),
-                    },
-                    ...groupOptions.map((group) => ({
-                      content: group.name,
-                      value: group.id,
-                      onClick: () => saveToCardLibrary(card, index, group.id),
-                    })),
-                  ]"
-                >
+                <t-button theme="primary" variant="text" size="small">
+                  <template #icon><t-icon name="save" /></template>
+                  收入卡片库
                   <t-icon
                     name="chevron-down"
                     size="small"
                     style="margin-left: 4px"
                   />
-                </t-dropdown>
-              </t-button>
+                </t-button>
+              </t-dropdown>
               <t-button
                 theme="danger"
                 variant="text"
@@ -1022,14 +1018,6 @@ const handleBatchSaveToGroup = async (groupId: string) => {
     const response = await FsrsService.batchCreateCards(cardRequests);
 
     if (response && response.length === cardRequests.length) {
-      // Add cards to graph
-      for (let i = 0; i < response.length; i++) {
-        await GraphControllerService.addCard({
-          cardId: response[i],
-          tags: cardRequests[i].tags,
-        });
-      }
-
       saveCards(currentCards.value);
       Message.success(`成功将${response.length}张卡片添加到牌组`);
       showCardsDrawer.value = false;
@@ -1539,7 +1527,7 @@ const checkCard = async (card: any, index: number) => {
   console.log("Creating new session for card check:", newSession);
   emit("session-create", newSession);
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  // await new Promise((resolve) => setTimeout(resolve, 100));
 
   const checkContent = `请帮我检查这张卡片的内容：\n\n问题：${
     card.question
@@ -1559,11 +1547,6 @@ const saveToCardLibrary = async (card: Card, index: number, group?: string) => {
     };
 
     const response = await FsrsService.batchCreateCards([cardAddRequest]);
-    await GraphControllerService.addCard({
-      cardId: response[0],
-      tags: cardAddRequest.tags,
-    });
-    // const response = await CardControllerService.createCard(cardAddRequest);
 
     if (response) {
       currentCards.value.splice(index, 1);

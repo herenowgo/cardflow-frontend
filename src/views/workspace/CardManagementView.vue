@@ -233,12 +233,12 @@
           <h4>牌组：</h4>
           <div>{{ selectedCard.group }}</div>
         </div>
-        <div class="detail-section">
+        <!-- <div class="detail-section">
           <h4>状态：</h4>
           <a-tag :color="overtModalVisible ? 'green' : 'gray'">
             {{ overtModalVisible ? "公开" : "私有" }}
           </a-tag>
-        </div>
+        </div> -->
         <div class="detail-section">
           <h4>创建时间：</h4>
           <div>{{ formatDate(selectedCard.createTime) }}</div>
@@ -346,6 +346,7 @@ import {
 } from "@arco-design/web-vue/es/icon";
 import {
   CardControllerService,
+  GraphControllerService,
   GroupControllerService,
 } from "@backendApi/index";
 import type { CardDTO } from "@backendApi/models/CardDTO";
@@ -664,6 +665,10 @@ const handleSaveCard = async () => {
       const res = await CardControllerService.updateCard1(request);
       if (res.code === 200) {
         Message.success("更新成功");
+        GraphControllerService.updateCard({
+          cardId: request.id,
+          tags: request.tags,
+        });
         editModalVisible.value = false;
         loadCards();
       } else {

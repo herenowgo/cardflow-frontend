@@ -76,7 +76,7 @@
                               <template #icon><icon-edit /></template>
                               编辑
                             </a-button>
-                            <a-button
+                            <!-- <a-button
                               type="text"
                               size="small"
                               @click.stop="generateTags"
@@ -84,7 +84,7 @@
                             >
                               <template #icon><icon-tag /></template>
                               自动标签
-                            </a-button>
+                            </a-button> -->
                             <a-button
                               type="text"
                               status="danger"
@@ -1131,6 +1131,10 @@ const handleTagsSave = async () => {
     // 更新卡片标签
     await CardControllerService.updateCard1({
       id: currentCard.value.id,
+      tags: finalTags,
+    });
+    GraphControllerService.updateCard({
+      cardId: currentCard.value.id,
       tags: finalTags,
     });
 

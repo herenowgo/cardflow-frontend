@@ -299,6 +299,7 @@ export class AnkiSyncService {
       );
 
       await CardControllerService.saveCards(updateRequests);
+      // TODO Anki中的标签更新好像还不会同步到知识图谱
       return true;
     } catch (error) {
       console.error("Failed to sync Anki cards to system:", error);
