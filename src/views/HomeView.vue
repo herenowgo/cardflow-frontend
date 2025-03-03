@@ -299,28 +299,28 @@ const questionsLoading = ref(true);
 // 模拟数据 - 实际项目中应该从API获取
 const recommendedResources = ref([
   {
-    id: "678f00bad6a32c3155b50979",
+    id: "67c5bb6d73095628a94111cc",
     title: "Appach Dubbo微服务",
     category: "微服务",
     viewCount: 1253,
     fileType: "pdf",
   },
   {
-    id: "678f00bad6a32c3155b50979",
+    id: "67c5bb6d73095628a94111cc",
     title: "Java高级编程指南",
     category: "编程语言",
     viewCount: 856,
     fileType: "pdf",
   },
   {
-    id: "678f00bad6a32c3155b50979",
+    id: "67c5bb6d73095628a94111cc",
     title: "机器学习入门课程",
     category: "人工智能",
     viewCount: 2341,
     fileType: "video",
   },
   {
-    id: "678f00bad6a32c3155b50979",
+    id: "67c5bb6d73095628a94111cc",
     title: "Web前端开发实战",
     category: "前端开发",
     viewCount: 1028,
