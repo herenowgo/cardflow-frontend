@@ -27,7 +27,7 @@
                 (e) => {
                   if (!e.shiftKey) {
                     e.preventDefault();
-                    handleSearch();
+                    checkLoginBeforeAction(() => handleSearch());
                   }
                 }
               "
@@ -38,7 +38,7 @@
             size="large"
             class="search-button"
             style="border-radius: 8px"
-            @click="handleSearch"
+            @click="checkLoginBeforeAction(() => handleSearch())"
           >
             <template #icon>
               <icon-search />
@@ -76,7 +76,10 @@
         <a-col :span="showAIChat ? 24 : 8">
           <a-card class="resource-card" title="热门学习资料" :bordered="false">
             <template #extra>
-              <a-button type="text" @click="navigateTo('/resource')">
+              <a-button
+                type="text"
+                @click="checkLoginBeforeAction(() => navigateTo('/resource'))"
+              >
                 查看更多
                 <template #icon>
                   <icon-right />
@@ -88,7 +91,11 @@
                 <template #item="{ item }">
                   <a-list-item
                     class="resource-list-item"
-                    @click="navigateTo(`/resource-preview?id=${item.id}`)"
+                    @click="
+                      checkLoginBeforeAction(() =>
+                        navigateTo(`/resource-preview?id=${item.id}`)
+                      )
+                    "
                   >
                     <div class="resource-item">
                       <div class="resource-icon">
@@ -126,7 +133,10 @@
         <a-col :span="showAIChat ? 24 : 8">
           <a-card class="resource-card" title="热门复习卡片" :bordered="false">
             <template #extra>
-              <a-button type="text" @click="navigateTo('/cardManage')">
+              <a-button
+                type="text"
+                @click="checkLoginBeforeAction(() => navigateTo('/cardManage'))"
+              >
                 查看更多
                 <template #icon>
                   <icon-right />
@@ -139,7 +149,9 @@
                   v-for="card in recommendedCards"
                   :key="card.id"
                   class="card-item"
-                  @click="navigateTo('/cardManage')"
+                  @click="
+                    checkLoginBeforeAction(() => navigateTo('/cardManage'))
+                  "
                 >
                   <div class="card-front">
                     <div class="card-content">{{ card.question }}</div>
@@ -159,7 +171,10 @@
         <a-col :span="showAIChat ? 24 : 8">
           <a-card class="resource-card" title="热门知识图谱" :bordered="false">
             <template #extra>
-              <a-button type="text" @click="navigateTo('/graph')">
+              <a-button
+                type="text"
+                @click="checkLoginBeforeAction(() => navigateTo('/graph'))"
+              >
                 查看更多
                 <template #icon>
                   <icon-right />
@@ -171,7 +186,7 @@
                 <template #item="{ item }">
                   <a-list-item
                     class="resource-list-item"
-                    @click="navigateTo('/graph')"
+                    @click="checkLoginBeforeAction(() => navigateTo('/graph'))"
                   >
                     <div class="resource-item">
                       <div class="resource-icon graph-icon">
@@ -202,7 +217,10 @@
       <!-- 编程题目推荐 -->
       <div class="section-title">
         <h2>推荐编程题目</h2>
-        <a-button type="text" @click="navigateTo('/questions')">
+        <a-button
+          type="text"
+          @click="checkLoginBeforeAction(() => navigateTo('/questions'))"
+        >
           查看更多
           <template #icon>
             <icon-right />
@@ -219,7 +237,11 @@
             <a-card
               class="question-card"
               :bordered="false"
-              @click="navigateTo(`/view/question/${question.id}`)"
+              @click="
+                checkLoginBeforeAction(() =>
+                  navigateTo(`/view/question/${question.id}`)
+                )
+              "
             >
               <div class="question-title">{{ question.title }}</div>
               <div class="question-tags">
@@ -249,10 +271,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, computed } from "vue";
 import AIChat from "@/components/AIChat.vue";
 import { useRouter } from "vue-router";
 import { Message } from "@arco-design/web-vue";
+import { useStore } from "vuex";
 import {
   IconSearch,
   IconClose,
@@ -269,6 +292,23 @@ import { QuestionControllerService, QuestionVO } from "../../generated";
 
 // 路由实例
 const router = useRouter();
+const store = useStore();
+
+// 添加用户登录状态检查
+const isLoggedIn = computed(() => store.getters["user/isLoggedIn"]);
+
+// 权限检查与路由导航
+const checkLoginBeforeAction = (callback: Function) => {
+  if (!isLoggedIn.value) {
+    Message.warning("请先登录后再继续操作");
+    router.push({
+      path: "/user/login",
+      query: { redirect: router.currentRoute.value.fullPath },
+    });
+    return;
+  }
+  callback();
+};
 
 // 搜索和AIChat状态
 const searchInput = ref("");
@@ -440,17 +480,9 @@ const loadTopQuestions = async () => {
 // 模拟加载数据
 const loadData = () => {
   // 实际项目中这里应该发起API请求
-  // setTimeout(() => {
   resourcesLoading.value = false;
-  // }, 800);
-
-  // setTimeout(() => {
   cardsLoading.value = false;
-  // }, 1000);
-
-  // setTimeout(() => {
   graphsLoading.value = false;
-  // }, 1200);
 };
 
 // 组件挂载时加载数据
