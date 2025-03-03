@@ -75,7 +75,7 @@ const handleSubmit = async () => {
 
   try {
     const res = await UserControllerService.userLoginUsingPost(form);
-    await GroupControllerService.addGroup("CardFlow");
+    await GroupControllerService.addGroup("cardflow");
 
     if (res.code == "200") {
       const loginUser = await store.dispatch("user/getLoginUser");

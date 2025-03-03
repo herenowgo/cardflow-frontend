@@ -388,7 +388,7 @@
               全部收入牌库
             </a-button>
             <template #content>
-              <a-doption value="CardFlow">默认牌组</a-doption>
+              <a-doption value="cardflow">默认牌组</a-doption>
               <a-doption
                 v-for="group in groupOptions"
                 :key="group.id"
@@ -1543,7 +1543,7 @@ const saveToCardLibrary = async (card: Card, index: number, group?: string) => {
       question: card.question,
       answer: card.answer,
       tags: card.tags,
-      group: group ? group : "CardFlow",
+      group: group ? group : "cardflow",
     };
 
     const response = await FsrsService.batchCreateCards([cardAddRequest]);
